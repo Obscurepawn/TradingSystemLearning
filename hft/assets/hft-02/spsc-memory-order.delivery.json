@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "sequence",
+  "input": "/home/obscure/TradingSystemLearning/hft/assets/hft-02/spsc-memory-order.json",
+  "output": "/home/obscure/TradingSystemLearning/hft/assets/hft-02/spsc-memory-order.html",
+  "specification": {
+    "sha256": "fdd6dd8e0886aa00388ddecc0cef59432bc239ca5fb0173723065f3e0866a49e",
+    "bytes": 2355
+  },
+  "artifact": {
+    "sha256": "986bba9dfbd0ce245b0ecde8ae998ee15f72e83a147045ab6d1c19a9a45d1f50",
+    "bytes": 798918
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

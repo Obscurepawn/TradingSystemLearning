@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "SPSC：发布数据，也要发布读取完成",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1080,
+      680
+    ],
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "emphasis": {
+          "label": "同步关系"
+        },
+        "default": {
+          "label": "槽位操作"
+        }
+      }
+    }
+  },
+  "participants": [
+    {
+      "id": "producer",
+      "type": "backend",
+      "label": "生产者",
+      "sublabel": "唯一写 write"
+    },
+    {
+      "id": "slot",
+      "type": "messagebus",
+      "label": "slot[i]",
+      "sublabel": "普通事件数据"
+    },
+    {
+      "id": "consumer",
+      "type": "backend",
+      "label": "消费者",
+      "sublabel": "唯一写 read"
+    }
+  ],
+  "segments": [
+    {
+      "from": 145,
+      "to": 350,
+      "label": "发布与读取"
+    },
+    {
+      "from": 390,
+      "to": 590,
+      "label": "完成与复用"
+    }
+  ],
+  "messages": [
+    {
+      "id": "write-payload",
+      "from": "producer",
+      "to": "slot",
+      "y": 180,
+      "label": "写入 slot[i]"
+    },
+    {
+      "id": "publish-cursor",
+      "from": "producer",
+      "to": "consumer",
+      "y": 260,
+      "label": "release(write) → acquire(write)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "read-payload",
+      "from": "consumer",
+      "to": "slot",
+      "y": 340,
+      "label": "复制出 slot[i]"
+    },
+    {
+      "id": "publish-completion",
+      "from": "consumer",
+      "to": "producer",
+      "y": 440,
+      "label": "release(read) → acquire(read)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "reuse-slot",
+      "from": "producer",
+      "to": "slot",
+      "y": 550,
+      "label": "下一轮复用 slot[i]"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "数据可见",
+      "items": [
+        "消费者观察到发布进度后，才能读取对应数据。",
+        "加粗箭头表示跨线程同步关系。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "复用安全",
+      "items": [
+        "生产者观察到读取完成后，才可把该槽用于下一轮。",
+        "仍需满足队列容量判断；示例可用容量为 N − 1。"
+      ]
+    }
+  ]
+}

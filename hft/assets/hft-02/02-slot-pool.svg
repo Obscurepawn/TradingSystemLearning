@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="958" viewBox="0 0 1440 958" role="img" aria-labelledby="title description">
+<title id="title">固定槽位池的申请与归还</title>
+<desc id="description">容量 N 等于 4。初始占用槽 0 和 2，空闲链表为 head 1 到 3 到结束标记 4。申请取走槽 1 后 head 为 3。随后归还槽 2，将它放在 head 前面，链表变成 2 到 3 到 4。</desc>
+<style>text {font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;}</style>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#2166c8"/></marker>
+</defs>
+<rect x="0" y="0" width="1440" height="958" rx="0" fill="#ffffff" stroke="none" stroke-width="1.6"/>
+<text x="60" y="64" font-size="34" fill="#15243b" font-weight="700" text-anchor="start">固定槽位池：用索引管理空闲位置</text>
+<text x="60" y="106" font-size="22" fill="#596a80" font-weight="400" text-anchor="start">N = 4 · 单线程 · 下方的箭头只连接空闲槽位，表示 next_[i]。</text>
+<rect x="60" y="177" width="420" height="611" rx="16" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="84" y="222" font-size="27" fill="#15243b" font-weight="700" text-anchor="start">① 初始状态</text>
+<text x="84" y="259" font-size="21" fill="#596a80" font-weight="400" text-anchor="start">槽 0、2 占用；槽 1、3 空闲</text>
+<text x="84" y="309" font-size="21" fill="#596a80" font-weight="400" text-anchor="start">对象数组 objects_[0..3]</text>
+<rect x="84" y="330" width="86" height="86" rx="8" fill="#f1ebfb" stroke="#7046b2" stroke-width="1.6"/>
+<text x="127" y="367" font-size="27" fill="#7046b2" font-weight="700" text-anchor="middle">0</text>
+<text x="127" y="397" font-size="20" fill="#7046b2" font-weight="400" text-anchor="middle">占用</text>
+<rect x="178" y="330" width="86" height="86" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="221" y="367" font-size="27" fill="#2166c8" font-weight="700" text-anchor="middle">1</text>
+<text x="221" y="397" font-size="20" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<rect x="272" y="330" width="86" height="86" rx="8" fill="#f1ebfb" stroke="#7046b2" stroke-width="1.6"/>
+<text x="315" y="367" font-size="27" fill="#7046b2" font-weight="700" text-anchor="middle">2</text>
+<text x="315" y="397" font-size="20" fill="#7046b2" font-weight="400" text-anchor="middle">占用</text>
+<rect x="366" y="330" width="86" height="86" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="409" y="367" font-size="27" fill="#2166c8" font-weight="700" text-anchor="middle">3</text>
+<text x="409" y="397" font-size="20" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<text x="84" y="475" font-size="22" fill="#2166c8" font-weight="600" text-anchor="start">空闲链表 · head = 1</text>
+<rect x="84" y="502" width="90" height="77" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="129" y="534" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">槽 1</text>
+<text x="129" y="561" font-size="19" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<path d="M 179 541 H 219" fill="none" stroke="#2166c8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="226" y="502" width="90" height="77" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="271" y="534" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">槽 3</text>
+<text x="271" y="561" font-size="19" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<path d="M 321 541 H 361" fill="none" stroke="#2166c8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="368" y="502" width="90" height="77" rx="8" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="413" y="534" font-size="22" fill="#596a80" font-weight="600" text-anchor="middle">N = 4</text>
+<text x="413" y="561" font-size="19" fill="#596a80" font-weight="400" text-anchor="middle">结束</text>
+<text x="84" y="647" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">head = 1</text>
+<text x="84" y="685" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">next[1] = 3</text>
+<text x="84" y="723" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">next[3] = N</text>
+<rect x="510" y="177" width="420" height="611" rx="16" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="534" y="222" font-size="27" fill="#15243b" font-weight="700" text-anchor="start">② acquire() 取走槽 1</text>
+<text x="534" y="259" font-size="21" fill="#596a80" font-weight="400" text-anchor="start">返回索引 1；链表头前移到 3</text>
+<text x="534" y="309" font-size="21" fill="#596a80" font-weight="400" text-anchor="start">对象数组 objects_[0..3]</text>
+<rect x="534" y="330" width="86" height="86" rx="8" fill="#f1ebfb" stroke="#7046b2" stroke-width="1.6"/>
+<text x="577" y="367" font-size="27" fill="#7046b2" font-weight="700" text-anchor="middle">0</text>
+<text x="577" y="397" font-size="20" fill="#7046b2" font-weight="400" text-anchor="middle">占用</text>
+<rect x="628" y="330" width="86" height="86" rx="8" fill="#f1ebfb" stroke="#7046b2" stroke-width="1.6"/>
+<text x="671" y="367" font-size="27" fill="#7046b2" font-weight="700" text-anchor="middle">1</text>
+<text x="671" y="397" font-size="20" fill="#7046b2" font-weight="400" text-anchor="middle">占用</text>
+<rect x="722" y="330" width="86" height="86" rx="8" fill="#f1ebfb" stroke="#7046b2" stroke-width="1.6"/>
+<text x="765" y="367" font-size="27" fill="#7046b2" font-weight="700" text-anchor="middle">2</text>
+<text x="765" y="397" font-size="20" fill="#7046b2" font-weight="400" text-anchor="middle">占用</text>
+<rect x="816" y="330" width="86" height="86" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="859" y="367" font-size="27" fill="#2166c8" font-weight="700" text-anchor="middle">3</text>
+<text x="859" y="397" font-size="20" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<text x="534" y="475" font-size="22" fill="#2166c8" font-weight="600" text-anchor="start">空闲链表 · head = 3</text>
+<rect x="534" y="502" width="90" height="77" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="579" y="534" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">槽 3</text>
+<text x="579" y="561" font-size="19" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<path d="M 629 541 H 669" fill="none" stroke="#2166c8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="676" y="502" width="90" height="77" rx="8" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="721" y="534" font-size="22" fill="#596a80" font-weight="600" text-anchor="middle">N = 4</text>
+<text x="721" y="561" font-size="19" fill="#596a80" font-weight="400" text-anchor="middle">结束</text>
+<text x="534" y="647" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">i = head = 1</text>
+<text x="534" y="685" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">head = next[1] = 3</text>
+<text x="534" y="723" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">used[1] = true</text>
+<rect x="960" y="177" width="420" height="611" rx="16" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="984" y="222" font-size="27" fill="#15243b" font-weight="700" text-anchor="start">③ release(2) 归还槽 2</text>
+<text x="984" y="259" font-size="21" fill="#596a80" font-weight="400" text-anchor="start">将槽 2 放到当前链表头前面</text>
+<text x="984" y="309" font-size="21" fill="#596a80" font-weight="400" text-anchor="start">对象数组 objects_[0..3]</text>
+<rect x="984" y="330" width="86" height="86" rx="8" fill="#f1ebfb" stroke="#7046b2" stroke-width="1.6"/>
+<text x="1027" y="367" font-size="27" fill="#7046b2" font-weight="700" text-anchor="middle">0</text>
+<text x="1027" y="397" font-size="20" fill="#7046b2" font-weight="400" text-anchor="middle">占用</text>
+<rect x="1078" y="330" width="86" height="86" rx="8" fill="#f1ebfb" stroke="#7046b2" stroke-width="1.6"/>
+<text x="1121" y="367" font-size="27" fill="#7046b2" font-weight="700" text-anchor="middle">1</text>
+<text x="1121" y="397" font-size="20" fill="#7046b2" font-weight="400" text-anchor="middle">占用</text>
+<rect x="1172" y="330" width="86" height="86" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="1215" y="367" font-size="27" fill="#2166c8" font-weight="700" text-anchor="middle">2</text>
+<text x="1215" y="397" font-size="20" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<rect x="1266" y="330" width="86" height="86" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="1309" y="367" font-size="27" fill="#2166c8" font-weight="700" text-anchor="middle">3</text>
+<text x="1309" y="397" font-size="20" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<text x="984" y="475" font-size="22" fill="#2166c8" font-weight="600" text-anchor="start">空闲链表 · head = 2</text>
+<rect x="984" y="502" width="90" height="77" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="1029" y="534" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">槽 2</text>
+<text x="1029" y="561" font-size="19" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<path d="M 1079 541 H 1119" fill="none" stroke="#2166c8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="1126" y="502" width="90" height="77" rx="8" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="1171" y="534" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">槽 3</text>
+<text x="1171" y="561" font-size="19" fill="#2166c8" font-weight="400" text-anchor="middle">空闲</text>
+<path d="M 1221 541 H 1261" fill="none" stroke="#2166c8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="1268" y="502" width="90" height="77" rx="8" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="1313" y="534" font-size="22" fill="#596a80" font-weight="600" text-anchor="middle">N = 4</text>
+<text x="1313" y="561" font-size="19" fill="#596a80" font-weight="400" text-anchor="middle">结束</text>
+<text x="984" y="647" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">used[2] = false</text>
+<text x="984" y="685" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">next[2] = head = 3</text>
+<text x="984" y="723" font-size="21" fill="#15243b" font-weight="400" text-anchor="start">head = 2</text>
+<rect x="60" y="822" width="1320" height="99" rx="12" fill="#f5f7fa" stroke="none" stroke-width="1.6"/>
+<text x="84" y="861" font-size="22" fill="#15243b" font-weight="600" text-anchor="start">N = 4 是结束标记，没有“槽 4”；占用槽位不属于空闲链表。</text>
+<text x="84" y="897" font-size="22" fill="#596a80" font-weight="400" text-anchor="start">对象始终位于固定数组中；申请、归还只更新少量索引和状态，不移动其他对象。</text>
+</svg>

@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Disruptor：菱形依赖与末端背压",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1170,
+      610
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "publishers",
+      "type": "backend",
+      "label": "生产者",
+      "sublabel": "claim → 写入 → publish",
+      "pos": [
+        40,
+        182
+      ],
+      "size": [
+        220,
+        86
+      ]
+    },
+    {
+      "id": "ring",
+      "type": "messagebus",
+      "label": "共享 Ring Buffer",
+      "sublabel": "按序号访问同一槽位",
+      "pos": [
+        380,
+        182
+      ],
+      "size": [
+        220,
+        86
+      ]
+    },
+    {
+      "id": "left-worker",
+      "type": "backend",
+      "label": "消费者 A",
+      "sublabel": "写 event.left",
+      "pos": [
+        700,
+        68
+      ],
+      "size": [
+        180,
+        86
+      ]
+    },
+    {
+      "id": "right-worker",
+      "type": "backend",
+      "label": "消费者 B",
+      "sublabel": "写 event.right",
+      "pos": [
+        700,
+        296
+      ],
+      "size": [
+        180,
+        86
+      ]
+    },
+    {
+      "id": "join-worker",
+      "type": "backend",
+      "label": "消费者 C",
+      "sublabel": "等 A、B 都完成再读取",
+      "pos": [
+        950,
+        182
+      ],
+      "size": [
+        180,
+        86
+      ]
+    },
+    {
+      "id": "reuse-gate",
+      "type": "security",
+      "label": "槽位复用门槛",
+      "sublabel": "C.completed ≥ candidate − N",
+      "pos": [
+        400,
+        429
+      ],
+      "size": [
+        330,
+        86
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "publish-event",
+      "from": "publishers",
+      "to": "ring",
+      "label": "逐槽发布"
+    },
+    {
+      "id": "dispatch-left",
+      "from": "ring",
+      "to": "left-worker",
+      "label": "读取已发布事件"
+    },
+    {
+      "id": "dispatch-right",
+      "from": "ring",
+      "to": "right-worker",
+      "label": "读取已发布事件"
+    },
+    {
+      "id": "join-left",
+      "from": "left-worker",
+      "to": "join-worker",
+      "label": "A 完成"
+    },
+    {
+      "id": "join-right",
+      "from": "right-worker",
+      "to": "join-worker",
+      "label": "B 完成"
+    },
+    {
+      "id": "terminal-progress",
+      "from": "join-worker",
+      "to": "reuse-gate",
+      "label": "发布完成序号",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "variant": "dashed"
+    },
+    {
+      "id": "capacity-backpressure",
+      "from": "reuse-gate",
+      "to": "publishers",
+      "label": "有空位才允许 claim",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "variant": "dashed"
+    }
+  ]
+}

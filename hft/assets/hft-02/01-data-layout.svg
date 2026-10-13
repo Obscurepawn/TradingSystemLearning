@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1060" viewBox="0 0 1440 1060" role="img" aria-labelledby="title description">
+<title id="title">AoS、冷热分离与 SoA 的数据布局</title>
+<desc id="description">三种布局都突出数量字段。AoS 中数量与价格、备注交错；冷热分离后备注单独存放；SoA 的 quantities 数组让数量字段连续。格子只表示布局关系，不表示字节比例。</desc>
+<style>text {font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;}</style>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9 Z" fill="#2166c8"/></marker>
+</defs>
+<rect x="0" y="0" width="1440" height="1060" rx="0" fill="#ffffff" stroke="none" stroke-width="1.6"/>
+<text x="60" y="64" font-size="34" fill="#15243b" font-weight="700" text-anchor="start">围绕访问方式组织数据</text>
+<text x="60" y="105" font-size="22" fill="#596a80" font-weight="400" text-anchor="start">示例：扫描数量字段；蓝色格子表示本次需要读取的数据。</text>
+<rect x="60" y="145" width="1320" height="190" rx="16" fill="#f5f7fa" stroke="none" stroke-width="1.6"/>
+<text x="86" y="208" font-size="29" fill="#15243b" font-weight="700" text-anchor="start">AoS</text>
+<text x="86" y="247" font-size="22" fill="#596a80" font-weight="400" text-anchor="start">按记录排列</text>
+<text x="86" y="280" font-size="20" fill="#596a80" font-weight="400" text-anchor="start">字段相互穿插</text>
+<text x="494" y="195" font-size="20" fill="#596a80" font-weight="400" text-anchor="middle">记录 0</text>
+<rect x="350" y="218" width="96" height="66" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="398.0" y="259.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 0</text>
+<rect x="446" y="218" width="96" height="66" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="494.0" y="259.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 0</text>
+<rect x="542" y="218" width="96" height="66" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="590.0" y="259.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">note 0</text>
+<text x="830" y="195" font-size="20" fill="#596a80" font-weight="400" text-anchor="middle">记录 1</text>
+<rect x="686" y="218" width="96" height="66" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="734.0" y="259.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 1</text>
+<rect x="782" y="218" width="96" height="66" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="830.0" y="259.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 1</text>
+<rect x="878" y="218" width="96" height="66" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="926.0" y="259.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">note 1</text>
+<text x="1166" y="195" font-size="20" fill="#596a80" font-weight="400" text-anchor="middle">记录 2</text>
+<rect x="1022" y="218" width="96" height="66" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="1070.0" y="259.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 2</text>
+<rect x="1118" y="218" width="96" height="66" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="1166.0" y="259.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 2</text>
+<rect x="1214" y="218" width="96" height="66" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="1262.0" y="259.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">note 2</text>
+<rect x="60" y="357" width="1320" height="282" rx="16" fill="#f5f7fa" stroke="none" stroke-width="1.6"/>
+<text x="86" y="416" font-size="29" fill="#15243b" font-weight="700" text-anchor="start">冷热分离</text>
+<text x="86" y="455" font-size="22" fill="#596a80" font-weight="400" text-anchor="start">热字段保留 AoS</text>
+<text x="86" y="494" font-size="21" fill="#2166c8" font-weight="400" text-anchor="start">cold_index</text>
+<text x="86" y="524" font-size="20" fill="#596a80" font-weight="400" text-anchor="start">定位冷数据</text>
+<text x="494" y="397" font-size="20" fill="#596a80" font-weight="400" text-anchor="middle">热记录 0</text>
+<rect x="350" y="419" width="96" height="60" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="398.0" y="457.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 0</text>
+<rect x="446" y="419" width="96" height="60" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="494.0" y="457.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 0</text>
+<rect x="542" y="419" width="96" height="60" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="590.0" y="457.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">idx = 0</text>
+<path d="M 590 484 V 506 H 494 V 534" fill="none" stroke="#2166c8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#arrow)" stroke-dasharray="5 5"/>
+<rect x="350" y="541" width="288" height="59" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="494.0" y="578.5" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">冷记录 0：note 0</text>
+<text x="830" y="397" font-size="20" fill="#596a80" font-weight="400" text-anchor="middle">热记录 1</text>
+<rect x="686" y="419" width="96" height="60" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="734.0" y="457.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 1</text>
+<rect x="782" y="419" width="96" height="60" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="830.0" y="457.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 1</text>
+<rect x="878" y="419" width="96" height="60" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="926.0" y="457.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">idx = 1</text>
+<path d="M 926 484 V 506 H 830 V 534" fill="none" stroke="#2166c8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#arrow)" stroke-dasharray="5 5"/>
+<rect x="686" y="541" width="288" height="59" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="830.0" y="578.5" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">冷记录 1：note 1</text>
+<text x="1166" y="397" font-size="20" fill="#596a80" font-weight="400" text-anchor="middle">热记录 2</text>
+<rect x="1022" y="419" width="96" height="60" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="1070.0" y="457.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 2</text>
+<rect x="1118" y="419" width="96" height="60" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="1166.0" y="457.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 2</text>
+<rect x="1214" y="419" width="96" height="60" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="1262.0" y="457.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">idx = 2</text>
+<path d="M 1262 484 V 506 H 1166 V 534" fill="none" stroke="#2166c8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#arrow)" stroke-dasharray="5 5"/>
+<rect x="1022" y="541" width="288" height="59" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="1166.0" y="578.5" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">冷记录 2：note 2</text>
+<rect x="60" y="661" width="1320" height="291" rx="16" fill="#f5f7fa" stroke="none" stroke-width="1.6"/>
+<text x="86" y="726" font-size="29" fill="#15243b" font-weight="700" text-anchor="start">SoA</text>
+<text x="86" y="765" font-size="22" fill="#596a80" font-weight="400" text-anchor="start">按字段排列</text>
+<text x="86" y="804" font-size="20" fill="#2166c8" font-weight="600" text-anchor="start">数量连续存放</text>
+<text x="350" y="735" font-size="22" fill="#596a80" font-weight="400" text-anchor="start">prices</text>
+<rect x="512" y="698" width="266" height="58" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="645.0" y="735.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 0</text>
+<rect x="778" y="698" width="266" height="58" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="911.0" y="735.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 1</text>
+<rect x="1044" y="698" width="266" height="58" rx="3" fill="#ffffff" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="1177.0" y="735.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">price 2</text>
+<text x="350" y="813" font-size="22" fill="#2166c8" font-weight="600" text-anchor="start">quantities</text>
+<rect x="512" y="776" width="266" height="58" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="645.0" y="813.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 0</text>
+<rect x="778" y="776" width="266" height="58" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="911.0" y="813.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 1</text>
+<rect x="1044" y="776" width="266" height="58" rx="3" fill="#e8f1ff" stroke="#2166c8" stroke-width="1.6"/>
+<text x="1177.0" y="813.0" font-size="22" fill="#2166c8" font-weight="600" text-anchor="middle">qty 2</text>
+<text x="350" y="891" font-size="22" fill="#596a80" font-weight="400" text-anchor="start">notes</text>
+<rect x="512" y="854" width="266" height="58" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="645.0" y="891.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">note 0</text>
+<rect x="778" y="854" width="266" height="58" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="911.0" y="891.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">note 1</text>
+<rect x="1044" y="854" width="266" height="58" rx="3" fill="#f5f7fa" stroke="#cdd6e2" stroke-width="1.6"/>
+<text x="1177.0" y="891.0" font-size="22" fill="#596a80" font-weight="400" text-anchor="middle">note 2</text>
+<text x="60" y="997" font-size="21" fill="#596a80" font-weight="400" text-anchor="start">示意图省略 id、history 等字段；note 代表冷字段，不展开其内部存储。</text>
+<text x="60" y="1031" font-size="21" fill="#596a80" font-weight="400" text-anchor="start">格子只表达布局关系，不代表实际字节比例；布局选择取决于经常一起访问哪些字段。</text>
+</svg>
