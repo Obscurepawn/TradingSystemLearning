@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img">
+<title>从订单提交到下一轮交易决策</title>
+<style>text { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; }</style>
+<defs>
+<marker id="a2563eb" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="a7c3aed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#7c3aed"/></marker>
+<marker id="aea580c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#ea580c"/></marker>
+<marker id="a6b7280" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#6b7280"/></marker>
+</defs>
+<rect x="0" y="0" width="1440" height="1040" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="60" y="60" font-size="32" fill="#111827" font-weight="600" text-anchor="start">从订单提交到下一轮交易决策</text>
+<text x="60" y="100" font-size="21" fill="#6b7280" font-weight="400" text-anchor="start">订单请求、私有回报与公开行情，承担不同职责。</text>
+<rect x="80" y="180" width="280" height="110" rx="12" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="220.0" y="223" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">投资者 / 交易策略</text>
+<text x="220.0" y="256" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">产生买卖、改单与撤单意图</text>
+<rect x="580" y="180" width="280" height="110" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="720.0" y="223" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">券商 / 机构交易网关</text>
+<text x="720.0" y="256" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">账户检查 · 风控 · 路由与编码</text>
+<rect x="1080" y="180" width="280" height="110" rx="12" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="1220.0" y="216" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">交易所</text>
+<text x="1220.0" y="249" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">接入检查 → 排序 → 撮合</text>
+<text x="1220.0" y="277" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">维护交易所内部订单簿</text>
+<rect x="580" y="390" width="280" height="110" rx="12" fill="#faf5ff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="720.0" y="433" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">自己的订单与持仓</text>
+<text x="720.0" y="466" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">私有回报 → OMS → 风险状态</text>
+<rect x="1080" y="650" width="280" height="110" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="1220.0" y="693" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">行情发布</text>
+<text x="1220.0" y="726" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">新增 / 修改 / 撤销 / 成交</text>
+<rect x="580" y="650" width="280" height="110" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="720.0" y="693" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">行情接收与处理</text>
+<text x="720.0" y="726" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">解析 · 序号检查 · 缺口恢复</text>
+<rect x="80" y="650" width="280" height="110" rx="12" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="220.0" y="693" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">本地市场订单簿</text>
+<text x="220.0" y="726" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">重建可见状态 · 驱动策略</text>
+<path d="M 360 235 H 580" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a2563eb)"/>
+<rect x="422.0" y="199" width="96" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="470" y="222" font-size="18" fill="#2563eb" font-weight="400" text-anchor="middle">交易意图</text>
+<path d="M 860 235 H 1080" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a2563eb)"/>
+<rect x="882.5" y="199" width="175" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="970" y="222" font-size="18" fill="#2563eb" font-weight="400" text-anchor="middle">新单 / 修改 / 撤单</text>
+<path d="M 1080 265 H 970 V 445 H 860" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a7c3aed)"/>
+<rect x="902.0" y="332" width="136" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="970" y="355" font-size="18" fill="#7c3aed" font-weight="400" text-anchor="middle">私有订单回报</text>
+<path d="M 580 445 H 450 V 265 H 360" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a7c3aed)"/>
+<rect x="387.0" y="332" width="126" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="450" y="355" font-size="18" fill="#7c3aed" font-weight="400" text-anchor="middle">成交 / 敞口</text>
+<path d="M 1220 290 V 650" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#a6b7280)"/>
+<rect x="1133.0" y="477" width="174" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="1220" y="500" font-size="18" fill="#6b7280" font-weight="400" text-anchor="middle">簿变化与成交事件</text>
+<path d="M 1080 705 H 860" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#a6b7280)"/>
+<rect x="912.0" y="669" width="116" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="970" y="692" font-size="18" fill="#6b7280" font-weight="400" text-anchor="middle">行情消息流</text>
+<path d="M 580 705 H 360" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#a6b7280)"/>
+<rect x="392.0" y="669" width="156" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="470" y="692" font-size="18" fill="#6b7280" font-weight="400" text-anchor="middle">连续有效的更新</text>
+<path d="M 220 650 V 290" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a7c3aed)"/>
+<rect x="172.0" y="477" width="96" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="220" y="500" font-size="18" fill="#7c3aed" font-weight="400" text-anchor="middle">市场状态</text>
+<path d="M 80 840 H 135" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a2563eb)"/>
+<text x="151" y="847" font-size="18" fill="#6b7280" font-weight="400" text-anchor="start">订单请求</text>
+<path d="M 365 840 H 420" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a7c3aed)"/>
+<text x="436" y="847" font-size="18" fill="#6b7280" font-weight="400" text-anchor="start">私有回报 / 本地状态反馈</text>
+<path d="M 845 840 H 900" fill="none" stroke="#6b7280" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#a6b7280)"/>
+<text x="916" y="847" font-size="18" fill="#6b7280" font-weight="400" text-anchor="start">公开行情事件</text>
+<rect x="60" y="895" width="1320" height="100" rx="12" fill="#f9fafb" stroke="none" stroke-width="1.5" />
+<text x="85" y="935" font-size="21" fill="#111827" font-weight="400" text-anchor="start">成交回报与公开行情走不同通道，不能简单假定它们在本地的接收顺序。</text>
+<text x="85" y="970" font-size="19" fill="#6b7280" font-weight="400" text-anchor="start">成交后的清算交收，通过相应的券商、清算及托管链路继续完成。</text>
+</svg>

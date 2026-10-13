@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 877" width="1200" height="877" role="img">
+<title>三个同步关系共同保护普通 Event 字段</title>
+<desc>release/acquire 负责访问顺序；Event 本身通常不需要是原子类型。</desc>
+<style>text { font-family: "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; fill: #111827; } .sub { fill: #6b7280; }</style>
+<defs>
+<marker id="m2563eb" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+<marker id="m059669" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#059669"/></marker>
+<marker id="mea580c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ea580c"/></marker>
+<marker id="m7c3aed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker>
+<marker id="m6b7280" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>
+</defs>
+<rect x="0" y="0" width="1200" height="877" rx="0" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="40" y="48" font-size="30" text-anchor="start" class="main" font-weight="600">三个同步关系共同保护普通 Event 字段</text>
+<text x="40" y="86" font-size="20" text-anchor="start" class="sub" font-weight="400">release/acquire 负责访问顺序；Event 本身通常不需要是原子类型。</text>
+<text x="48" y="133" font-size="24" text-anchor="start" class="main" font-weight="600">① 生产者 → 消费者</text>
+<rect x="48" y="155" width="210" height="90" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="153.0" y="190" font-size="20.088300220750554" text-anchor="middle" class="main" font-weight="600">writer 写 Event</text>
+<rect x="340" y="155" width="210" height="90" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="445.0" y="190" font-size="13.97849462365592" text-anchor="middle" class="main" font-weight="600">release published = s</text>
+<rect x="632" y="155" width="210" height="90" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="737.0" y="190" font-size="22.195121951219512" text-anchor="middle" class="main" font-weight="600">acquire 读到 s</text>
+<rect x="924" y="155" width="210" height="90" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="1029.0" y="190" font-size="17.041198501872664" text-anchor="middle" class="main" font-weight="600">handler 访问 Event</text>
+<path d="M258 200 H340" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<rect x="264.0" y="163" width="70" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="299" y="183" font-size="18" text-anchor="middle" class="main" font-weight="400">先执行</text>
+<path d="M550 200 H632" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<rect x="565.0" y="163" width="52" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="591" y="183" font-size="18" text-anchor="middle" class="main" font-weight="400">同步</text>
+<path d="M842 200 H924" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<rect x="848.0" y="163" width="70" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="883" y="183" font-size="18" text-anchor="middle" class="main" font-weight="400">再执行</text>
+<text x="48" y="368" font-size="24" text-anchor="start" class="main" font-weight="600">② 上游 → 下游</text>
+<rect x="48" y="390" width="210" height="90" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="153.0" y="425" font-size="23" text-anchor="middle" class="main" font-weight="600">A/B 完成回调</text>
+<rect x="340" y="390" width="210" height="90" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="445.0" y="425" font-size="17.267552182163193" text-anchor="middle" class="main" font-weight="600">release completed</text>
+<rect x="632" y="390" width="210" height="90" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="737.0" y="425" font-size="17.84313725490196" text-anchor="middle" class="main" font-weight="600">C acquire 依赖进度</text>
+<rect x="924" y="390" width="210" height="90" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="1029.0" y="425" font-size="17.66990291262136" text-anchor="middle" class="main" font-weight="600">C 读 left / right</text>
+<path d="M258 435 H340" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<rect x="264.0" y="398" width="70" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="299" y="418" font-size="18" text-anchor="middle" class="main" font-weight="400">先执行</text>
+<path d="M550 435 H632" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<rect x="565.0" y="398" width="52" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="591" y="418" font-size="18" text-anchor="middle" class="main" font-weight="400">同步</text>
+<path d="M842 435 H924" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<rect x="848.0" y="398" width="70" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="883" y="418" font-size="18" text-anchor="middle" class="main" font-weight="400">再执行</text>
+<text x="48" y="603" font-size="24" text-anchor="start" class="main" font-weight="600">③ 消费者 → 槽位复用</text>
+<rect x="48" y="625" width="210" height="90" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="153.0" y="660" font-size="22.0873786407767" text-anchor="middle" class="main" font-weight="600">末端完成旧序列 s</text>
+<rect x="340" y="625" width="210" height="90" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="445.0" y="660" font-size="18.09145129224652" text-anchor="middle" class="main" font-weight="600">release gate 进度</text>
+<rect x="632" y="625" width="210" height="90" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="737.0" y="660" font-size="16.45569620253165" text-anchor="middle" class="main" font-weight="600">生产者 acquire gate</text>
+<rect x="924" y="625" width="210" height="90" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="1029.0" y="660" font-size="20.871559633027527" text-anchor="middle" class="main" font-weight="600">写入新序列 s + N</text>
+<path d="M258 670 H340" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#m059669)"/>
+<rect x="264.0" y="633" width="70" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="299" y="653" font-size="18" text-anchor="middle" class="main" font-weight="400">先执行</text>
+<path d="M550 670 H632" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#m059669)"/>
+<rect x="565.0" y="633" width="52" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="591" y="653" font-size="18" text-anchor="middle" class="main" font-weight="400">同步</text>
+<path d="M842 670 H924" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#m059669)"/>
+<rect x="848.0" y="633" width="70" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="883" y="653" font-size="18" text-anchor="middle" class="main" font-weight="400">再执行</text>
+<path d="M48 785 H88" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<text x="100" y="791" font-size="18" text-anchor="start" class="sub" font-weight="400">事件发布</text>
+<path d="M388 785 H428" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<text x="440" y="791" font-size="18" text-anchor="start" class="sub" font-weight="400">消费者依赖</text>
+<path d="M728 785 H768" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#m059669)"/>
+<text x="780" y="791" font-size="18" text-anchor="start" class="sub" font-weight="400">槽位复用</text>
+<text x="48" y="833" font-size="20" text-anchor="start" class="sub" font-weight="400">依赖链上的同步关系具有传递性，所以末端完成进度也保护其上游对旧事件的访问。</text>
+</svg>

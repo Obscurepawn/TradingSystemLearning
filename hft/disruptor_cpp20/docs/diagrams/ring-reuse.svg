@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 822" width="1200" height="822" role="img">
+<title>绝对序列向前走，物理槽位循环复用</title>
+<desc>示例：capacity = 4，mask = 3；0 和 4 都落在 slot[0]。</desc>
+<style>text { font-family: "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; fill: #111827; } .sub { fill: #6b7280; }</style>
+<defs>
+<marker id="m2563eb" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+<marker id="m059669" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#059669"/></marker>
+<marker id="mea580c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ea580c"/></marker>
+<marker id="m7c3aed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker>
+<marker id="m6b7280" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>
+</defs>
+<rect x="0" y="0" width="1200" height="822" rx="0" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="40" y="48" font-size="30" text-anchor="start" class="main" font-weight="600">绝对序列向前走，物理槽位循环复用</text>
+<text x="40" y="86" font-size="20" text-anchor="start" class="sub" font-weight="400">示例：capacity = 4，mask = 3；0 和 4 都落在 slot[0]。</text>
+<rect x="64" y="130" width="1072" height="85" rx="10" fill="#faf5ff" stroke="#ddd6fe" stroke-width="1.5"/>
+<text x="600.0" y="165" font-size="23" text-anchor="middle" class="main" font-weight="600">索引公式：index = s &amp; (capacity - 1)</text>
+<text x="600.0" y="196" font-size="19" text-anchor="middle" class="main" font-weight="400">序号区分轮次；published 必须等于目标绝对序号。</text>
+<rect x="64" y="300" width="240" height="130" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="184.0" y="335" font-size="23" text-anchor="middle" class="main" font-weight="600">slot[0]</text>
+<text x="184.0" y="366" font-size="19" text-anchor="middle" class="main" font-weight="400">published = 0</text>
+<text x="184.0" y="394" font-size="19" text-anchor="middle" class="main" font-weight="400">Event 属于序列 0</text>
+<rect x="340" y="300" width="240" height="130" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="460.0" y="335" font-size="23" text-anchor="middle" class="main" font-weight="600">slot[1]</text>
+<text x="460.0" y="366" font-size="19" text-anchor="middle" class="main" font-weight="400">published = 1</text>
+<text x="460.0" y="394" font-size="19" text-anchor="middle" class="main" font-weight="400">Event 属于序列 1</text>
+<rect x="616" y="300" width="240" height="130" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="736.0" y="335" font-size="23" text-anchor="middle" class="main" font-weight="600">slot[2]</text>
+<text x="736.0" y="366" font-size="19" text-anchor="middle" class="main" font-weight="400">published = 2</text>
+<text x="736.0" y="394" font-size="19" text-anchor="middle" class="main" font-weight="400">Event 属于序列 2</text>
+<rect x="892" y="300" width="240" height="130" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="1012.0" y="335" font-size="23" text-anchor="middle" class="main" font-weight="600">slot[3]</text>
+<text x="1012.0" y="366" font-size="19" text-anchor="middle" class="main" font-weight="400">published = 3</text>
+<text x="1012.0" y="394" font-size="19" text-anchor="middle" class="main" font-weight="400">Event 属于序列 3</text>
+<text x="64" y="270" font-size="22" text-anchor="start" class="main" font-weight="400">当前已申请 0…3；最慢末端进度 g = -1，容量已全部占用。</text>
+<rect x="64" y="525" width="510" height="130" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="319.0" y="560" font-size="23" text-anchor="middle" class="main" font-weight="600">想申请 s = 4：暂时拒绝</text>
+<text x="319.0" y="591" font-size="19" text-anchor="middle" class="main" font-weight="400">wrap_point = 4 - 4 = 0</text>
+<text x="319.0" y="619" font-size="19" text-anchor="middle" class="main" font-weight="400">g = -1 &lt; 0，序列 0 仍可能在用</text>
+<rect x="650" y="525" width="486" height="130" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="893.0" y="560" font-size="23" text-anchor="middle" class="main" font-weight="600">末端完成 0：可以申请 4</text>
+<text x="893.0" y="591" font-size="19" text-anchor="middle" class="main" font-weight="400">g = 0 ≥ wrap_point = 0</text>
+<text x="893.0" y="619" font-size="19" text-anchor="middle" class="main" font-weight="400">writer 覆盖 slot[0]，再发布标记 4</text>
+<path d="M184 430 V525" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<rect x="120.56" y="459" width="126.88" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="184" y="479" font-size="18" text-anchor="middle" class="main" font-weight="400">保护旧事件 0</text>
+<path d="M574 585 H650" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#m059669)"/>
+<rect x="586.0" y="550" width="52" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="612" y="570" font-size="18" text-anchor="middle" class="main" font-weight="400">完成</text>
+<path d="M48 704 H88" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<text x="100" y="710" font-size="18" text-anchor="start" class="sub" font-weight="400">阻止覆盖</text>
+<path d="M388 704 H428" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#m059669)"/>
+<text x="440" y="710" font-size="18" text-anchor="start" class="sub" font-weight="400">释放容量</text>
+<text x="64" y="762" font-size="20" text-anchor="start" class="sub" font-weight="400">所有 N 个槽位都能使用；没有专门空出一个槽位来区分空与满。</text>
+</svg>

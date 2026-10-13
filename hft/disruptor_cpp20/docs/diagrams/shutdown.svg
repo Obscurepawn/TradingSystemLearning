@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 867" width="1200" height="867" role="img">
+<title>shutdown：先关闭准入，再确定排空终点</title>
+<desc>正常关闭保留已接纳调用；halt / 回调失败会中止排空承诺。</desc>
+<style>text { font-family: "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; fill: #111827; } .sub { fill: #6b7280; }</style>
+<defs>
+<marker id="m2563eb" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+<marker id="m059669" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#059669"/></marker>
+<marker id="mea580c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ea580c"/></marker>
+<marker id="m7c3aed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker>
+<marker id="m6b7280" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>
+</defs>
+<rect x="0" y="0" width="1200" height="867" rx="0" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="40" y="48" font-size="30" text-anchor="start" class="main" font-weight="600">shutdown：先关闭准入，再确定排空终点</text>
+<text x="40" y="86" font-size="20" text-anchor="start" class="sub" font-weight="400">正常关闭保留已接纳调用；halt / 回调失败会中止排空承诺。</text>
+<rect x="40" y="120" width="280" height="75" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="180.0" y="155" font-size="23" text-anchor="middle" class="main" font-weight="600">控制线程</text>
+<path d="M180 195 V755" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="6 6" fill="none"/>
+<rect x="460" y="120" width="280" height="75" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="600.0" y="155" font-size="23" text-anchor="middle" class="main" font-weight="600">在途发布调用</text>
+<path d="M600 195 V755" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="6 6" fill="none"/>
+<rect x="880" y="120" width="280" height="75" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="1020.0" y="155" font-size="23" text-anchor="middle" class="main" font-weight="600">消费者线程</text>
+<path d="M1020 195 V755" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="6 6" fill="none"/>
+<rect x="40" y="235" width="280" height="115" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="180.0" y="270" font-size="23" text-anchor="middle" class="main" font-weight="600">① 设置 closed_bit</text>
+<text x="180.0" y="301" font-size="14.763552479815452" text-anchor="middle" class="main" font-weight="400">新 publish / try_publish 被拒绝</text>
+<rect x="460" y="235" width="280" height="115" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="600.0" y="270" font-size="23" text-anchor="middle" class="main" font-weight="600">② 已进入的调用继续</text>
+<text x="600.0" y="301" font-size="19" text-anchor="middle" class="main" font-weight="400">容量不足仍可等待</text>
+<text x="600.0" y="329" font-size="19" text-anchor="middle" class="main" font-weight="400">已申请 writer 必须返回</text>
+<path d="M600 400 H1020" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<rect x="710.02" y="362" width="199.96" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="810" y="382" font-size="18" text-anchor="middle" class="main" font-weight="400">填写并 release 发布</text>
+<rect x="460" y="440" width="280" height="85" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="600.0" y="475" font-size="23" text-anchor="middle" class="main" font-weight="600">Publication 析构</text>
+<text x="600.0" y="506" font-size="19" text-anchor="middle" class="main" font-weight="400">在途计数减一，通知等待者</text>
+<path d="M600 555 H180" fill="none" stroke="#6b7280" stroke-width="2.3" marker-end="url(#m6b7280)" stroke-dasharray="6 4"/>
+<rect x="318.0" y="517" width="124" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="380" y="537" font-size="18" text-anchor="middle" class="main" font-weight="400">计数全部归零</text>
+<path d="M180 625 H590 Q600 613 610 625 H1020" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<rect x="616.96" y="587" width="386.0799999999998" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="810" y="607" font-size="18" text-anchor="middle" class="main" font-weight="400">③ target = claimed；draining = true</text>
+<rect x="880" y="665" width="280" height="85" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="1020.0" y="700" font-size="20.421393841166946" text-anchor="middle" class="main" font-weight="600">每个消费者处理到 target</text>
+<text x="1020.0" y="731" font-size="19" text-anchor="middle" class="main" font-weight="400">next &gt; target 时退出</text>
+<path d="M48 795 H88" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<text x="100" y="801" font-size="18" text-anchor="start" class="sub" font-weight="400">事件发布</text>
+<path d="M388 795 H428" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<text x="440" y="801" font-size="18" text-anchor="start" class="sub" font-weight="400">排空通知</text>
+<path d="M728 795 H768" fill="none" stroke="#6b7280" stroke-width="2.3" marker-end="url(#m6b7280)" stroke-dasharray="6 4"/>
+<text x="780" y="801" font-size="18" text-anchor="start" class="sub" font-weight="400">关闭等待</text>
+<text x="40" y="715" font-size="23" text-anchor="start" class="main" font-weight="600">④ join 所有消费者线程</text>
+<text x="40" y="747" font-size="20" text-anchor="start" class="main" font-weight="400">⑤ 检查首个异常 / aborted 状态</text>
+</svg>

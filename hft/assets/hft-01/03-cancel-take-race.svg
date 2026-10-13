@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="930" viewBox="0 0 1440 930" role="img">
+<title>旧报价上的竞争：买单和撤单谁先被处理</title>
+<style>text { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; }</style>
+<defs>
+<marker id="a2563eb" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="a7c3aed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#7c3aed"/></marker>
+<marker id="aea580c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#ea580c"/></marker>
+<marker id="a6b7280" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#6b7280"/></marker>
+</defs>
+<rect x="0" y="0" width="1440" height="930" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="60" y="60" font-size="32" fill="#111827" font-weight="600" text-anchor="start">旧报价上的竞争：买单和撤单谁先被处理</text>
+<text x="60" y="102" font-size="21" fill="#6b7280" font-weight="400" text-anchor="start">旧卖价 100.01，新估值 100.05；假设请求分别在以下时刻被处理。</text>
+<rect x="60" y="165" width="630" height="560" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" />
+<rect x="61" y="166" width="628" height="65" rx="12" fill="#eff6ff" stroke="none" stroke-width="1.5" />
+<text x="85" y="208" font-size="24" fill="#111827" font-weight="600" text-anchor="start">情形 A：买单先被处理</text>
+<text x="145" y="276" font-size="20" fill="#111827" font-weight="600" text-anchor="middle">报价方</text>
+<path d="M 145 300 V 600" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="7 5" />
+<text x="375" y="276" font-size="20" fill="#111827" font-weight="600" text-anchor="middle">撮合引擎</text>
+<path d="M 375 300 V 600" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="7 5" />
+<text x="605" y="276" font-size="20" fill="#111827" font-weight="600" text-anchor="middle">抢单方</text>
+<path d="M 605 300 V 600" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="7 5" />
+<rect x="310.0" y="297" width="130" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="375" y="320" font-size="18" fill="#6b7280" font-weight="400" text-anchor="middle">新信息出现</text>
+<rect x="368" y="350" width="14" height="155" rx="0" fill="#dbeafe" stroke="none" stroke-width="1.5" />
+<path d="M 605 382 H 382" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a2563eb)"/>
+<rect x="417.5" y="346" width="145" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="490.0" y="369" font-size="18" fill="#2563eb" font-weight="400" text-anchor="middle">买单 +18 µs</text>
+<path d="M 145 468 H 368" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#aea580c)"/>
+<rect x="187.5" y="432" width="145" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="260.0" y="455" font-size="18" fill="#ea580c" font-weight="400" text-anchor="middle">撤单 +25 µs</text>
+<rect x="248" y="530" width="254" height="48" rx="12" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" />
+<text x="375" y="562" font-size="20" fill="#2563eb" font-weight="600" text-anchor="middle">旧卖单在 100.01 成交</text>
+<text x="88" y="645" font-size="21" fill="#111827" font-weight="400" text-anchor="start">买单先被处理，成交已经发生。</text>
+<text x="88" y="683" font-size="19" fill="#6b7280" font-weight="400" text-anchor="start">后到的撤单无法撤回这笔成交。</text>
+<rect x="750" y="165" width="630" height="560" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" />
+<rect x="751" y="166" width="628" height="65" rx="12" fill="#faf5ff" stroke="none" stroke-width="1.5" />
+<text x="775" y="208" font-size="24" fill="#111827" font-weight="600" text-anchor="start">情形 B：撤单先被处理</text>
+<text x="835" y="276" font-size="20" fill="#111827" font-weight="600" text-anchor="middle">报价方</text>
+<path d="M 835 300 V 600" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="7 5" />
+<text x="1065" y="276" font-size="20" fill="#111827" font-weight="600" text-anchor="middle">撮合引擎</text>
+<path d="M 1065 300 V 600" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="7 5" />
+<text x="1295" y="276" font-size="20" fill="#111827" font-weight="600" text-anchor="middle">抢单方</text>
+<path d="M 1295 300 V 600" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-linejoin="round" stroke-dasharray="7 5" />
+<rect x="1000.0" y="297" width="130" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="1065" y="320" font-size="18" fill="#6b7280" font-weight="400" text-anchor="middle">新信息出现</text>
+<rect x="1058" y="350" width="14" height="155" rx="0" fill="#ede9fe" stroke="none" stroke-width="1.5" />
+<path d="M 835 382 H 1058" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#aea580c)"/>
+<rect x="877.5" y="346" width="145" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="950.0" y="369" font-size="18" fill="#ea580c" font-weight="400" text-anchor="middle">撤单 +15 µs</text>
+<path d="M 1295 468 H 1072" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a2563eb)"/>
+<rect x="1107.5" y="432" width="145" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="1180.0" y="455" font-size="18" fill="#2563eb" font-weight="400" text-anchor="middle">买单 +22 µs</text>
+<rect x="938" y="530" width="254" height="48" rx="12" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5" />
+<text x="1065" y="562" font-size="20" fill="#7c3aed" font-weight="600" text-anchor="middle">旧卖单已撤销</text>
+<text x="778" y="645" font-size="21" fill="#111827" font-weight="400" text-anchor="start">撤单先被处理，旧报价已经失效。</text>
+<text x="778" y="683" font-size="19" fill="#6b7280" font-weight="400" text-anchor="start">后到的买单无法再与该报价成交。</text>
+<path d="M 80 779 H 135" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a2563eb)"/>
+<text x="152" y="786" font-size="19" fill="#6b7280" font-weight="400" text-anchor="start">主动买入请求</text>
+<path d="M 400 779 H 455" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#aea580c)"/>
+<text x="472" y="786" font-size="19" fill="#6b7280" font-weight="400" text-anchor="start">撤单请求</text>
+<text x="800" y="786" font-size="18" fill="#6b7280" font-weight="400" text-anchor="start">时间相对新信息出现时刻；自上而下推进</text>
+<rect x="60" y="824" width="1320" height="65" rx="12" fill="#f9fafb" stroke="none" stroke-width="1.5" />
+<text x="85" y="866" font-size="23" fill="#111827" font-weight="600" text-anchor="start">本地发出撤单后，订单仍可能成交；风险持续到撤单在交易所生效。</text>
+</svg>

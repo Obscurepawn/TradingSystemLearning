@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 857" width="1200" height="857" role="img">
+<title>Blocking 策略如何避开检查与睡眠之间的丢唤醒</title>
+<desc>状态由原子变量保护；signal_all 的短暂加锁与 cv.wait 的原子解锁配合。</desc>
+<style>text { font-family: "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; fill: #111827; } .sub { fill: #6b7280; }</style>
+<defs>
+<marker id="m2563eb" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+<marker id="m059669" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#059669"/></marker>
+<marker id="mea580c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ea580c"/></marker>
+<marker id="m7c3aed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker>
+<marker id="m6b7280" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>
+</defs>
+<rect x="0" y="0" width="1200" height="857" rx="0" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="40" y="48" font-size="30" text-anchor="start" class="main" font-weight="600">Blocking 策略如何避开检查与睡眠之间的丢唤醒</text>
+<text x="40" y="86" font-size="20" text-anchor="start" class="sub" font-weight="400">状态由原子变量保护；signal_all 的短暂加锁与 cv.wait 的原子解锁配合。</text>
+<rect x="120" y="120" width="360" height="75" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="300.0" y="155" font-size="23" text-anchor="middle" class="main" font-weight="600">等待线程</text>
+<path d="M300 195 V735" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="6 6" fill="none"/>
+<rect x="720" y="120" width="360" height="75" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="900.0" y="155" font-size="23" text-anchor="middle" class="main" font-weight="600">通知线程</text>
+<path d="M900 195 V735" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="6 6" fill="none"/>
+<rect x="110" y="235" width="380" height="90" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="300.0" y="270" font-size="23" text-anchor="middle" class="main" font-weight="600">持有 waiter_.mutex_</text>
+<text x="300.0" y="301" font-size="19" text-anchor="middle" class="main" font-weight="400">检查 predicate：尚未就绪</text>
+<rect x="710" y="285" width="380" height="90" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="900.0" y="320" font-size="23" text-anchor="middle" class="main" font-weight="600">先更新原子状态</text>
+<text x="900.0" y="351" font-size="19" text-anchor="middle" class="main" font-weight="400">再尝试取得同一个 mutex</text>
+<rect x="710" y="390" width="380" height="90" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="900.0" y="425" font-size="23" text-anchor="middle" class="main" font-weight="600">加锁暂时被阻塞</text>
+<text x="900.0" y="456" font-size="19" text-anchor="middle" class="main" font-weight="400">等待线程此时仍持有 mutex</text>
+<rect x="110" y="435" width="380" height="90" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="300.0" y="470" font-size="23" text-anchor="middle" class="main" font-weight="600">cv.wait 原子地解锁并等待</text>
+<text x="300.0" y="501" font-size="19" text-anchor="middle" class="main" font-weight="400">不存在先解锁、后等待的缝隙</text>
+<path d="M300 525 V535 H900 V555" fill="none" stroke="#6b7280" stroke-width="2.3" marker-end="url(#m6b7280)" stroke-dasharray="6 4"/>
+<rect x="533.68" y="504" width="132.64000000000001" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="600" y="524" font-size="18" text-anchor="middle" class="main" font-weight="400">mutex 可取得</text>
+<rect x="710" y="555" width="380" height="90" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="900.0" y="590" font-size="23" text-anchor="middle" class="main" font-weight="600">取得 mutex 后立即释放</text>
+<text x="900.0" y="621" font-size="19" text-anchor="middle" class="main" font-weight="400">然后执行 cv_.notify_all()</text>
+<path d="M900 690 H300" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<rect x="476.8" y="653" width="246.4" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="600" y="673" font-size="18" text-anchor="middle" class="main" font-weight="400">唤醒后重新检查 predicate</text>
+<path d="M48 742 H88" fill="none" stroke="#6b7280" stroke-width="2.3" marker-end="url(#m6b7280)" stroke-dasharray="6 4"/>
+<text x="100" y="748" font-size="18" text-anchor="start" class="sub" font-weight="400">mutex 交接</text>
+<path d="M388 742 H428" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<text x="440" y="748" font-size="18" text-anchor="start" class="sub" font-weight="400">条件变量通知</text>
+<text x="40" y="785" font-size="21" text-anchor="start" class="sub" font-weight="400">如果等待线程已看见状态就绪，它会直接返回；虚假唤醒则由 predicate 再次过滤。</text>
+</svg>

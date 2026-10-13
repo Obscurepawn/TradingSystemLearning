@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 932" width="1200" height="932" role="img">
+<title>共享事件，独立进度，依赖执行</title>
+<desc>四个生产者写入同一组槽位；A、B、C 各自处理全部事件。</desc>
+<style>text { font-family: "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif; fill: #111827; } .sub { fill: #6b7280; }</style>
+<defs>
+<marker id="m2563eb" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+<marker id="m059669" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#059669"/></marker>
+<marker id="mea580c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ea580c"/></marker>
+<marker id="m7c3aed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/></marker>
+<marker id="m6b7280" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>
+</defs>
+<rect x="0" y="0" width="1200" height="932" rx="0" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="40" y="48" font-size="30" text-anchor="start" class="main" font-weight="600">共享事件，独立进度，依赖执行</text>
+<text x="40" y="86" font-size="20" text-anchor="start" class="sub" font-weight="400">四个生产者写入同一组槽位；A、B、C 各自处理全部事件。</text>
+<rect x="400" y="125" width="400" height="105" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="600.0" y="160" font-size="23" text-anchor="middle" class="main" font-weight="600">应用生产者 P0 … P3</text>
+<text x="600.0" y="191" font-size="19" text-anchor="middle" class="main" font-weight="400">申请 s → 填写 Event → 发布 s</text>
+<rect x="240" y="320" width="720" height="100" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="600.0" y="355" font-size="23" text-anchor="middle" class="main" font-weight="600">slots_[s &amp; mask_]：预分配环形缓冲区</text>
+<text x="600.0" y="386" font-size="19" text-anchor="middle" class="main" font-weight="400">Slot = published 标记 + Event；每轮复用同一对象</text>
+<rect x="210" y="515" width="320" height="105" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="370.0" y="550" font-size="23" text-anchor="middle" class="main" font-weight="600">消费者 A / 独立线程</text>
+<text x="370.0" y="581" font-size="19" text-anchor="middle" class="main" font-weight="400">读 id，写 left</text>
+<text x="370.0" y="609" font-size="19" text-anchor="middle" class="main" font-weight="400">completed_A：整批完成进度</text>
+<rect x="670" y="515" width="320" height="105" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="830.0" y="550" font-size="23" text-anchor="middle" class="main" font-weight="600">消费者 B / 独立线程</text>
+<text x="830.0" y="581" font-size="19" text-anchor="middle" class="main" font-weight="400">读 id，写 right</text>
+<text x="830.0" y="609" font-size="19" text-anchor="middle" class="main" font-weight="400">completed_B：整批完成进度</text>
+<rect x="440" y="730" width="320" height="105" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="600.0" y="765" font-size="23" text-anchor="middle" class="main" font-weight="600">消费者 C / 独立线程</text>
+<text x="600.0" y="796" font-size="19" text-anchor="middle" class="main" font-weight="400">依赖 A 和 B，校验同一 Event</text>
+<text x="600.0" y="824" font-size="19" text-anchor="middle" class="main" font-weight="400">completed_C：本图唯一 gate</text>
+<path d="M600 230 V320" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<rect x="542.68" y="254" width="114.64000000000001" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="600" y="274" font-size="18" text-anchor="middle" class="main" font-weight="400">Event 写入</text>
+<path d="M370 420 V515" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<rect x="312.68" y="444" width="114.64000000000001" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="370" y="464" font-size="18" text-anchor="middle" class="main" font-weight="400">Event 引用</text>
+<path d="M830 420 V515" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<rect x="772.68" y="444" width="114.64000000000001" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="830" y="464" font-size="18" text-anchor="middle" class="main" font-weight="400">Event 引用</text>
+<path d="M370 620 V670 H510 V730" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<rect x="370.56" y="652" width="108.88" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="425" y="672" font-size="18" text-anchor="middle" class="main" font-weight="400">A 完成进度</text>
+<path d="M830 620 V670 H690 V730" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<rect x="720.56" y="652" width="108.88" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="775" y="672" font-size="18" text-anchor="middle" class="main" font-weight="400">B 完成进度</text>
+<path d="M760 782 H1100 V178 H800" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#m059669)"/>
+<rect x="1038.0" y="447" width="124" height="28" rx="3" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="1100" y="467" font-size="18" text-anchor="middle" class="main" font-weight="400">允许槽位复用</text>
+<path d="M48 870 H88" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#m2563eb)"/>
+<text x="100" y="876" font-size="18" text-anchor="start" class="sub" font-weight="400">事件访问</text>
+<path d="M388 870 H428" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#mea580c)"/>
+<text x="440" y="876" font-size="18" text-anchor="start" class="sub" font-weight="400">依赖约束</text>
+<path d="M728 870 H768" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#m059669)"/>
+<text x="780" y="876" font-size="18" text-anchor="start" class="sub" font-weight="400">容量反馈</text>
+</svg>

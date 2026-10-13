@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="940" viewBox="0 0 1440 940" role="img">
+<title>价格优先，再按同价队列先后成交</title>
+<style>text { font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; }</style>
+<defs>
+<marker id="a2563eb" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="a7c3aed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#7c3aed"/></marker>
+<marker id="aea580c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#ea580c"/></marker>
+<marker id="a6b7280" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#6b7280"/></marker>
+</defs>
+<rect x="0" y="0" width="1440" height="940" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="60" y="60" font-size="32" fill="#111827" font-weight="600" text-anchor="start">价格优先，再按同价队列先后成交</text>
+<text x="60" y="101" font-size="21" fill="#6b7280" font-weight="400" text-anchor="start">普通可见限价单 · 连续竞价 · 同价 FIFO</text>
+<rect x="70" y="140" width="1300" height="75" rx="12" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" />
+<text x="100" y="187" font-size="27" fill="#2563eb" font-weight="600" text-anchor="start">到达的买单：限价 100.02，数量 400</text>
+<text x="70" y="272" font-size="25" fill="#111827" font-weight="600" text-anchor="start">撮合前：卖方队列</text>
+<rect x="70" y="295" width="570" height="350" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" />
+<rect x="71" y="296" width="568" height="62" rx="10" fill="#f3f4f6" stroke="none" stroke-width="1.5" />
+<text x="100" y="334" font-size="20" fill="#6b7280" font-weight="600" text-anchor="start">订单</text>
+<text x="215" y="334" font-size="20" fill="#6b7280" font-weight="600" text-anchor="start">卖价</text>
+<text x="375" y="334" font-size="20" fill="#6b7280" font-weight="600" text-anchor="start">先后序号</text>
+<text x="536" y="334" font-size="20" fill="#6b7280" font-weight="600" text-anchor="start">剩余量</text>
+<rect x="72" y="359" width="566" height="68" rx="0" fill="#eff6ff" stroke="none" stroke-width="1.5" />
+<text x="100" y="402" font-size="22" fill="#111827" font-weight="400" text-anchor="start">S1</text>
+<text x="215" y="402" font-size="22" fill="#111827" font-weight="400" text-anchor="start">100.01</text>
+<text x="375" y="402" font-size="22" fill="#111827" font-weight="400" text-anchor="start">105</text>
+<text x="536" y="402" font-size="22" fill="#111827" font-weight="400" text-anchor="start">100</text>
+<rect x="72" y="429" width="566" height="68" rx="0" fill="#eff6ff" stroke="none" stroke-width="1.5" />
+<text x="100" y="472" font-size="22" fill="#111827" font-weight="400" text-anchor="start">S2</text>
+<text x="215" y="472" font-size="22" fill="#111827" font-weight="400" text-anchor="start">100.01</text>
+<text x="375" y="472" font-size="22" fill="#111827" font-weight="400" text-anchor="start">110</text>
+<text x="536" y="472" font-size="22" fill="#111827" font-weight="400" text-anchor="start">200</text>
+<rect x="72" y="499" width="566" height="68" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="100" y="542" font-size="22" fill="#111827" font-weight="400" text-anchor="start">S3</text>
+<text x="215" y="542" font-size="22" fill="#111827" font-weight="400" text-anchor="start">100.02</text>
+<text x="375" y="542" font-size="22" fill="#111827" font-weight="400" text-anchor="start">80</text>
+<text x="536" y="542" font-size="22" fill="#111827" font-weight="400" text-anchor="start">150</text>
+<rect x="72" y="569" width="566" height="68" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="100" y="612" font-size="22" fill="#111827" font-weight="400" text-anchor="start">S4</text>
+<text x="215" y="612" font-size="22" fill="#111827" font-weight="400" text-anchor="start">100.03</text>
+<text x="375" y="612" font-size="22" fill="#111827" font-weight="400" text-anchor="start">90</text>
+<text x="536" y="612" font-size="22" fill="#111827" font-weight="400" text-anchor="start">300</text>
+<text x="800" y="272" font-size="25" fill="#111827" font-weight="600" text-anchor="start">撮合后：S3 仍剩 50</text>
+<rect x="800" y="295" width="570" height="350" rx="12" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" />
+<rect x="801" y="296" width="568" height="62" rx="10" fill="#f3f4f6" stroke="none" stroke-width="1.5" />
+<text x="830" y="334" font-size="20" fill="#6b7280" font-weight="600" text-anchor="start">订单</text>
+<text x="945" y="334" font-size="20" fill="#6b7280" font-weight="600" text-anchor="start">卖价</text>
+<text x="1105" y="334" font-size="20" fill="#6b7280" font-weight="600" text-anchor="start">先后序号</text>
+<text x="1266" y="334" font-size="20" fill="#6b7280" font-weight="600" text-anchor="start">剩余量</text>
+<rect x="802" y="359" width="566" height="68" rx="0" fill="#f9fafb" stroke="none" stroke-width="1.5" />
+<text x="830" y="402" font-size="22" fill="#6b7280" font-weight="400" text-anchor="start">S1</text>
+<text x="945" y="402" font-size="22" fill="#6b7280" font-weight="400" text-anchor="start">100.01</text>
+<text x="1105" y="402" font-size="22" fill="#6b7280" font-weight="400" text-anchor="start">105</text>
+<text x="1266" y="402" font-size="22" fill="#6b7280" font-weight="400" text-anchor="start">已移除</text>
+<rect x="802" y="429" width="566" height="68" rx="0" fill="#f9fafb" stroke="none" stroke-width="1.5" />
+<text x="830" y="472" font-size="22" fill="#6b7280" font-weight="400" text-anchor="start">S2</text>
+<text x="945" y="472" font-size="22" fill="#6b7280" font-weight="400" text-anchor="start">100.01</text>
+<text x="1105" y="472" font-size="22" fill="#6b7280" font-weight="400" text-anchor="start">110</text>
+<text x="1266" y="472" font-size="22" fill="#6b7280" font-weight="400" text-anchor="start">已移除</text>
+<rect x="802" y="499" width="566" height="68" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="830" y="542" font-size="22" fill="#111827" font-weight="400" text-anchor="start">S3</text>
+<text x="945" y="542" font-size="22" fill="#111827" font-weight="400" text-anchor="start">100.02</text>
+<text x="1105" y="542" font-size="22" fill="#111827" font-weight="400" text-anchor="start">80</text>
+<text x="1266" y="542" font-size="22" fill="#111827" font-weight="400" text-anchor="start">50</text>
+<rect x="802" y="569" width="566" height="68" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="830" y="612" font-size="22" fill="#111827" font-weight="400" text-anchor="start">S4</text>
+<text x="945" y="612" font-size="22" fill="#111827" font-weight="400" text-anchor="start">100.03</text>
+<text x="1105" y="612" font-size="22" fill="#111827" font-weight="400" text-anchor="start">90</text>
+<text x="1266" y="612" font-size="22" fill="#111827" font-weight="400" text-anchor="start">300</text>
+<path d="M 640 470 H 800" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"  marker-end="url(#a2563eb)"/>
+<rect x="670.0" y="430" width="100" height="32" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="720" y="453" font-size="18" fill="#2563eb" font-weight="400" text-anchor="middle">依次成交</text>
+<rect x="70" y="700" width="380" height="105" rx="12" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="260.0" y="743" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">成交 1 · S1</text>
+<text x="260.0" y="776" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">100 股 × 100.01</text>
+<rect x="520" y="700" width="380" height="105" rx="12" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="710.0" y="743" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">成交 2 · S2</text>
+<text x="710.0" y="776" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">200 股 × 100.01</text>
+<rect x="970" y="700" width="380" height="105" rx="12" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5" />
+<text x="1160.0" y="743" font-size="23" fill="#111827" font-weight="600" text-anchor="middle">成交 3 · S3</text>
+<text x="1160.0" y="776" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">100 股 × 100.02</text>
+<text x="70" y="854" font-size="22" fill="#111827" font-weight="400" text-anchor="start">S3 虽然更早进入队列，但卖价更高，仍排在 S1、S2 后面。</text>
+<text x="70" y="893" font-size="20" fill="#6b7280" font-weight="400" text-anchor="start">限价控制可接受的价格边界；本例按簿上对手订单的价格成交。</text>
+</svg>

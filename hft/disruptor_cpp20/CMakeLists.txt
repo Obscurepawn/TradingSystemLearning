@@ -1,0 +1,53 @@
+cmake_minimum_required(VERSION 3.20)
+project(disruptor_cpp20 VERSION 1.0.0 LANGUAGES CXX)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+option(ENABLE_ASAN_UBSAN "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+
+if(ENABLE_ASAN_UBSAN AND ENABLE_TSAN)
+    message(FATAL_ERROR "ENABLE_ASAN_UBSAN and ENABLE_TSAN require separate builds")
+endif()
+
+find_package(Threads REQUIRED)
+
+add_library(disruptor INTERFACE)
+add_library(disruptor::disruptor ALIAS disruptor)
+target_include_directories(disruptor INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_features(disruptor INTERFACE cxx_std_20)
+target_link_libraries(disruptor INTERFACE Threads::Threads)
+
+add_library(disruptor_build_options INTERFACE)
+if(MSVC)
+    target_compile_options(disruptor_build_options INTERFACE /W4 /permissive-)
+else()
+    target_compile_options(disruptor_build_options INTERFACE -Wall -Wextra -Wpedantic)
+endif()
+
+if(ENABLE_ASAN_UBSAN OR ENABLE_TSAN)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+        message(FATAL_ERROR "These sanitizer options require GCC or Clang")
+    endif()
+    target_compile_options(disruptor_build_options INTERFACE -fno-omit-frame-pointer -g)
+    if(ENABLE_ASAN_UBSAN)
+        target_compile_options(disruptor_build_options INTERFACE -fsanitize=address,undefined)
+        target_link_options(disruptor_build_options INTERFACE -fsanitize=address,undefined)
+    else()
+        target_compile_options(disruptor_build_options INTERFACE -fsanitize=thread)
+        target_link_options(disruptor_build_options INTERFACE -fsanitize=thread)
+    endif()
+endif()
+
+add_executable(diamond examples/diamond.cpp)
+set_target_properties(diamond PROPERTIES CXX_EXTENSIONS OFF)
+target_link_libraries(diamond PRIVATE disruptor::disruptor disruptor_build_options)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(test_disruptor tests/test_disruptor.cpp)
+    set_target_properties(test_disruptor PROPERTIES CXX_EXTENSIONS OFF)
+    target_link_libraries(test_disruptor PRIVATE disruptor::disruptor disruptor_build_options)
+    add_test(NAME disruptor_tests COMMAND test_disruptor)
+    set_tests_properties(disruptor_tests PROPERTIES TIMEOUT 120)
+endif()
