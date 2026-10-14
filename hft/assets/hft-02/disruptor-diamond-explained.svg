@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1100" viewBox="0 0 1120 1100" role="img" aria-labelledby="title desc">
+<title id="title">Disruptor：消费进度怎样决定槽位能否复用</title>
+<desc id="desc">A、B 并行处理共享事件，C 等两者完成。s 是新事件序号，N 是槽位数，done[C] 是 C 连续完成的最大事件序号。N 为 4、s 为 6 时，会覆盖槽位 2 里的事件 2，因此必须等 done[C] 大于等于 2。</desc>
+<style>text { font-family: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #172033; } .muted { fill: #475569; }</style>
+<defs>
+<marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+<marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#c2410c"/></marker>
+</defs>
+<rect width="1120" height="1100" fill="#ffffff"/>
+<text x="40" y="44" font-size="27" font-weight="600" text-anchor="start" style="fill:#172033">Disruptor：消费进度怎样决定槽位能否复用</text>
+<text x="40" y="78" font-size="19" font-weight="400" text-anchor="start" style="fill:#475569">A、B 并行处理，C 等两者完成；所有消费者访问同一环形数组。</text>
+<path d="M 230 222 H 300" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+<path d="M 500 212 H 550 V 148 H 600" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+<path d="M 500 232 H 550 V 320 H 600" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+<path d="M 790 148 H 830 V 212 H 870" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+<path d="M 790 320 H 830 V 232 H 870" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-blue)"/>
+<path d="M 975 266 V 406 H 135 V 266" fill="none" stroke="#c2410c" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow-orange)"/>
+<rect x="40" y="178" width="190" height="88" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="135.0" y="213" font-size="22" font-weight="600" text-anchor="middle" style="fill:#172033">生产者</text>
+<text x="135.0" y="243" font-size="16" font-weight="400" text-anchor="middle" style="fill:#475569">准备写入事件 s</text>
+<rect x="300" y="178" width="200" height="88" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="400.0" y="213" font-size="22" font-weight="600" text-anchor="middle" style="fill:#172033">共享环形数组</text>
+<text x="400.0" y="243" font-size="16" font-weight="400" text-anchor="middle" style="fill:#475569">共 N 个物理槽位</text>
+<rect x="600" y="106" width="190" height="88" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="695.0" y="141" font-size="22" font-weight="600" text-anchor="middle" style="fill:#172033">消费者 A</text>
+<text x="695.0" y="171" font-size="16" font-weight="400" text-anchor="middle" style="fill:#475569">完成后更新 done[A]</text>
+<rect x="600" y="278" width="190" height="88" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="695.0" y="313" font-size="22" font-weight="600" text-anchor="middle" style="fill:#172033">消费者 B</text>
+<text x="695.0" y="343" font-size="16" font-weight="400" text-anchor="middle" style="fill:#475569">完成后更新 done[B]</text>
+<rect x="870" y="178" width="210" height="88" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="975.0" y="213" font-size="22" font-weight="600" text-anchor="middle" style="fill:#172033">消费者 C</text>
+<text x="975.0" y="243" font-size="16" font-weight="400" text-anchor="middle" style="fill:#475569">等 A、B 完成再处理</text>
+<rect x="332" y="388" width="458" height="36" rx="10" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="561" y="413" font-size="20" font-weight="600" text-anchor="middle" style="fill:#9a3412">C 更新 done[C]，生产者读取它</text>
+<line x1="242" y1="322" x2="278" y2="322" stroke="#2563eb" stroke-width="2"/>
+<text x="290" y="328" font-size="16" font-weight="400" text-anchor="start" style="fill:#475569">实线：处理依赖</text>
+<line x1="242" y1="349" x2="278" y2="349" stroke="#c2410c" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="290" y="355" font-size="16" font-weight="400" text-anchor="start" style="fill:#475569">虚线：完成进度供生产者检查</text>
+<rect x="40" y="454" width="330" height="154" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="58" y="487" font-size="21" font-weight="600" text-anchor="start" style="fill:#172033">s：新事件序号</text>
+<text x="58" y="522" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">本例 s = 6：准备写事件 6</text>
+<text x="58" y="553" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">序号持续递增：0、1、2…</text>
+<text x="58" y="584" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">数组下标需要另外计算 s % N</text>
+<rect x="390" y="454" width="330" height="154" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="408" y="487" font-size="21" font-weight="600" text-anchor="start" style="fill:#172033">N：槽位总数</text>
+<text x="408" y="522" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">本例 N = 4</text>
+<text x="408" y="553" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">数组下标只有 0、1、2、3</text>
+<text x="408" y="584" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">事件写满一圈后会复用槽位</text>
+<rect x="740" y="454" width="340" height="154" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="758" y="487" font-size="21" font-weight="600" text-anchor="start" style="fill:#172033">done[C]：C 的完成进度</text>
+<text x="758" y="522" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">C 按序处理后更新这个值</text>
+<text x="758" y="553" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">值为 1：事件 0、1 均已完成</text>
+<text x="758" y="584" font-size="17" font-weight="400" text-anchor="start" style="fill:#475569">初始为 −1：尚未完成任何事件</text>
+<text x="40" y="655" font-size="24" font-weight="600" text-anchor="start" style="fill:#172033">具体例子：N = 4，生产者准备写入事件 s = 6</text>
+<text x="40" y="690" font-size="19" font-weight="400" text-anchor="start" style="fill:#475569">事件 6 使用槽位 6 % 4 = 2；它将覆盖上一轮的事件 6 − 4 = 2。</text>
+<rect x="40" y="716" width="245" height="124" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="162.5" y="746" font-size="20" font-weight="600" text-anchor="middle" style="fill:#172033">槽位 0</text>
+<text x="162.5" y="781" font-size="23" font-weight="600" text-anchor="middle" style="fill:#172033">当前：事件 4</text>
+<text x="162.5" y="815" font-size="17" font-weight="400" text-anchor="middle" style="fill:#475569">4 % 4 = 0</text>
+<rect x="305" y="716" width="245" height="124" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="427.5" y="746" font-size="20" font-weight="600" text-anchor="middle" style="fill:#172033">槽位 1</text>
+<text x="427.5" y="781" font-size="23" font-weight="600" text-anchor="middle" style="fill:#172033">当前：事件 5</text>
+<text x="427.5" y="815" font-size="17" font-weight="400" text-anchor="middle" style="fill:#475569">5 % 4 = 1</text>
+<rect x="570" y="716" width="245" height="124" rx="10" fill="#fff7ed" stroke="#fb923c" stroke-width="1.5"/>
+<text x="692.5" y="746" font-size="20" font-weight="600" text-anchor="middle" style="fill:#172033">槽位 2（待复用）</text>
+<text x="692.5" y="781" font-size="23" font-weight="600" text-anchor="middle" style="fill:#172033">当前：事件 2</text>
+<text x="692.5" y="815" font-size="17" font-weight="400" text-anchor="middle" style="fill:#9a3412">事件 6 也要写入这里</text>
+<rect x="835" y="716" width="245" height="124" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="957.5" y="746" font-size="20" font-weight="600" text-anchor="middle" style="fill:#172033">槽位 3</text>
+<text x="957.5" y="781" font-size="23" font-weight="600" text-anchor="middle" style="fill:#172033">当前：事件 3</text>
+<text x="957.5" y="815" font-size="17" font-weight="400" text-anchor="middle" style="fill:#475569">3 % 4 = 3</text>
+<text x="40" y="886" font-size="23" font-weight="600" text-anchor="start" style="fill:#172033">生产者写入前检查：done[C] ≥ s − N，也就是 done[C] ≥ 2</text>
+<rect x="40" y="912" width="510" height="112" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+<text x="60" y="950" font-size="23" font-weight="600" text-anchor="start" style="fill:#9a3412">done[C] = 1 → 不能覆盖</text>
+<text x="60" y="989" font-size="20" font-weight="400" text-anchor="start" style="fill:#9a3412">C 尚未处理完事件 2，生产者必须等待。</text>
+<rect x="570" y="912" width="510" height="112" rx="10" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="590" y="950" font-size="23" font-weight="600" text-anchor="start" style="fill:#166534">done[C] = 2 → 允许覆盖</text>
+<text x="590" y="989" font-size="20" font-weight="400" text-anchor="start" style="fill:#166534">C 完成事件 2 后，生产者才能写入事件 6。</text>
+<text x="40" y="1066" font-size="18" font-weight="400" text-anchor="start" style="fill:#475569">C 完成事件 2，意味着 A、B 也已完成它。容量检查由生产者执行，无需额外的协调线程。</text>
+</svg>

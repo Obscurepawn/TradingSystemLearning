@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1220" viewBox="0 0 1200 1220">
+<style>text {font-family: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif; fill:#111827;}</style>
+<defs><marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker></defs>
+<rect width="1200" height="1220" fill="white"/>
+<text x="44" y="48" font-size="29" font-weight="600" style="fill:#111827">OrderPool&lt;4&gt;：next_ 数组怎样串起空闲槽位</text>
+<text x="44" y="82" font-size="20" font-weight="400" style="fill:#111827">next_[i] = j 的含义：槽位 i 空闲时，下一个空闲槽位是 j。数字是下标，不是指针地址。</text>
+<text x="44" y="113" font-size="18" font-weight="400" style="fill:#6b7280">蓝色：空闲    橙色：已借出    灰色旧值：不参与当前空闲链    N = 4：结束标记，不是槽位</text>
+<rect x="40" y="140" width="1120" height="228" rx="8" fill="#f8fafc" stroke="#d1d5db"/>
+<text x="60" y="175" font-size="23" font-weight="600" style="fill:#111827">① 初始化</text>
+<text x="60" y="212" font-size="21" font-weight="600" style="fill:#2563eb">head_ = 0</text>
+<text x="60" y="248" font-size="17" font-weight="400" style="fill:#111827">next_[i] = i + 1</text>
+<rect x="430" y="158" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="444" y="184" font-size="20" font-weight="600" style="fill:#111827">槽位 0</text>
+<text x="444" y="214" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="444" y="244" font-size="17" font-weight="400" style="fill:#2563eb">next_[0] = 1</text>
+<rect x="604" y="158" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="618" y="184" font-size="20" font-weight="600" style="fill:#111827">槽位 1</text>
+<text x="618" y="214" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="618" y="244" font-size="17" font-weight="400" style="fill:#2563eb">next_[1] = 2</text>
+<rect x="778" y="158" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="792" y="184" font-size="20" font-weight="600" style="fill:#111827">槽位 2</text>
+<text x="792" y="214" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="792" y="244" font-size="17" font-weight="400" style="fill:#2563eb">next_[2] = 3</text>
+<rect x="952" y="158" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="966" y="184" font-size="20" font-weight="600" style="fill:#111827">槽位 3</text>
+<text x="966" y="214" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="966" y="244" font-size="17" font-weight="400" style="fill:#2563eb">next_[3] = 4</text>
+<text x="368" y="325" font-size="17" font-weight="400" style="fill:#2563eb">head_</text>
+<rect x="450" y="298" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="463" y="329" font-size="18" font-weight="600" style="fill:#2563eb">槽位 0</text>
+<path d="M 424 322 H 445" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="585" y="298" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="598" y="329" font-size="18" font-weight="600" style="fill:#2563eb">槽位 1</text>
+<path d="M 545 322 H 580" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="720" y="298" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="733" y="329" font-size="18" font-weight="600" style="fill:#2563eb">槽位 2</text>
+<path d="M 680 322 H 715" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="855" y="298" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="868" y="329" font-size="18" font-weight="600" style="fill:#2563eb">槽位 3</text>
+<path d="M 815 322 H 850" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="990" y="298" width="95" height="48" rx="8" fill="#ffffff" stroke="#93c5fd"/>
+<text x="1003" y="329" font-size="18" font-weight="600" style="fill:#2563eb">4 / END</text>
+<path d="M 950 322 H 985" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="40" y="386" width="1120" height="228" rx="8" fill="#f8fafc" stroke="#d1d5db"/>
+<text x="60" y="421" font-size="23" font-weight="600" style="fill:#111827">② acquire() 返回 0</text>
+<text x="60" y="458" font-size="21" font-weight="600" style="fill:#2563eb">head_ = 1</text>
+<text x="60" y="494" font-size="17" font-weight="400" style="fill:#111827">i = 0</text>
+<text x="60" y="521" font-size="17" font-weight="400" style="fill:#111827">head_ = next_[0] = 1</text>
+<rect x="430" y="404" width="154" height="116" rx="8" fill="#fff7ed" stroke="#d1d5db"/>
+<text x="444" y="430" font-size="20" font-weight="600" style="fill:#111827">槽位 0</text>
+<text x="444" y="460" font-size="18" font-weight="400" style="fill:#c2410c">已借出</text>
+<text x="444" y="490" font-size="17" font-weight="400" style="fill:#9ca3af">next_[0] = 1</text>
+<rect x="604" y="404" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="618" y="430" font-size="20" font-weight="600" style="fill:#111827">槽位 1</text>
+<text x="618" y="460" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="618" y="490" font-size="17" font-weight="400" style="fill:#2563eb">next_[1] = 2</text>
+<rect x="778" y="404" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="792" y="430" font-size="20" font-weight="600" style="fill:#111827">槽位 2</text>
+<text x="792" y="460" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="792" y="490" font-size="17" font-weight="400" style="fill:#2563eb">next_[2] = 3</text>
+<rect x="952" y="404" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="966" y="430" font-size="20" font-weight="600" style="fill:#111827">槽位 3</text>
+<text x="966" y="460" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="966" y="490" font-size="17" font-weight="400" style="fill:#2563eb">next_[3] = 4</text>
+<text x="368" y="571" font-size="17" font-weight="400" style="fill:#2563eb">head_</text>
+<rect x="450" y="544" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="463" y="575" font-size="18" font-weight="600" style="fill:#2563eb">槽位 1</text>
+<path d="M 424 568 H 445" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="585" y="544" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="598" y="575" font-size="18" font-weight="600" style="fill:#2563eb">槽位 2</text>
+<path d="M 545 568 H 580" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="720" y="544" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="733" y="575" font-size="18" font-weight="600" style="fill:#2563eb">槽位 3</text>
+<path d="M 680 568 H 715" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="855" y="544" width="95" height="48" rx="8" fill="#ffffff" stroke="#93c5fd"/>
+<text x="868" y="575" font-size="18" font-weight="600" style="fill:#2563eb">4 / END</text>
+<path d="M 815 568 H 850" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="40" y="632" width="1120" height="228" rx="8" fill="#f8fafc" stroke="#d1d5db"/>
+<text x="60" y="667" font-size="23" font-weight="600" style="fill:#111827">③ acquire() 返回 1</text>
+<text x="60" y="704" font-size="21" font-weight="600" style="fill:#2563eb">head_ = 2</text>
+<text x="60" y="740" font-size="17" font-weight="400" style="fill:#111827">i = 1</text>
+<text x="60" y="767" font-size="17" font-weight="400" style="fill:#111827">head_ = next_[1] = 2</text>
+<rect x="430" y="650" width="154" height="116" rx="8" fill="#fff7ed" stroke="#d1d5db"/>
+<text x="444" y="676" font-size="20" font-weight="600" style="fill:#111827">槽位 0</text>
+<text x="444" y="706" font-size="18" font-weight="400" style="fill:#c2410c">已借出</text>
+<text x="444" y="736" font-size="17" font-weight="400" style="fill:#9ca3af">next_[0] = 1</text>
+<rect x="604" y="650" width="154" height="116" rx="8" fill="#fff7ed" stroke="#d1d5db"/>
+<text x="618" y="676" font-size="20" font-weight="600" style="fill:#111827">槽位 1</text>
+<text x="618" y="706" font-size="18" font-weight="400" style="fill:#c2410c">已借出</text>
+<text x="618" y="736" font-size="17" font-weight="400" style="fill:#9ca3af">next_[1] = 2</text>
+<rect x="778" y="650" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="792" y="676" font-size="20" font-weight="600" style="fill:#111827">槽位 2</text>
+<text x="792" y="706" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="792" y="736" font-size="17" font-weight="400" style="fill:#2563eb">next_[2] = 3</text>
+<rect x="952" y="650" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="966" y="676" font-size="20" font-weight="600" style="fill:#111827">槽位 3</text>
+<text x="966" y="706" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="966" y="736" font-size="17" font-weight="400" style="fill:#2563eb">next_[3] = 4</text>
+<text x="368" y="817" font-size="17" font-weight="400" style="fill:#2563eb">head_</text>
+<rect x="450" y="790" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="463" y="821" font-size="18" font-weight="600" style="fill:#2563eb">槽位 2</text>
+<path d="M 424 814 H 445" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="585" y="790" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="598" y="821" font-size="18" font-weight="600" style="fill:#2563eb">槽位 3</text>
+<path d="M 545 814 H 580" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="720" y="790" width="95" height="48" rx="8" fill="#ffffff" stroke="#93c5fd"/>
+<text x="733" y="821" font-size="18" font-weight="600" style="fill:#2563eb">4 / END</text>
+<path d="M 680 814 H 715" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="40" y="878" width="1120" height="228" rx="8" fill="#f8fafc" stroke="#d1d5db"/>
+<text x="60" y="913" font-size="23" font-weight="600" style="fill:#111827">④ release(0)</text>
+<text x="60" y="950" font-size="21" font-weight="600" style="fill:#2563eb">head_ = 0</text>
+<text x="60" y="986" font-size="17" font-weight="400" style="fill:#111827">used_[0] = false</text>
+<text x="60" y="1013" font-size="17" font-weight="400" style="fill:#111827">next_[0] = 2  ← 原 head_</text>
+<text x="60" y="1040" font-size="17" font-weight="400" style="fill:#111827">head_ = 0</text>
+<rect x="430" y="896" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="444" y="922" font-size="20" font-weight="600" style="fill:#111827">槽位 0</text>
+<text x="444" y="952" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="444" y="982" font-size="17" font-weight="400" style="fill:#2563eb">next_[0] = 2</text>
+<rect x="604" y="896" width="154" height="116" rx="8" fill="#fff7ed" stroke="#d1d5db"/>
+<text x="618" y="922" font-size="20" font-weight="600" style="fill:#111827">槽位 1</text>
+<text x="618" y="952" font-size="18" font-weight="400" style="fill:#c2410c">已借出</text>
+<text x="618" y="982" font-size="17" font-weight="400" style="fill:#9ca3af">next_[1] = 2</text>
+<rect x="778" y="896" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="792" y="922" font-size="20" font-weight="600" style="fill:#111827">槽位 2</text>
+<text x="792" y="952" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="792" y="982" font-size="17" font-weight="400" style="fill:#2563eb">next_[2] = 3</text>
+<rect x="952" y="896" width="154" height="116" rx="8" fill="#eff6ff" stroke="#d1d5db"/>
+<text x="966" y="922" font-size="20" font-weight="600" style="fill:#111827">槽位 3</text>
+<text x="966" y="952" font-size="18" font-weight="400" style="fill:#2563eb">空闲</text>
+<text x="966" y="982" font-size="17" font-weight="400" style="fill:#2563eb">next_[3] = 4</text>
+<text x="368" y="1063" font-size="17" font-weight="400" style="fill:#2563eb">head_</text>
+<rect x="450" y="1036" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="463" y="1067" font-size="18" font-weight="600" style="fill:#2563eb">槽位 0</text>
+<path d="M 424 1060 H 445" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="585" y="1036" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="598" y="1067" font-size="18" font-weight="600" style="fill:#2563eb">槽位 2</text>
+<path d="M 545 1060 H 580" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="720" y="1036" width="95" height="48" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+<text x="733" y="1067" font-size="18" font-weight="600" style="fill:#2563eb">槽位 3</text>
+<path d="M 680 1060 H 715" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<rect x="855" y="1036" width="95" height="48" rx="8" fill="#ffffff" stroke="#93c5fd"/>
+<text x="868" y="1067" font-size="18" font-weight="600" style="fill:#2563eb">4 / END</text>
+<path d="M 815 1060 H 850" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+<text x="44" y="1150" font-size="22" font-weight="600" style="fill:#111827">归还后：next_[0] 从 1 改成 2，所以空闲链跳过仍在使用的槽位 1。</text>
+<text x="44" y="1186" font-size="20" font-weight="400" style="fill:#111827">下一次 acquire() 会返回 0。objects_ 的存储位置始终不动，变化的只是下标链接与使用状态。</text>
+</svg>

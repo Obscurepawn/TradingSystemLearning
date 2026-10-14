@@ -1,31 +1,163 @@
-# HFT Engineering从入门到入土（2）—— 访存与计算的极致Latency优化
+# HFT Engineering从入门到入土（2）—— 常见低延迟系统访存与计算的优化手段
 
 目前主流的HFT系统普遍都已经做到了亚微秒交易的Latency级别，在这种情况下，我们的编程技巧将和实现常见的high throughput system的有很大的不同，因为我们将需要从计算、访存、IO去抠指令级、ns级的Latency Reduce。
 
 下文将从进程内的访存和计算进行分析，阐述一下HFT System中常见的编程技巧（IO相关的优化会在下一篇文章介绍）。
 
-本文所列举的优化手段主要参考了 [Building Low Latency Applications with C++](https://github.com/PacktPublishing/Building-Low-Latency-Applications-with-CPP)和 [C++ design patterns for low-latency applications including high-frequency trading](https://arxiv.org/abs/2309.04259)，下文所有Demo使用 C++20 进行实现。
+这篇文章所列举的优化手段主要参考了 [Building Low Latency Applications with C++](https://github.com/PacktPublishing/Building-Low-Latency-Applications-with-CPP)、[C++ design patterns for low-latency applications including high-frequency trading](https://arxiv.org/abs/2309.04259)，以及 [LMAX Group 的技术博客](https://technology.lmax.com/)。
 
-RDTSC 的指令开销数据参考 [uops.info 的测量结果](https://uops.info/html-instr/RDTSC.html)。
+## 1. 延迟优化的前提是先要具备测量的手段
 
-## 1. 先定义要优化的延迟
+看到一段代码用了哈希表、虚函数或者动态内存分配，很容易想到几种优化办法。但动手之前，可以先回答一个更实际的问题：一条行情从进入程序到产生订单，时间到底花在了哪里？
 
-### 1.1 处理速度和响应时间是两件事
+在一般追求应用的吞吐上，我们对于延迟的测算往往直接使用基于steady clock的软件时间戳即可，并且绝大多数情况也不会考虑测量本身带来的开销。但如果我们要做亚微秒级的交易系统，测量是一门可以deep dive的学问
 
-假设一次函数调用只花了很短时间，但消息在队列中已经等了很久。只测函数内部，会得到一个漂亮却不完整的结果。
+### 1.1 先确定测量的起点和终点
 
-对进程内的一条消息，可以先拆成：
+一次行情驱动的交易，大致经过下面这条路径：
 
 ```text
-消息进入进程 ── 排队等待 ── 开始处理 ── 业务计算与编码 ── 交给发送接口
-                    │                      │
-                 排队延迟                服务时间
-└────────────────────── 进程内响应时间 ──────────────────────┘
+行情进入网卡 → 应用取得行情 → 解码 → 更新订单簿 → 策略 → 风控与编码
+    H0            C0                                      C4
+                                                          │
+                          交易所处理 ← 网络 ← 网卡发出 ← 提交发送
+                                               H1
 ```
 
-这个终点还不包含网卡实际发出、网络传播和交易所处理。测量时必须把起止点写清楚。
+这里有两种不同的测量
 
-吞吐量回答一秒处理多少消息，延迟回答一条消息要等多久。批量处理可能提高吞吐量，却让第一条消息等得更久；增加工作线程可能分摊计算，也可能增加队列与缓存一致性开销。因此，至少应同时观察吞吐量、p50、p99、p99.9，以及测试期间的最慢样本。平均值会掩盖少量慢请求。
+`C4 - C0` 是应用取得行情到订单准备完毕的进程内耗时；`H1 - H0` 则覆盖了本机从收行情到发订单的路径，常被称为 tick-to-trade latency。后者包含网卡与主机之间的数据传递，以及收发路径中的等待。这些减法都要求两端时钟可比较；**此处需要注意的是，来自不同时钟域的时间戳（例如nic上的tsc和cpu上的tsc），往往不能直接做运算/比较**
+
+`H0` 和 `H1` 可以来自网卡硬件时间戳，即网卡在收发报文经过特定位置时记录的时刻。它比应用调用收发函数时打点更接近网络边界。在支持该功能的 Linux socket 路径中，可以用 `SO_TIMESTAMPING` 请求硬件时间戳；接收时间戳随报文返回（一般会replace掉frame中的部分内容，例如对于一个以太网帧来说，可能会替代掉其fsc，代价是无法做crc校验数据是否正确）。发送时间戳则在发送后从socket错误队列异步读取。接口和关联方法见 [Linux 时间戳文档](https://docs.kernel.org/networking/timestamping.html)。
+
+即使拿到了发送硬件时间戳，也只确定了本机发送边界。`send()` 返回、网卡发出、交易所接受订单、订单成交，是不同的完成点。本文主要讨论 `C0` 到 `C4` 之间的计算、访存和线程交接；网络 I/O 与内核旁路留到下一篇展开。
+
+### 1.2 沿同一条消息拆分进程内耗时
+
+先看所有业务阶段都在同一线程中执行的情况。与其给每个阶段分别读两次时钟，可以在相邻阶段之间共用一个时间点：
+
+```text
+C0          C1               C2           C3                C4
+│── 解码 ──│── 更新订单簿 ──│── 策略 ──│── 风控与编码 ──│
+└──────────────── 应用处理总耗时 ───────────────────────────┘
+```
+
+这样只需五个时间点，就能计算四段耗时和总耗时：
+
+| 区间 | 计算方式 | 这段变慢时可以继续检查什么 |
+|---|---|---|
+| 行情解码 | `C1 - C0` | 字段解析、字符串构造、额外复制 |
+| 订单簿更新 | `C2 - C1` | 查找、节点分配、缓存未命中 |
+| 策略决策 | `C3 - C2` | 特征计算、数据访问、分支路径 |
+| 风控与编码 | `C4 - C3` | 账户状态读取、订单构造、格式化 |
+| 应用处理总耗时 | `C4 - C0` | 上述串行路径的整体表现 |
+
+下面用 `std::chrono::steady_clock` 写一个最小的分段打点示例。四个回调由caller提供
+
+```cpp
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+
+using TraceClock = std::chrono::steady_clock;
+
+struct StageTrace {
+    std::uint64_t event_id;
+    std::array<TraceClock::time_point, 5> time;
+};
+
+template<class Decode, class UpdateBook, class Decide, class RiskEncode>
+StageTrace measure_stages(std::uint64_t event_id,
+                          Decode&& decode, UpdateBook&& update_book,
+                          Decide&& decide, RiskEncode&& risk_encode) {
+    StageTrace trace{event_id, {}};
+    trace.time[0] = TraceClock::now();
+    decode();
+    trace.time[1] = TraceClock::now();
+    update_book();
+    trace.time[2] = TraceClock::now();
+    decide();
+    trace.time[3] = TraceClock::now();
+    risk_encode();
+    trace.time[4] = TraceClock::now();
+    return trace;
+}
+
+// 在统计线程中调用
+auto stage_durations_ns(const StageTrace& trace) {
+    std::array<std::int64_t, 4> result{};
+    for (std::size_t i = 0; i < result.size(); ++i) {
+        result[i] = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            trace.time[i + 1] - trace.time[i]).count();
+    }
+    return result;
+}
+```
+
+这里保留原始时间点，把单位换算和统计留到后面。同一条记录中的 `event_id` 用来把各阶段关联起来。
+
+### 1.3 选时钟时，先考虑可比较性，再考虑成本
+
+在一般的应用程序中，`steady_clock` 比较容易使用，并且在大多数场景可以完全满足需求：它保证时间点不倒退，适合计算时间间隔。但steady clock内部做了额外的工作：将tsc计数转换成具体的unix时间戳，但这种转换操作，我们往往希望会放到metrics report thread上执行。
+
+但如果计算和访存的Latency已经短到读钟成本不可忽略，在 x86 上可以进一步研究 TSC（Time Stamp Counter，时间戳计数器）。`RDTSC`、`RDTSCP` 可以读取它，差值按 TSC 频率换算：
+
+```text
+elapsed_ns = (end_tsc - begin_tsc) × 1,000,000,000 / tsc_hz
+```
+
+这里的 `tsc_hz` 是经过确认的 TSC 频率，不是 CPU 当前睿频频率（这是为了解决CPU睿频频率不稳定导致时钟测量有误差的问题）
+
+需要注意的是计时边界。裸 `RDTSC` 不能阻止 CPU 乱序执行，`RDTSCP` 也不是完整的双向序列化屏障。用于短区间计时时，需要按目标处理器/编译器语义插入Fence/Barrier
+
+以 Intel x86-64、GCC/Clang 为例，可以把读钟封装成下面的形式
+
+```cpp
+#include <cstdint>
+
+inline std::uint64_t ordered_rdtsc() noexcept {
+    std::uint32_t lo, hi;
+    asm volatile(
+        "lfence\n\t"
+        "rdtsc\n\t"
+        "lfence"
+        : "=a"(lo), "=d"(hi)
+        :
+        : "memory"
+    );
+    return (static_cast<std::uint64_t>(hi) << 32) | lo;
+}
+```
+
+| 写法 | 解决的问题 |
+|---|---|
+| 前面的 `lfence` | 等此前指令完成到相应执行边界，避免读钟提前执行 |
+| 后面的 `lfence` | 阻止后续指令越过读钟位置提前执行 |
+| `asm volatile` | 避免汇编因输出未使用而被删除；单独使用不保证周围代码不重排 |
+| `"memory"` clobber | 告诉编译器该汇编可能读写内存，约束周围内存访问的移动 |
+
+`"memory"` 是编译器层面的内存屏障，不会自行生成 CPU fence；`LFENCE` 则是实际执行的机器指令。这里把三条指令写在同一个汇编块中，也避免编译器在它们之间插入其他指令
+
+这个封装仍然不是“所有代码都不会移动”的通用开关。尤其是纯寄存器计算，`"memory"` 并不保证它留在计时区间内。例如下面的写法只是说明一个陷阱，不能直接作为可靠的乘法微基准：
+
+```cpp
+auto begin = ordered_rdtsc();
+auto result = x * 123;  // 仍可能被提前计算、常量折叠，或因结果未使用而删除，编译器会有各种优化的手段。
+auto end = ordered_rdtsc();
+```
+
+最准确的方法是通过编译产物的汇编来确定具体的测量行为是否符合预期。
+
+如果两个时间点分别来自不同 CPU 核，尤其是不同CPU Socket，还需要验证 TSC 的一致性。在真实的生产交易系统中，往往会做极致的亲和性部署（策略进程、交易进程、风控进程通过shared memory进行通信）降低跨Socket带来的TSC误差。
+
+网卡时间戳又属于另一层问题。网卡的 PTP 硬件时钟（PHC）和 CPU 的 TSC，可能有不同的起点和计数速率，这就是不同的时钟域。即使都表示成纳秒，也不能直接计算 `应用时间 - 网卡时间`。跨域相减之前需要建立时钟映射并评估误差；跨机器测量还需要同步。PTP 提供同步机制。相关基础接口见 [Linux PHC](https://docs.kernel.org/driver-api/ptp.html)。
+
+由于我们这个章节只关心进程内各阶段时，先统一使用一种可靠的单调时钟，后续章节会补齐全链路上的延迟测量手段。
+
+### 1.4 既看分布，也保留同一条消息的分段记录
+
+吞吐量代表一秒处理多少消息，延迟代表一条消息要等多久。批量处理可能提高吞吐量，却让第一条消息等得更久；增加工作线程可能分摊计算，也可能增加队列与缓存一致性开销。因此，至少应同时观察吞吐量、p50、p99、p99.9，以及测试期间的最慢样本。平均值会掩盖少量慢请求。
 
 下面是一个最小的延迟记录器。初始化时预留空间，采样只追加整数，排序放到测量结束以后；超过容量会记录丢失的样本数。
 
@@ -70,17 +202,91 @@ public:
 // 用法：record(arrival_time, send_time)；结束后读取 percentile(990)。
 ```
 
-计时和记录样本本身也占用时间。上面的记录器用于观察消息延迟分布；测量几纳秒级操作时，应在一个计时区间内重复执行，并单独评估计时开销。线上采样还需要记录丢样数量和负载变化。
+对于前面的 `StageTrace`，可以为四个阶段分别建立记录器，再单独建立一个总耗时记录器。用 `record(trace.time[0], trace.time[4])` 记录总耗时，用相邻时间点记录各阶段。正式热路径中更适合先保存整条 `StageTrace`，随后在停止测量或安全移交给统计线程后做这些操作，避免边处理业务边更新多个统计容器。
+
+各阶段的 p99 不能相加得到总耗时的 p99：不同阶段最慢的样本，可能来自不同消息。正确做法是先对每条消息计算总耗时，再对这些总耗时求分位数
+
+### 1.5 控制测量本身的干扰
+
+读钟、写时间戳和搬运统计数据，都要消耗 CPU、缓存和内存带宽。前面的示例适合建立阶段边界，但不是无开销的生产级追踪器。如果整个消息处理只有很短时间，增加五次时钟读取就可能明显改变结果。
+
+热路径应只保存必要的整数、时间点和标识。**格式化、排序、分位数计算和文件输出放到路径之外**。每个线程独占自己的记录缓冲区，后台读取时再通过明确的所有权移交或队列协议同步
+
+### 1.6 用 SPSC 队列把时间戳交给统计线程
+
+同一个进程里的线程本来就共享地址空间，不需要为了上报时间戳再建立一块 `mmap` 共享内存。真正需要解决的是：worker 还在写数据时，统计线程不能读；统计线程还没读完时，worker 不能覆盖。
+
+这里可以直接使用第 2.5.3 节的 SPSC 环形队列。SPSC 表示单生产者、单消费者：一个 worker 负责写入，一个统计线程负责读取。队列在启动时创建，两端持有同一个队列对象的引用，其寿命覆盖两端线程的整个运行期。
+
+```text
+worker                       预分配的环形队列                  统计线程
+业务处理、记录时间戳
+        │
+完整的 StageTrace
+        └── try_push ──────→ [记录][记录][空槽] ─── try_pop ──→ 局部副本
+        │                                                       │
+继续下一条业务消息                                         计算时间差、更新直方图
+                                                          定期上报聚合指标
+```
+
+统计线程读取的是队列内部数组中的槽位，不是 worker 栈上的 `trace`。一次交接按下面的顺序完成：
+
+1. worker 检查槽位可用，把完整记录复制进去，再通过 release 操作发布写入位置。
+2. 统计线程通过 acquire 操作观察到新位置，才读取对应槽位，将记录复制到自己的局部变量。
+3. 统计线程通过 release 操作发布消费进度；worker 通过 acquire 观察到空间后，才能复用槽位。统计计算继续使用局部副本。
+
+```cpp
+// worker 调用。dropped 只由这个 worker 访问；满队列不重试。
+template<class Queue>
+void submit_trace(Queue& queue, const StageTrace& trace,
+                  std::uint64_t& dropped) {
+    if (!queue.try_push(trace)) ++dropped;
+}
+
+// 统计线程调用。aggregate 在本线程内更新直方图，不做网络 I/O。
+// 每轮最多取 256 条已有记录，不等待凑够一个批次。
+template<class Queue, class Aggregate>
+std::size_t drain_traces(Queue& queue, Aggregate&& aggregate) {
+    StageTrace local{};
+    std::size_t count = 0;
+    while (count < 256 && queue.try_pop(local)) {
+        aggregate(local.event_id, stage_durations_ns(local));
+        ++count;
+    }
+    return count;
+}
+```
+
+
+### 1.7 延迟数据交接大概要付出多少延迟
+
+| 指标 | 起点与终点 | 用途 |
+|---|---|---|
+| worker 入队耗时 | 调用 `try_push` 到返回 | 估算业务线程增加的直接成本 |
+| 记录交接延迟 | 入队前到统计线程成功取出 | 检查发布、跨核传递、排队和轮询等待 |
+| 指标上报延迟 | 记录产生到聚合结果上报完成 | 判断监控数据的新鲜度 |
+
+worker 不需要等到统计线程拿到记录才返回，因此后两项不能直接加到 worker 的处理耗时里。反过来，`try_push()` 返回也不能证明统计线程已经看到了记录。
+
+以常见的 64 位实现为例，如果一个 `time_point` 占 8 字节，`StageTrace` 就是 8 字节 ID 加 5 个时间点，共 48 字节，实际应检查 `sizeof(StageTrace)`。成功入队主要做一次判满、复制这 48 字节和发布游标。
+
+一个公开的数量级参照是 [Rigtorp SPSCQueue 基准](https://github.com/rigtorp/SPSCQueue#benchmarks)：在 AMD Ryzen 9 3900X 的同一 chiplet、不同核心上，用两个队列传递 `int`，报告的往返延迟为 **133 ns**。不过它测的是一次往返，不是一次 `try_push()`
+
+一般来说，可以先按**几十到几百纳秒的 worker 入队成本做预算敏感性分析**
+
+## 2. 常见的 Latency 优化手段
+
+在上面我们介绍了延迟如何测量，接下来我们要从指令级开始抠一个亚微秒级交易系统的延迟了，在本文的重点就是先梳理一些最常见的手段
 
 <a id="prepare"></a>
 
-## 2. 把工作移出关键路径
+### 2.1 编译期计算与静态分派
 
-### 2.1 能提前算出的值，不必随消息重算
+#### 2.1.1 constexpr 编译期计算与查表
 
-协议字段宽度、固定换算系数、消息类型对应表，通常在编译时或启动时就能确定。这里要区分两个时机：真正的常量可以在编译期生成；来自配置文件的参数，应在初始化阶段解析和校验。
+协议字段宽度、固定换算系数、消息类型对应表，通常在编译时或启动时就能确定。真正的常量可以在编译期生成；来自配置文件的参数，应在初始化阶段解析和校验。TLDR就是计算前移到编译期或者进程启动时（进程启动时进行计算的思想也会运用到后续的page prefault中，整体上来说是一个低延迟系统中非常常见的技巧）
 
-例如，按十进制精度取得缩放系数：
+下面是一个按十进制精度取得缩放系数的demo代码：
 
 ```cpp
 #include <array>
@@ -115,11 +321,9 @@ std::optional<std::uint64_t> scale_good(unsigned decimals) {
 static_assert(scales[4] == 10'000);
 ```
 
-`constexpr` 函数表示它**可以**用于常量求值。拿运行时输入调用它，仍然可能执行运行时计算；反过来，普通函数遇到可见的常量输入，也可能被编译器常量折叠。
+`constexpr` 函数表示它**可以**用于常量求值。拿运行时输入调用它，**仍然可能执行运行时计算**；
 
-查表同样有成本。小表常驻缓存时容易受益，大表可能把原来的几条算术指令换成一次缓存未命中。先消除重复配置处理和重复解析，再考虑是否需要查表。
-
-### 2.2 配置固定时，用静态分派暴露具体实现
+#### 2.1.2 函数模板、CRTP 与编译期静态分派
 
 每条消息都经由虚函数或 `std::function` 调用策略，编译器未必能看到实际目标。对于启动后不变的行为，可以把选择放在外层，让内层处理具体类型。
 
@@ -154,17 +358,59 @@ bool example() {
 }
 ```
 
-目标函数可见以后，除了省去间接跳转，编译器还有机会继续做常量传播、删除无用分支。实现这种静态分派，一个普通模板函数就够了。
+目标函数可见以后，除了省去间接跳转，编译器还有机会继续做常量传播、删除无用分支。实现这种静态分派，一般来说通过普通模板函数就够了。
 
-插件和运行时替换适合保留动态分派；目标可推断时，编译器也可能自行去虚拟化。静态分派的代价是模板实例化带来的代码增长，过多实例会增加指令缓存压力。是否发生内联，则要看优化后的代码：`inline` 关键字本身不决定机器码的调用方式。
+如果希望把统一接口或公共处理流程放进基类，再由不同规则提供具体实现，可以使用 CRTP（Curiously Recurring Template Pattern，奇异递归模板模式）。它的写法是让派生类把自己的类型传给基类：`Derived : Base<Derived>`。
+
+沿用上面的 `Quote`，价差检查可以写成下面这样。这段代码接在前面的定义之后即可编译。
+
+```cpp
+template<class Derived>
+class RuleBase {
+protected:
+    RuleBase() = default;
+    ~RuleBase() = default;  // 不支持通过基类指针 delete 派生对象。
+
+public:
+    bool accept(const Quote& q) const noexcept {
+        // 约定：当前基类子对象确实属于 Derived 对象。
+        return static_cast<const Derived&>(*this).accept_impl(q);
+    }
+};
+
+class CrtpSpreadRule final : public RuleBase<CrtpSpreadRule> {
+public:
+    bool accept_impl(const Quote& q) const noexcept {
+        return q.bid_ticks < q.ask_ticks;
+    }
+};
+
+template<class Derived>
+bool check_crtp(const RuleBase<Derived>& rule, const Quote& q) noexcept {
+    return rule.accept(q);
+}
+
+bool crtp_example() {
+    CrtpSpreadRule rule;
+    return check_crtp(rule, Quote{100, 101});
+}
+```
+
+调用链是 `check_crtp()` → `RuleBase<CrtpSpreadRule>::accept()` → `CrtpSpreadRule::accept_impl()`。编译器在实例化时已经知道 `Derived` 是 `CrtpSpreadRule`，这里没有虚函数调用，也不需要在运行时查询实际类型；实现可见时，编译器有机会把整条调用链内联起来。
+
+`static_cast` 不会检查对象的动态类型，所以模板参数必须与实际派生对象匹配。它也要求基类是可访问、无歧义的非虚基类。不能让其他不匹配的类型继承 `RuleBase<CrtpSpreadRule>` 后照样调用 `accept()`；示例中的 protected 构造函数主要限制独立创建基类对象，并不能自动检查所有继承用法。相关转换条件见 [C++ static_cast 规则](https://eel.is/c++draft/expr.static.cast)。
+
+CRTP 与前面的普通函数模板都能实现静态分派。区别在于，CRTP 让基类能够调用派生类提供的实现，适合复用一套公共接口或处理流程；如果只需要调用 `rule.accept(q)`，普通函数模板更直接。`RuleBase<A>` 和 `RuleBase<B>` 也是两个不同类型，不能像同一个虚基类那样直接放进统一的基类指针容器。**不要仅为了性能把简单模板改成 CRTP：两者可能生成相同的机器码。**
+
+插件和运行时替换适合保留动态分派；目标可推断时，编译器也可能自行去虚拟化。**静态分派的代价是模板实例化带来的代码增长，过多模板的实例化会增加icache压力**。
 
 <a id="memory"></a>
 
-## 3. 管住内存分配、复制和查找
+### 2.2 内存分配、零拷贝视图与索引查找
 
-### 3.1 预分配，并且明确容量用完以后怎么办
+#### 2.2.1 预分配与固定容量缓冲区
 
-动态内存分配的问题不仅是平均耗时，还包括分配器内部竞争、扩容搬迁和首次触页。低延迟路径通常会在启动时准备好存储空间，在处理时复用。
+动态内存分配的问题不仅是平均耗时，还包括分配器内部竞争、resize导致的数据migration和首次触页导致的minor page fault。低延迟路径通常会在启动时准备好内存空间，在处理时复用。
 
 ```cpp
 #include <cstddef>
@@ -190,7 +436,7 @@ public:
     }
     // input 不得引用本对象 data_ 内的元素。
     bool collect(std::span<const Update> input) {
-        if (input.size() > limit_) return false;   // 超限交给调用方处理
+        if (input.size() > limit_) return false;   // 超限交给调用方处理，避免push back触发resize
         data_.clear();                            // 保留 capacity
         for (const auto& u : input) data_.push_back(u);
         return true;
@@ -200,11 +446,7 @@ public:
 };
 ```
 
-`reserve()` 改变容量，不会创建相应数量的元素，所以不能在空 `vector` 上直接写 `data_[i]`。超过预留容量以后，`push_back()` 仍可扩容；示例把业务上限单独保存，就是为了避免不知不觉退回动态分配。
-
-容量也不能只按平均流量估算。行情突发时，满队列、满对象池和批次超限，都必须有明确结果：重试、背压、拒绝，或按业务允许的规则丢弃。容量越大也未必越好，工作集变大可能降低缓存命中率。
-
-### 3.2 频繁创建的小对象，可以改为固定槽位池
+#### 2.2.2 对象池与空闲链表
 
 订单、订单簿节点和内部消息常常有已知的数量上限。与其每次 `new`、结束时 `delete`，可以预先放好一组对象，再用空闲链表管理槽位。
 
@@ -225,55 +467,97 @@ struct Order { std::uint64_t id; std::int64_t price_ticks; };
 template<std::size_t N>
 class OrderPool {
     static_assert(N > 0);
+
+    // 真正存放订单的数组。池创建时对象就已存在，申请时覆盖其内容。
+    // 槽位下标不是 Order::id；同一槽位可以先后存放不同订单。
     std::array<Order, N> objects_{};
+
+    // 用下标串起空闲槽位：next_[i] = j 表示 i 后面的空闲槽位是 j。
+    // 只有 i 空闲时，这个值才参与空闲链；i 已借出时可保留旧值。
     std::array<std::size_t, N> next_{};
+
+    // true 表示槽位已借出，false 表示空闲。{} 将初值全部设为 false。
     std::array<bool, N> used_{};
-    std::size_t head_ = 0;                         // N 表示空链表
+
+    // 第一个空闲槽位。有效下标为 [0, N)，用 N 表示没有空闲槽位。
+    std::size_t head_ = 0;
 public:
     OrderPool() {
+        // 初始化为空闲链 0 -> 1 -> ... -> N-1 -> N（结束）。
+        // N 只是结束标记，不能用来访问 objects_[N] 或 next_[N]。
         for (std::size_t i = 0; i < N; ++i) next_[i] = i + 1;
     }
 
+    // 借出一个槽位并写入订单；成功返回槽位下标，池满返回 nullopt。
     std::optional<std::size_t> acquire(Order value) noexcept {
         if (head_ == N) return std::nullopt;
-        const auto i = head_;
-        head_ = next_[i];
-        objects_[i] = value;                       // 填完整的新订单
-        used_[i] = true;
+        const auto i = head_;   // 取走当前链表头，不扫描整个数组。
+        head_ = next_[i];       // 原来的第二个空闲槽位成为新链表头。
+        objects_[i] = value;    // 赋值给已有对象，不执行 new。
+        used_[i] = true;        // i 已借出，不再属于空闲链。
         return i;
     }
 
+    // 只查询，不申请。越界或槽位空闲时返回 nullptr。
+    // 返回指针的业务使用权在 release(i) 时结束。
     Order* get(std::size_t i) noexcept {
         return i < N && used_[i] ? &objects_[i] : nullptr;
     }
 
+    // 归还槽位：只恢复可复用状态，不清空字段，也不析构 Order。
     bool release(std::size_t i) noexcept {
+        // 拒绝越界或归还仍为空闲状态的槽位，避免重复接入空闲链。
         if (i >= N || !used_[i]) return false;
         used_[i] = false;
-        next_[i] = head_;
-        head_ = i;
+        next_[i] = head_;       // i 指向旧链表头；不要求 i < head_。
+        head_ = i;              // i 成为新链表头，下次申请优先取走它。
+        // 顺序不能反过来，否则会把 next_[i] 写成 i，形成自环。
         return true;
     }
 };
 
 bool pool_example() {
     OrderPool<8> pool;
+    // 初始 head_ 为 0，因此这里取得槽位 0，订单的业务 ID 则为 7。
     const auto handle = pool.acquire(Order{7, 10'005});
-    if (!handle) return false;
+    if (!handle) return false;  // 判断 optional 是否有值，不是判断下标非零。
     pool.get(*handle)->price_ticks = 10'006;
+    // 用完后归还；此后不再用旧 handle 或旧指针访问这笔订单。
     return pool.release(*handle);
 }
 ```
 
-与逐次分配相比，这个版本把存储成本放到了初始化阶段，并且让申请、归还都只需固定数量的操作。池耗尽会返回空结果，而不是覆盖活跃对象。
+`next_` 保存的是链表关系，不是数组中的相邻关系。初始链恰好按下标递增，只是因为构造函数这样连接；经历申请和归还后，它完全可以变成 `3 -> 0 -> 1 -> 2`。订单在 `objects_` 中的位置不动，变化的只有管理下标。
 
-但整数索引不是永久身份：归还后，旧索引可能指向另一笔新订单。示例约定调用方归还后不再使用索引或指针；需要检测陈旧句柄时，应增加 generation 并校验。包含字符串、文件句柄等资源的对象还需要单独设计生命周期，不能照搬这个 POD 示例。
+例如，`OrderPool<4>` 当前的槽位 `0、1、2` 空闲，槽位 `3` 已借出，空闲链是：
 
-如果通过扫描数组寻找空槽，最坏仍要遍历整个池。空闲链表把这次扫描变成了固定数量的索引操作，因此这里的申请和归还都是 O(1)。
+```text
+head_ = 0
+空闲链：0 -> 1 -> 2 -> 4（结束标记）
+已借出：3
+```
 
-### 3.3 用视图避免复制，同时守住数据的生命周期
+现在调用 `release(3)`，虽然旧 `head_ = 0` 的数值比 `3` 小，仍然执行同样的头插操作：
 
-解析消息时，先把缓冲区复制成字符串，再切出字段字符串，是很常见的额外工作。`std::string_view` 和 `std::span` 可以表示一段已有数据，`std::from_chars` 可以直接在字符区间上解析整数。
+```cpp
+// release(3) 内部的状态变化：
+used_[3] = false;
+next_[3] = head_;  // next_[3] = 0：新归还的槽位指向旧链表头。
+head_ = 3;        // 再把新归还的槽位设为链表头。
+```
+
+结果是：
+
+```text
+head_ = 3
+空闲链：3 -> 0 -> 1 -> 2 -> 4（结束标记）
+```
+
+下一次 `acquire()` 返回 `3`，并把 `head_` 更新为 `next_[3]`，也就是 `0`。这里的“前后”指链表中的逻辑顺序，与数组下标大小无关。若原来没有空闲槽位，即 `head_ == N`，归还后就是 `i -> N`，同样成立。
+
+#### 2.2.3 非必要不创造数据副本
+
+解析消息时，先把缓冲区复制成字符串，再切出字段字符串，是很多系统中是很常见的额外计算工作的来源。
 
 ```cpp
 #include <charconv>
@@ -306,13 +590,7 @@ std::optional<std::uint32_t> parse_good(std::string_view field) {
 }
 ```
 
-两版都检查格式、越界和未消费完的字符，区别只在是否复制输入。短字符串可能使用 SSO，不一定发生堆分配，但复制本身仍然存在。
-
-视图不会延长原缓冲区的寿命。网络接收缓冲区下一轮被覆盖后，视图的地址可能仍有效，内容却已经不是原来的消息；缓冲区释放或重新分配后，视图才会真正悬空。如果消息要交给另一线程，应在边界上提取成有所有权的小结构体，或移交整个缓冲区的所有权。不能因为追求“零拷贝”而让消费者读到被覆盖的数据。
-
-这条原则也适用于 `const T&`、裸指针和 `span`：减少复制要和所有权设计一起完成。
-
-### 3.4 返回值交给编译器，避免无意义的 `std::move`
+#### 2.2.4 返回值优化（NRVO）与隐式移动
 
 减少复制不等于给每个变量加上 `std::move`。返回局部变量时，多写一个 move 反而可能妨碍命名返回值优化（NRVO）。
 
@@ -333,11 +611,9 @@ std::vector<std::uint64_t> make_good(std::size_t n) {
 }
 ```
 
-编译器可以对命名局部变量执行 NRVO；C++17 对直接返回同类型纯右值则另有保证的复制消除规则。这里的 `vector` 移动通常很便宜，因此两版的实际差距可能很小，直接返回局部变量仍是更自然的写法。其他类型的移动成本取决于其实现，`std::move` 本身只转换表达式的值类别。
+#### 2.2.5 稠密 ID 映射与数组直接索引
 
-### 3.5 对稠密、有界的键，直接索引往往比通用查找合适
-
-外部订单号和证券代码可能很稀疏，但进入内部系统以后，可以映射成紧凑编号。若编号范围已知，数组访问能省去哈希计算、桶访问和节点间接寻址。
+在交易系统场景中，外部订单号和标的代码可能很稀疏，但进入内部系统以后，完全可以映射成紧凑编号。若编号范围已知，数组访问能省去哈希计算、桶访问和节点间接寻址。
 
 ```cpp
 #include <array>
@@ -364,15 +640,11 @@ struct DenseStates {
 };
 ```
 
-这个例子只比较**已知稠密编号上的查找**。若直接拿 64 位交易所订单号做下标，数组可能大得无法接受。通用哈希表也有合适的场景；预留桶可以减少 rehash，但并不保证消除每个节点的分配。
-
-价格索引也要遵循相同约束。`price % capacity` 会把不同价格映射到同一槽位，需要处理冲突；若交易价格被限制在一个小窗口内，则可以先检查范围，再用 `price - base_price` 直接定位。
-
 <a id="layout"></a>
 
-## 4. 按访问方式组织数据
+### 2.3 数据布局与缓存局部性
 
-### 4.1 先减少工作集，再谈缓存命中
+#### 2.3.1 结构体布局与冷热数据分离
 
 CPU 从内存搬运数据时，以缓存行为单位。一次只用几个字节，也可能把附近暂时无用的字段带进缓存。低延迟代码中，数据布局经常比某条算术指令更值得优化。
 
@@ -396,7 +668,7 @@ struct OrderGood {
 };
 ```
 
-在常见的 64 位 ABI 上，两者通常分别占 32 和 24 字节，具体以目标平台的 `sizeof` 为准。重新排列字段减少填充，但不改变字段含义。不要为了省字节到处 `#pragma pack(1)`：非对齐访问可能增加成本，甚至在某些目标上受到限制；网络报文布局也应与内部计算布局分开。
+在常见的 64 位 ABI 上，两者通常分别占 32 和 24 字节，具体以目标平台的 `sizeof` 为准。重新排列字段减少填充，但不改变字段含义。
 
 如果一个订单对象还挂着几十字节的备注、字符串和历史统计，仅调整顺序不够。应进一步考虑把经常一起访问的字段放在一起，把很少访问的字段移到旁边。
 
@@ -432,9 +704,9 @@ struct ColdOrder {
 
 冷热分离让热点循环少搬运无关数据，代价是访问冷字段时需要额外定位。是否划算，取决于热字段和冷字段各自的访问频率。
 
-### 4.2 顺序访问与 SoA：让要处理的字段连续排列
+#### 2.3.2 AoS、SoA 与顺序访问
 
-AoS（array of structures，结构体数组）适合一次处理一条记录；SoA（structure of arrays，把各字段分别存成数组）适合一次处理同一个字段。比如一个批次只统计数量是否超过阈值，SoA 可以只读数量数组。
+AoS（array of structures，结构体数组）适合一次处理一条记录；SoA（structure of arrays，把各字段分别存成数组）适合一次处理同一个字段。比如一个批次只统计数量是否超过阈值，SoA 可以只读目标的数量数组，不会有非必要数据被搬迁到cacheline中。
 
 ```cpp
 #include <cstddef>
@@ -468,37 +740,122 @@ std::size_t count_soa(std::span<const std::uint32_t> quantities,
 }
 ```
 
-如果每次都同时读取价格、数量和订单数，AoS 往往更便于处理整条记录，也可能更快。SoA 适合同字段批量扫描，同时需要保持各数组的长度和索引一致。
+#### 2.3.3 预缺页（Prefault）与预取（Prefetch）
 
-相同原则也解释了为什么“小规模连续数组 + 扫描”有时优于复杂的树和链表：后者虽然操作次数少，指针追踪却可能让 CPU 连续等待多个不相关地址。算法复杂度仍然重要，但要和工作集规模、访问模式一起看。
+首次访问内存时的缺页处理提前完成，这就是 **prefault（预缺页）**。在 Linux 上，申请一段匿名映射后，拿到地址不意味着整个区间都已经建立了可写的物理页映射。若直到第一条行情到来才写入，页面分配、清零和页表更新等工作就可能进入业务路径；这类匿名内存的首次缺页通常是 minor fault，并不需要从磁盘读取数据。
 
-比较两种布局时，应让它们完成同样的访问任务。随机访问改成顺序访问后，硬件预取和局部性也随之改变，测出的差异就包含了多项因素。
-
-### 4.3 预热与预取：把首次使用的工作提前
-
-初始化阶段可以分配缓冲区、初始化查找表，并用没有外部副作用的测试数据跑一遍编码和计算路径。这可以减少首次使用才发生的工作，但初始化完成不代表数据从此一直留在 L1。
-
-下面的例子在启动时实际写入要使用的缓冲区，而不是只保留一段尚未使用的容量：
+最直观的做法是在初始化阶段，向每个页面写一个字节。下面用匿名内存映射演示，这个缓冲区只存放字节，创建后先完成 prefault，再交给业务使用；对象析构时释放内存映射。
 
 ```cpp
+#include <cerrno>
 #include <cstddef>
-#include <cstdint>
-#include <vector>
+#include <span>
+#include <stdexcept>
+#include <system_error>
+#include <sys/mman.h>
+#include <unistd.h>
 
-struct ReceiveBuffer {
-    std::vector<std::byte> bytes;
-    std::vector<std::uint32_t> decode_table;
+class PrefaultBuffer {
+    void* data_ = MAP_FAILED;
+    std::size_t size_;
+public:
+    explicit PrefaultBuffer(std::size_t bytes) : size_(bytes) {
+        if (bytes == 0) throw std::invalid_argument("empty buffer");
 
-    ReceiveBuffer(std::size_t buffer_bytes, std::size_t symbols)
-        : bytes(buffer_bytes, std::byte{0}), decode_table(symbols, 0) {
-        // 实际应用在这里载入、校验配置并建立解码表。
+        // 查询基础页大小，不把 4KB hardcode在代码中。
+        const long page_size = ::sysconf(_SC_PAGESIZE);
+        if (page_size <= 0)
+            throw std::runtime_error("cannot get page size");
+        const auto page = static_cast<std::size_t>(page_size);
+
+        // mmap 返回页对齐地址；此处尚未逐页触碰。
+        data_ = ::mmap(nullptr, size_, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (data_ == MAP_FAILED)
+            throw std::system_error(errno, std::generic_category(), "mmap");
+
+        // 只对这段尚无业务数据的缓冲区执行。
+        // volatile 保留实际写入，避免编译器删除看似无用的触页操作。
+        auto* touch = static_cast<volatile unsigned char*>(data_);
+        for (std::size_t offset = 0; offset < size_;) {
+            touch[offset] = 0;  // 写访问，提前触发所需的可写页面映射。
+            if (size_ - offset <= page) break;  // 下一步越出区间，避免加法溢出。
+            offset += page;
+        }
+        // size_ 已检查非零。补写末字节，让这套触碰方法也适用于非对齐起点。
+        touch[size_ - 1] = 0;
+    }
+
+    // 一个对象独占一段映射，禁止浅拷贝后重复 munmap。
+    PrefaultBuffer(const PrefaultBuffer&) = delete;
+    PrefaultBuffer& operator=(const PrefaultBuffer&) = delete;
+
+    ~PrefaultBuffer() { ::munmap(data_, size_); }
+
+    std::span<std::byte> view() noexcept {
+        return {static_cast<std::byte*>(data_), size_};
     }
 };
+
+void prefault_example() {
+    PrefaultBuffer buffer(16 * 1024 * 1024);  // 初始化阶段触碰 16 MiB。
+    auto bytes = buffer.view();
+    // 正式处理阶段复用 bytes；视图不能超过 buffer 的生命周期。
+    bytes[0] = std::byte{0x42};
+}
 ```
 
-这一步提前完成缓冲区分配和初始化；后续的页面驻留、缺页和缓存命中情况仍受操作系统及实际负载影响。预热编码路径时，使用独立的测试状态，只运行编码和计算，将真实发单、持仓修改和业务序号消耗留给正式处理流程。
+这里需要区分 `mmap` 和 `malloc` 的对齐保证。页对齐指的是**返回的虚拟地址**为页大小的整数倍，不表示物理页连续，也不表示页面已经驻留：
 
-软件预取则是在运行过程中提示 CPU 提前取将来会用的数据。顺序遍历常常已有硬件预取；比较值得实验的是“下一批索引已知，但目标位置不连续”的访问。
+| 获取内存的方式 | 是否保证起始地址按页对齐 | 对 prefault 的影响 |
+|---|---|---|
+| 本例的 Linux `mmap(nullptr, ...)` | 成功时返回页对齐地址 | 从偏移 0 按页大小递进，就能触碰映射涉及的每一页 |
+| 普通 `malloc(size)` | 不保证页对齐；它满足普通对象所需的对齐要求 | 返回地址可能位于页内，按页步进后还需考虑末尾跨页 |
+
+即使 `malloc` 为大块分配在内部使用了 `mmap`，也不能据此推断返回给调用方的指针按页对齐；分配器管理的映射起点与用户可用区起点未必相同。`vector.data()` 同样没有通用的页对齐保证。从页对齐的映射中截取一段子区间，也可能得到未对齐的起点。[Linux mmap 文档](https://man7.org/linux/man-pages/man2/mmap.2.html)、[Linux malloc 文档](https://man7.org/linux/man-pages/man3/malloc.3.html)
+
+为什么可能漏掉最后一页？**缓冲区长度是一页，不代表它只覆盖一个页面。** 假设页大小为 4096 字节，缓冲区从某页内偏移 1024 的位置开始，长度为 4096 字节。以下地址均相对于该页页首：
+
+```text
+第 1 页：[0, 4096)          第 2 页：[4096, 8192)
+缓冲区：[1024, 5120)       最后一个字节位于 5119
+
+缓冲区偏移 0    -> 地址 1024：位于第 1 页，循环会写这里。
+缓冲区偏移 4096 -> 地址 5120：已经越出缓冲区，不能写。
+缓冲区偏移 4095 -> 地址 5119：位于第 2 页，末字节补写会覆盖这里。
+```
+
+如果只有按页步进的循环，它写完偏移 0 就退出了，因为下一个偏移 4096 已经等于缓冲区长度；但缓冲区实际跨了两个页面，第二页还没触碰。最后追加 `touch[size_ - 1] = 0`，就补齐了这一页，而且没有越界。
+
+对于更长的区间，相邻触碰地址相差恰好一页，会落在连续页面的相同页内偏移上，不会跳过中间页面。最后一次循环写入到区间末尾的距离不足一页，因此最多漏掉末尾那一页，补写末字节即可。对于本例页对齐的 `mmap` 地址，这次补写只是再次触碰已经覆盖的页面。
+
+这里选择**写入**而不只是读取，是因为匿名内存的首次读取可能只建立到共享零页（Linux zero page）的只读映射，后续第一次写入仍需分配私有页面。这里的零页是内容全为零、可由多个虚拟页共享的物理页，不是虚拟地址 0 所在的页面。Linux 官方文档的 [Anonymous Memory 小节](https://docs.kernel.org/admin-guide/mm/concepts.html#anonymous-memory)说明了这一过程：读取时可以建立指向特殊全零物理页的页表项，写入时再分配物理页来保存数据。
+
+写入能把这部分成本也提前承担。`volatile` 仅用于保留触页操作，避免编译器触发dead code优化将这段逻辑删除掉。
+
+Linux 5.14 起也可以在支持的可写映射上使用 `madvise(addr, length, MADV_POPULATE_WRITE)`，让内核完成可写 prefault，避免用户态逐页写零。需要检查返回值：失败时可能已有部分页面完成处理，不能把失败当成完全未执行。它同样不等于锁页。[Linux madvise 文档](https://www.man7.org/linux/man-pages/man2/madvise.2.html)
+
+```cpp
+// Linux：放在构造函数中，mmap 成功之后。
+if (::madvise(data_, size_, MADV_POPULATE_WRITE) == -1) {
+    const int error = errno;
+    // 构造函数抛异常时不会执行本对象的析构函数，必须先释放映射。
+    ::munmap(data_, size_);
+    data_ = MAP_FAILED;
+    throw std::system_error(error, std::generic_category(),
+                            "MADV_POPULATE_WRITE");
+}
+```
+
+prefault的几种写法的区别可以归纳为：
+
+| 写法 | 用户代码做什么 | 适用目的 |
+|---|---|---|
+| 按页步进写零，并补写末字节 | 覆盖每页，最后一页可能触碰两次 | 对新缓冲区做手动可写 prefault，写入次数较少，能降低启动成本 |
+| 整段写零 | 覆盖每个字节，同时触页 | 启动成本不重要，此时使用memset做一次简单的prefault |
+| `MADV_POPULATE_WRITE` | 请求内核建立可写页表，不主动改写原有字节内容 | 支持该接口的 Linux 上做可写 prefault |
+
+软件预取则是在运行过程中提示 CPU 提前取将来会用的数据。顺序的内存访问常常已有硬件预取
 
 ```cpp
 #include <cstddef>
@@ -521,13 +878,11 @@ std::uint64_t sum_indirect(std::span<const std::uint64_t> values,
 }
 ```
 
-`distance = 16` 只是实验起点，不是通用参数。太近可能来不及，太远可能提前逐出其他数据，地址计算本身也必须合法。只有与不预取的相同循环比较、并确认内存等待确实减少，才有理由保留它。
-
 <a id="execution"></a>
 
-## 5. 缩短实际执行的代码路径
+### 2.4 分支、循环与数值计算优化
 
-### 5.1 先做便宜且容易拒绝的检查
+#### 2.4.1 短路求值与条件检查顺序
 
 一条订单需要通过多项检查。有些只读几个字段，有些要查表或遍历状态。如果前面的检查已经失败，后面的计算通常没有必要继续。
 
@@ -554,11 +909,9 @@ bool accept_good(Request r, std::span<const std::uint8_t> flags) {
 }
 ```
 
-`&&` 和 `||` 有短路语义，`&` 和 `|` 没有。检查顺序应结合成本和失败概率安排；如果必须收集全部错误，或者检查函数还承担记录、扣减等副作用，就不能随意跳过。
+`&&` 和 `||` 有短路语义，`&` 和 `|` 没有。但如果check本身具备side effect，这里需要谨慎思考是否可以短路掉逻辑
 
-调整检查顺序的收益取决于输入分布；编译器也可能已经消除了部分重复计算，因此还要对照优化后的代码。
-
-### 5.2 错误消息等到出错时再构造
+#### 2.4.2 延迟格式化与 cold/noinline 冷路径分离
 
 热路径里经常藏着这样的开销：检查本身很便宜，但调用检查函数之前，已经把错误字符串拼好了。
 
@@ -591,13 +944,11 @@ void validate_good(OrderCheck o) {
 }
 ```
 
-第二版把格式化和异常构造都留在失败分支里。`cold`、`noinline` 是 GCC/Clang 扩展，帮助编译器安排少用的代码；即使移除这些属性，成功路径也已经省掉了字符串构造。
+此处把格式化和异常构造都留在失败分支里。`cold`、`noinline` 是 GCC/Clang 扩展，帮助编译器合理的排布指令布局；
 
-这里用异常只是为了缩短错误处理示例。如果拒单属于正常输入，应返回错误码或错误事件，避免靠抛异常处理日常业务。也不要给可能抛异常的函数随意加 `noexcept`：它不会把异常处理变快，异常逃出时会终止程序。
+`[[likely]]`、`[[unlikely]]` 和 `__builtin_expect` 是给编译器的概率提示
 
-`[[likely]]`、`[[unlikely]]` 和 `__builtin_expect` 都只是给编译器的概率提示，不会替 CPU 固定预测结果。分支频率与预期不符时，提示还可能有反作用。先把错误处理和格式化从常见路径移开，通常比到处标注 `likely` 更直接。
-
-### 5.3 分支难预测时，再考虑用数据表达选择
+#### 2.4.3 无分支计算
 
 假设成交方向已经校验，只可能是买入和卖出。可以把方向编码成 `+1`、`-1`，减少更新持仓时的选择。
 
@@ -619,13 +970,61 @@ std::int64_t update_arithmetic(std::int64_t position, Side side,
 }
 ```
 
-两种写法都合理。第一版可能被编译成条件移动，第二版也未必更省指令；如果方向长期偏向一边，分支本来就容易预测。对于会产生副作用的两条路径，更不能为了“无分支”把两边都执行一遍再选结果。
-
 方向编码也常用于数组索引，例如把买卖两侧映射到两个槽位。入口处需要先排除非法枚举值，保证下标始终落在数组范围内。
 
-### 5.4 循环展开：减少依赖，而不只是复制代码
+沿用上面的 `Side`，可以把买方数据放在 `levels[0]`，卖方数据放在 `levels[1]`。注意，前面的 `+1/-1` 是用于持仓加减的方向符号，不能直接作为这两个槽位的下标。下面先校验方向，再显式映射到 `0/1`；代码接在 `Side` 定义之后即可编译。
 
-下面的求和有一条连续依赖：下一次加法要使用上一次的 `sum`。拆成几个独立累加器，可以给 CPU 更多并行执行的机会。
+```cpp
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+
+struct Level {
+    std::int64_t price_ticks;
+    std::uint32_t qty;
+};
+
+std::optional<std::size_t> side_index(Side side) noexcept {
+    // enum class 仍可能通过显式转换得到未命名值，不能跳过校验。
+    if (side != Side::Buy && side != Side::Sell)
+        return std::nullopt;
+
+    // 已确认只有两种方向：Buy -> false -> 0，Sell -> true -> 1。
+    return static_cast<std::size_t>(side == Side::Sell);
+}
+
+bool update_level(std::array<Level, 2>& levels,
+                  Side side, Level value) noexcept {
+    const auto index = side_index(side);
+    if (!index) return false;  // 非法方向：拒绝更新，不访问数组。
+
+    // 检查 optional 是否有值，而不是检查 *index 是否非零。
+    // 下标 0 是合法的买方槽位。
+    levels[*index] = value;
+    return true;
+}
+
+bool side_index_example() {
+    std::array<Level, 2> levels{};
+    if (!update_level(levels, Side::Buy,  Level{100, 10})) return false;
+    if (!update_level(levels, Side::Sell, Level{101, 20})) return false;
+
+    // 0 不是 Side 中定义的有效方向，应返回 false，两个槽位保持不变。
+    const bool invalid_accepted = update_level(
+        levels, static_cast<Side>(0), Level{999, 99});
+
+    return !invalid_accepted &&
+           levels[0].price_ticks == 100 && levels[0].qty == 10 &&
+           levels[1].price_ticks == 101 && levels[1].qty == 20;
+}
+```
+
+这段代码把“根据方向选择买方还是卖方”统一成了一次数组访问
+
+#### 2.4.4 循环展开和多路计算
+
+下面的求和有一条连续依赖：下一次加法要使用上一次的 `sum`。拆成几个独立累加器，可以给 CPU 更多并行执行的机会, 并且也能有效减少控制指令的执行次数
 
 ```cpp
 #include <cstddef>
@@ -650,13 +1049,9 @@ std::uint64_t sum_unrolled(std::span<const std::uint64_t> x) {
 }
 ```
 
-这里使用无符号整数，按模 2⁶⁴ 求和，两版结果一致。若业务不允许回绕，还要另做范围检查。浮点求和则需要另行判断：改变加法顺序可能改变舍入结果。
+#### 2.4.5 SIMD 自动向量化与 __restrict__
 
-手工展开会增加代码体积和寄存器使用量，而编译器通常已经会做展开和向量化。先保留简单版，看优化报告，再决定是否值得维护第二版。
-
-### 5.5 给编译器一个容易向量化的循环
-
-SIMD 是一条指令同时处理多个数据元素。基础工作通常是把数据变连续、减少循环中的调用、讲清输入输出是否重叠，而不是立即手写 intrinsic。
+SIMD（Single Instruction, Multiple Data）是一条指令同时处理多个数据元素。基础工作通常是让同类数据连续存放、减少循环中的调用，并消除阻碍并行计算的数据依赖。
 
 ```cpp
 #include <cstddef>
@@ -681,9 +1076,60 @@ void add_arrays(const float* LL_RESTRICT a,
 
 这里的 `__restrict__` 向编译器承诺：`out` 的写入区间与 `a`、`b` 的读取区间不重叠；只读的 `a` 和 `b` 可以重叠。编译器据此优化访存，违反前提会破坏程序正确性。调用方无法满足这一条件时，使用普通指针参数。
 
-GCC 可以用 `-fopt-info-vec-optimized -fopt-info-vec-missed` 查看向量化结果，再结合汇编检查生成的指令。对只有几项数据的单消息计算，准备 SIMD 的成本可能超过收益；为凑满向量宽度而等待更多消息，还会增加排队延迟。
+不过，减少算术指令不一定能缩短整段计算。**向量化的数据组织成本，指的是为了让多个数据元素一起计算，程序需要做的装载、重排、类型转换，以及计算后的结果整理。** 这些操作中，需要关注的是相对于标量实现增加了什么。
 
-### 5.6 类型选择先满足数值语义
+以前面介绍的 AoS 和 SoA 为例。假设四组报价已经在内存里，我们要分别计算它们的价差：
+
+```cpp
+#include <array>
+#include <cstddef>
+
+// 简化的布局示例，用 float 展示四个元素的向量运算。
+struct QuotePair {
+    float bid;
+    float ask;
+};
+
+std::array<float, 4> spreads_aos(const std::array<QuotePair, 4>& quotes) {
+    std::array<float, 4> result;
+    for (std::size_t i = 0; i < result.size(); ++i)
+        result[i] = quotes[i].ask - quotes[i].bid;
+    return result;
+}
+```
+
+在常见的布局下，报价字段按下面的顺序排列。若采用四路向量减法，一种实现需要先准备两组操作数，让对应报价的买卖价处于同一个元素位置，也就是同一个 lane：
+
+```text
+AoS 内存： [bid0 ask0] [bid1 ask1] [bid2 ask2] [bid3 ask3]
+
+操作数 A： [ask0 ask1 ask2 ask3]
+操作数 B： [bid0 bid1 bid2 bid3]
+向量相减： [ask0-bid0  ask1-bid1  ask2-bid2  ask3-bid3]
+```
+
+从交错排列的字段得到这两组操作数，可能需要先连续加载，再用 shuffle 指令调整元素位置；对于位置更分散的数据，还可能使用 gather，把多个地址上的元素收集到向量寄存器中。
+
+如果报价原本就按 SoA 保存，同一侧的四个价格已经连续，可以直接作为向量装载的输入：
+
+```cpp
+#include <array>
+#include <cstddef>
+
+struct QuotesSoA {
+    std::array<float, 4> bid;  // bid0 bid1 bid2 bid3
+    std::array<float, 4> ask;  // ask0 ask1 ask2 ask3
+};
+
+std::array<float, 4> spreads_soa(const QuotesSoA& quotes) {
+    std::array<float, 4> result;
+    for (std::size_t i = 0; i < result.size(); ++i)
+        result[i] = quotes.ask[i] - quotes.bid[i];
+    return result;
+}
+```
+
+#### 2.4.6 浮点精度混用
 
 浮点类型混用可能引入额外转换。例如，`float` 变量乘上不带后缀的浮点字面量，会先提升到 `double`：
 
@@ -697,49 +1143,80 @@ float single_precision(float value) {
 }
 ```
 
-如果模型本来就以 `float` 精度计算，第二版避免了不必要的类型混用；如果需要 `double` 中间结果，它就不是等价替换，两版可能产生不同的舍入结果。
+#### 2.4.7 signed/unsigned、整数转换与循环优化
 
-价格和数量则常用整数单位表达，例如以 tick 存价格。这样能明确相等比较和最小价格变动，但仍要处理乘法溢出：
+下面两个函数只统计循环次数，参数 `i` 都是 `int`，区别在于循环变量 `k` 的类型：
 
 ```cpp
-#include <cstdint>
-#include <limits>
-#include <optional>
+int f_signed(int i) {
+    int count = 0;
+    for (int k = i; k < i + 10; ++k)
+        ++count;
+    return count;
+}
 
-// 示例只接受非负 tick 价格；结果单位是 tick × 数量。
-std::optional<std::int64_t> notional(std::int64_t price_ticks,
-                                     std::uint32_t qty) {
-    if (price_ticks < 0) return std::nullopt;
-    if (qty != 0 && price_ticks >
-        std::numeric_limits<std::int64_t>::max() / qty)
-        return std::nullopt;
-    return price_ticks * static_cast<std::int64_t>(qty);
+int f_unsigned(int i) {  // 注意：参数 i 仍是 int。
+    int count = 0;
+    for (unsigned k = i; k < i + 10; ++k)
+        ++count;
+    return count;
 }
 ```
 
-有符号整数溢出是未定义行为，无符号整数回绕也未必符合业务含义。先规定范围，再比较性能。
+signed 版本：
 
-另一个底线是别名规则。通过 `reinterpret_cast<std::uint64_t*>(&value)` 去读写一个 `double`，不能当成合法的快速位操作。需要读取位表示时，用 `std::bit_cast`：
-
-```cpp
-#include <bit>
-#include <cstdint>
-
-std::uint64_t bits_of(double value) {
-    static_assert(sizeof(double) == sizeof(std::uint64_t));
-    return std::bit_cast<std::uint64_t>(value);
-}
+```asm
+f(int):
+    mov eax, 10
+    ret
+main:
+    sub rsp, 8
+    call rand
+    mov eax, 10
+    add rsp, 8
+    ret
 ```
 
-`bit_cast` 保留对象的位表示。若要进一步解释符号位、指数位或编码成网络字节序，还需要明确目标浮点格式和协议规则。
+unsigned 循环变量版本：
+
+```asm
+f(int):
+    lea eax, [rdi+10]
+    cmp edi, eax
+    sbb eax, eax
+    and eax, 10
+    ret
+main:
+    sub rsp, 8
+    call rand
+    lea edx, [rax+10]
+    cmp eax, edx
+    sbb eax, eax
+    add rsp, 8
+    and eax, 10
+    ret
+```
+
+C++ 标准规定，有符号整数溢出是未定义行为。在默认溢出语义下，signed 版本对所有有定义输入都执行 10 次，所以编译器可以直接生成 `mov eax, 10`，省去循环和比较。[C++ 整数运算规则](https://eel.is/c++draft/basic.fundamental#2)
+
+unsigned 版本中，`i + 10` 仍按 `int` 计算，同样不能溢出；比较时，它的结果会转换成 `unsigned`。例如 `i = -5` 时，`k` 转换成很大的无符号值，上界却是 `5`，循环执行 0 次。因此返回值可能是 0 或 10，编译器必须保留比较和结果选择指令。[整数转换规则](https://eel.is/c++draft/conv.integral#3)、[混合类型运算规则](https://eel.is/c++draft/expr.arith.conv#1.5.3)
+
+选择类型首先要满足业务的取值范围和溢出语义。下表示例以 `int` / `unsigned int`、默认溢出语义和优化编译为前提：
+
+| 场景 | 哪种类型可能受益 | 原因与前提 |
+|---|---|---|
+| 比较或循环可以利用“不发生有符号溢出”的条件 | signed | 例如 `int x` 的 `x + 1 > x` 可简化为真；unsigned 版本必须考虑最大值加 1 后回绕到 0 |
+| 除以正的 2 的幂，例如 `x / 8` | unsigned | 可以简化为逻辑右移；signed 输入可能为负时，需要满足向零截断的规则，通常需要额外修正 |
+| 对正的 2 的幂取余，例如 `x % 8` | unsigned | 可以简化为 `x & 7`；signed 输入可能为负时，还要保留负余数的语义 |
+| 相同位宽的普通加减与乘法，只需同位宽结果 | 通常没有固有优势 | signed 运算不溢出的前提下，常见处理器上通常使用相同指令，差异更多来自周围代码能否进一步优化 |
 
 <a id="concurrency"></a>
 
-## 6. 减少线程之间的协调
+### 2.5 并发通信与缓存一致性优化
 
-### 6.1 先减少共享写入，再考虑怎样加锁
+#### 2.5.1 单一写入者与线程局部计数
 
-当多个线程反复修改同一个对象，即使使用原子操作，也会争用承载这个对象的缓存行。一个常见改法是按证券、账户或分区划分状态，让每份状态由固定线程写入。
+当多个线程反复修改同一个对象，即使使用原子操作，也会争用承载这个对象的缓存行。一个常见改法是按照不同的标的物 / 账户划分状态，让每份状态由固定线程写入。
 
 用计数器说明最直接：
 
@@ -763,13 +1240,9 @@ std::uint64_t count_local(std::span<const std::uint8_t> accepted) {
 }
 ```
 
-两版在处理结束后可以得到相同总数，但第二版不再提供逐条更新的实时全局计数。它适合阶段性统计；需要即时全局状态的业务，还得保留相应的同步。
+#### 2.5.2 伪共享（False Sharing）与缓存行对齐
 
-订单簿更适合按证券归属划分：某个证券的更新由同一个线程顺序处理。需要跨证券一致快照或账户级限额时，再设计额外的协调机制，不能假定把状态拆开后所有约束自然成立。
-
-### 6.2 不共享变量，也可能共享缓存行
-
-两个线程修改不同的计数器，如果计数器恰好落在同一缓存行，仍可能引起缓存一致性流量。这就是 false sharing，通常译作伪共享。
+两个线程修改不同的计数器，如果计数器恰好落在同一缓存行，仍可能引起缓存一致性流量。这就是 false sharing
 
 ```cpp
 #include <atomic>
@@ -792,19 +1265,34 @@ struct CountersGood {
 };
 ```
 
-对齐后的 `Counter` 大小也必须满足其对齐要求，因此两个成员不会挤在同一个 64 字节区间中。也可以参考标准库的 `std::hardware_destructive_interference_size`，但需考虑编译目标和跨模块布局的一致性。
+对齐后的 `Counter` 大小也必须满足其对齐要求，因此两个成员不会挤在同一个 64 字节区间中。Cacheline的大小也可以参考 `std::hardware_destructive_interference_size` 这个常量
 
-填充用空间换隔离，只适用于频繁独立写入的热点字段。给每条小订单都填充到一整行，可能让工作集大幅增加；多线程真正争写同一个变量，也不会因为对齐而消失。
+#### 2.5.3 SPSC 环形队列与 acquire/release 内存序
 
-### 6.3 SPSC 环形队列：把“发布”和“复用”分开理解
+这个技巧算非常common的技巧，在非低延迟系统也经常使用
 
 若线程间只有一个生产者和一个消费者，可以使用 SPSC（single producer, single consumer）环形队列。生产者写入槽位并公布写指针；消费者读取槽位，再公布读指针。后一个动作告诉生产者，这个位置以后可以覆盖了。
 
 ![SPSC 环形队列中的数据发布和槽位复用](assets/hft-02/spsc-memory-order.svg)
 
-*图 3：两个方向都需要同步。先写事件再发布；先读完事件再归还槽位。[交互图](assets/hft-02/spsc-memory-order.html)。*
+*图 3：两个方向都需要同步。先写事件再发布；先读完事件再归还槽位*
 
-下面的实现保留一个空槽区分满与空，所以数组长度为 `N`，可用容量为 `N - 1`。
+下面的实现只用两个下标记录队列状态：`read_` 指向下一条待读消息，`write_` 指向下一次写入的位置。下标到达数组末尾后会回到 0，因此它们只记录位置，不记录已经绕了几圈。
+
+如果允许写满全部 `N` 个槽位，写下标绕一圈后就会追上读下标，此时 `write_ == read_`。但队列为空时，这两个下标也相等，仅凭它们便无法区分满和空。以 `N = 4`、消费者暂时不读取为例：
+
+| 状态 | `read_` | `write_` | 含义 |
+|---|---:|---:|---|
+| 初始状态 | 0 | 0 | 队列为空 |
+| 写入槽位 0、1、2 后 | 0 | 3 | 已有 3 条消息，槽位 3 留空 |
+| 假如继续写入槽位 3 | 0 | 0 | 实际有 4 条消息，下标却与空队列相同 |
+
+所以这份实现会在最后一步之前拒绝写入，始终保留一个空槽，并采用两条判断规则：
+
+- **空：** `write_ == read_`。
+- **满：** 写下标的下一个位置等于读下标，即 `(write_ + 1) % N == read_`。代码要求 `N` 是 2 的幂，因此用 `& (N - 1)` 代替 `% N`。
+
+因此，数组长度为 `N`，可用容量为 `N - 1`。空槽并不是固定的某个位置：上例中消费者读走槽位 0 后，生产者就可以写入槽位 3，随后槽位 0 成为保留的空槽。若另外记录元素数量或区分跨圈的序号，也可以使用全部 `N` 个槽位；这里选择留空一格，让满、空判断只依赖这两个循环下标。
 
 ```cpp
 #include <array>
@@ -848,13 +1336,9 @@ public:
 1. 生产者填好 `slots_[w]`，随后 release 发布 `write_`；消费者通过 acquire 观察到发布后，才能读取新数据。
 2. 消费者复制完 `slots_[r]`，随后 release 更新 `read_`；生产者通过 acquire 观察到空间可用后，才能复用旧槽位。
 
-本线程独占写入的游标可以 relaxed 读取，但不能把所有原子操作一律改成 relaxed。普通 `bool`、普通下标或 `volatile` 都不能替代这里的同步。
+本线程独占写入的游标可以 relaxed 读取，但不能把所有原子操作一律改成 relaxed
 
-使用时还有几个直接影响正确性的约束：队列只能有一个生产者、一个消费者；`try_push()` 返回 `false` 时本条数据尚未入队；对象析构必须等两端停止。这里限制载荷类型和平台原子能力，是为了避免复制过程中分配内存、抛异常，或由平台用锁实现下标原子操作。64 字节对齐也沿用前面的目标平台假设。
-
-取得写槽位之前必须检查剩余容量，否则绕回数组开头时，就可能覆盖尚未消费的数据。环形寻址决定写在哪里，容量协议决定当前是否允许写入。
-
-### 6.4 日志只交付必要字段，把格式化留给消费线程
+#### 2.5.4 异步日志与批量输出
 
 同步日志把字符串格式化、流锁和 I/O 放进业务路径。异步日志可以减少这些工作，但前提是调用方没有先把整条日志拼好。
 
@@ -887,94 +1371,160 @@ void drain_logs(Queue& queue, std::ostream& out) {
 }
 ```
 
-格式化移到消费端后，业务线程只需入队一个小结构体，日志线程也省去了每条 `std::endl` 带来的 flush。写入流、flush 到操作系统和持久化到存储仍是不同阶段，需要按日志用途安排。
+#### 2.5.5 Disruptor：事件广播和消费依赖
 
-队列满时，允许丢弃的诊断日志可以计数后跳过，必须保留的记录则需要可靠性和背压设计。多个生产者可以各自配 SPSC 队列，再由日志线程汇总。
+Disruptor 的核心是预分配的环形数组，加上生产者和每个消费者各自维护的序号。在广播模式下，同一条事件会被所有相关消费者处理；消费者读取事件后，只推进自己的进度，事件仍留在槽位里，供其他消费者访问。
 
-批量处理适合摊薄调度和 I/O 成本，但要设上限，并处理当前已有的数据；一直等“攒够 64 条”会让低流量时的第一条消息迟迟发不出去。停机时还要先停止生产，再排空和刷新。调用端同样值得检查：`logger.log(order.toString())` 中的 `toString()` 会在入队之前执行，换成异步 logger 并不会自动搬走这次格式化。
+下面先实现一个生产者、三个消费者的菱形依赖：A、B 分别计算事件的 `left`、`right`，C 等两者完成后汇总。
 
-### 6.5 多个消费者都要看到同一条事件时，再引入 Disruptor
+先看图里用于判断槽位能否复用的三个变量。图与后面的伪代码统一使用 `s`、`N` 和 `done[C]`：
 
-SPSC 适合把消息交给一个消费者。如果同一条消息要同时更新两个独立结果，随后再汇总，就需要表达广播和依赖。
+| 变量 | 含义 | 例子 |
+|---|---|---|
+| `s` | 生产者本次准备写入的新事件序号，不是数组下标 | `s = 6` 表示准备写入序号为 6 的事件；实际下标是 `6 % N` |
+| `N` | 环形数组的槽位总数 | `N = 4` 表示只有 4 个槽位，下标为 0、1、2、3 |
+| `done[C]` | C 已经连续处理完成的最大事件序号，由 C 在处理完事件后更新 | 值为 5 表示事件 0～5 都已完成，共 6 条；初始值 −1 表示尚未完成任何事件 |
 
-Disruptor 将事件保存在预分配的环形缓冲区中。以一个菱形依赖为例：A、B 都处理每一条事件，C 等待 A 和 B 完成后再处理。生产者确认旧事件已经不再使用，才能复用槽位。
+当数组绕回旧槽位时，新事件 `s` 将覆盖上一轮的事件 `s - N`。因此，生产者必须等到 `done[C] >= s - N`，确认 C 已经处理完旧事件，才能覆盖它。这是生产者读取 C 的进度后执行的条件检查，不需要单独的协调线程。
 
-![Disruptor 的菱形消费依赖与末端背压](assets/hft-02/disruptor-diamond.svg)
+![Disruptor 的消费依赖、变量含义，以及事件 6 复用事件 2 所在槽位的过程](assets/hft-02/disruptor-diamond-explained.svg)
 
-*图 4：A 和 B 操作同一个事件的不同字段。C 的依赖是 AND：两边都完成才能继续。本图只有 C 是末端节点，因此由 C 的完成进度约束槽位复用。[交互图](assets/hft-02/disruptor-diamond.html)。*
+*图 4：A、B 并行处理，C 等两者完成。容量为 4 时，事件 6 和事件 2 使用同一个槽位；生产者必须等 C 完成事件 2，才能写入事件 6。*
 
-下面的程序中，生产者初始化事件，A、B 分别计算 `left` 和 `right`，C 汇总；主线程在关闭并等待所有消费者退出后读取结果。
+**环形数组与进度序号**
 
-```cpp
-#include "disruptor.hpp"
-#include <cstdint>
-#include <iostream>
-
-struct Event {
-    std::uint64_t id = 0;
-    std::uint64_t left = 0;
-    std::uint64_t right = 0;
-};
-
-int main() {
-    using namespace disruptor;
-    Disruptor<Event, ProducerMode::Single> bus(1024, WaitStrategy::Blocking, 64);
-    std::uint64_t total = 0;                       // 只有 C 写
-
-    const auto a = bus.add_consumer("A", {},
-        [](Event& e, std::int64_t, bool) { e.left = e.id * 3; });
-    const auto b = bus.add_consumer("B", {},
-        [](Event& e, std::int64_t, bool) { e.right = e.id * 7; });
-    bus.add_consumer("C", {a, b},
-        [&](Event& e, std::int64_t, bool) { total += e.left + e.right; });
-
-    bus.start();
-    for (std::uint64_t id = 1; id <= 100; ++id) {
-        bus.publish([id](Event& e, std::int64_t) noexcept {
-            e = Event{id, 0, 0};                  // 每次填写完整的新事件
-        });
-    }
-    bus.shutdown();                               // 排空并 join
-    std::cout << total << '\n';                   // 50500
-}
-```
-
-这段程序使用 `hft/disruptor_cpp20` 下的 C++20 实现。把代码保存为 `demo.cpp`，在项目根目录执行：
-
-```bash
-g++ -std=c++20 -O2 -pthread -Ihft/disruptor_cpp20/include demo.cpp -o /tmp/disruptor-demo
-/tmp/disruptor-demo
-```
-
-理解这一结构时，要分清四个位置：申请到了哪个序号，哪个事件已经发布，每个消费者处理到哪里，以及哪个旧槽位可以覆盖。它们不会始终相等。
-
-多生产者尤其容易出现发布空洞：P1 先申请序号 10，却还没填完；P2 已经完成序号 11。此时不能因为“最大已发布序号是 11”就读取 10。本地实现为每个槽位保存绝对发布序号，消费者只处理连续、已发布的区间。
-
-![多生产者下，后面的事件先发布，不能越过前面的空洞](disruptor_cpp20/docs/diagrams/publication-gap.svg)
-
-*图 5：后一个生产者先完成写入时，消费者仍须等待前面的事件发布。*
-
-再看复用条件。容量为 `N`，生产者准备写绝对序号 `s`（图 4 中的 `candidate`）时，将覆盖 `s - N` 所在的物理槽位。因此必须满足：
+事件序号从 0 开始递增，数组下标是 `sequence % N`。例如 `N = 4` 时，序号 0、4、8 都使用槽位 0。序号保留了轮次，因此可以区分“数组为空”和“写满一圈”，不需要像上一节那样留出一个空槽。
 
 ```text
-所有末端消费者的最小完成序号 >= s - N
+N = 4
+slots = 预分配 N 个 Event { id, left, right }
+total = 0                      // 汇总结果，线程启动后只由 C 修改。
+
+next_claim = 0                  // 生产者私有：下一条事件的序号。
+published = atomic(-1)          // 已连续发布到哪个序号。
+done[A] = atomic(-1)            // A 已连续处理完哪个序号。
+done[B] = atomic(-1)
+done[C] = atomic(-1)
+
+dependencies[A] = []            // A、B 只需等待事件发布。
+dependencies[B] = []
+dependencies[C] = [A, B]        // C 还需等待 A、B 处理完同一事件。
+gates = [C]                    // 生产者复用槽位时，需要检查的末端消费者。
 ```
 
-在菱形图中，只检查 C 就足够，是因为 C 不可能越过 A 或 B。若另有独立消费者 D，它也是末端节点，必须一起纳入检查。
+`-1` 表示尚未发布或处理任何事件；`done[X] = s` 表示 X 已处理完从 0 到 s 的全部事件。以下伪代码使用足够宽的有符号序号，暂不考虑序号溢出，省略批量处理、异常和停止逻辑。`pause()` 表示忙等中的短暂停顿。
 
-这套结构适合需要广播和消费依赖的场景，也增加了线程交接、发布标记和进度管理。若 A、B 的计算各只有几条指令，把它们放在同一线程直接调用，可能更便宜。示例中的 A、B 写不同的标量字段，避免了数据竞争，但这些字段仍可能位于同一缓存行。
+**生产者：检查容量，写入事件，再发布序号**
 
-这个实现支持忙等、让出 CPU 和阻塞等待，示例选择阻塞方式。忙等占用 CPU，阻塞等待需要唤醒线程，选择取决于负载和可用资源；容量等待与用户回调也会影响处理进度，所以整个组件没有无条件的 lock-free 或 wait-free 保证。回调返回后，框架就可以推进完成序号，处理函数必须在返回前结束对 `Event&` 的访问，不能把引用留给未完成的异步任务。
+写入序号 `s` 会复用 `s - N` 的槽位，所以必须等所有相关消费者都处理完旧事件。`gates` 保存需要检查的消费者，容量判断取它们完成序号的最小值：
+
+```text
+produce(id):
+    s = next_claim
+
+    while true:
+        consumed = min(done[g].load_acquire() for g in gates)
+        if s - N <= consumed:
+            break               // 旧事件已处理完，可以覆盖这个槽位。
+        pause()
+
+    next_claim = s + 1           // 申请到序号，但此时还没有发布。
+    slots[s % N] = Event { id, 0, 0 }
+    published.store_release(s)  // 事件写完整后，消费者才可以读取。
+```
+
+初始时 `consumed = -1`，序号 0 到 3 都能写入；准备写序号 4 时，必须等 C 处理完序号 0。单生产者按序写入和发布，因此 `published = s` 就能表示此前所有事件都已发布。
+
+**消费者：等待发布和前置依赖，处理后公布进度**
+
+每个消费者都有独立的待处理序号 `s`，都从 0 开始。它能处理到哪里，由“生产者已发布到哪里”和“前置消费者已处理到哪里”共同决定：
+
+```text
+consume(name):
+    s = 0                       // 当前消费者私有，不与其他消费者共用。
+
+    while true:
+        available = published.load_acquire()
+        for dependency in dependencies[name]:
+            available = min(available, done[dependency].load_acquire())
+
+        if s > available:
+            pause()
+            continue
+
+        event = 引用 slots[s % N]
+        if name == A:
+            event.left = event.id * 3
+        else if name == B:
+            event.right = event.id * 7
+        else if name == C:
+            total += event.left + event.right    // total 仅由 C 修改。
+
+        done[name].store_release(s)              // 对这个槽位的访问已全部结束。
+        s = s + 1
+
+// 初始化完成后，分别在三个线程中运行 consume(A)、consume(B)、consume(C)。
+```
+
+A、B 没有前置消费者，看到事件发布就可以处理；C 的可读上限是 `min(published, done[A], done[B])`。这个等待条件就是消费依赖屏障：C 不能越过较慢的一方。A、B 修改不同的标量字段，C 等两者完成后才读取结果。
+
+这里的 acquire/release 对应三次交接：生产者把事件交给 A、B，A、B 把计算结果交给 C，C 把可复用的槽位交还生产者。消费者只有在结束对槽位的全部访问后，才能更新 `done`，不能把引用交给尚未结束的异步任务后就宣布完成。
+
+**多个消费者怎样共同限制生产进度**
+
+假设容量为 4，生产者已发布序号 0 到 3，当前 `done[A] = 3`、`done[B] = 1`、`done[C] = 1`。在消费者进度暂时不变的情况下：
+
+| 接下来的操作 | 判断条件 | 结果 |
+|---|---|---|
+| C 处理序号 2 | `2 <= min(3, 3, 1)` | 不成立，等待 B 处理完 2 |
+| 生产者写入序号 4 | `4 - 4 <= done[C]` | 成立，复用槽位 0 |
+| 生产者写入序号 5 | `5 - 4 <= done[C]` | 成立，复用槽位 1 |
+| 生产者继续写序号 6 | `6 - 4 <= done[C]` | 不成立，等待 C 处理完 2 |
+
+生产者只检查 C 就足够，因为 C 处理完序号 s，意味着 A、B 都已经处理完 s。如果只有独立的 A、B 两个消费者，应设置 `gates = [A, B]`；如果另有一个独立消费者 D，则设置 `gates = [C, D]`。因此，一个慢消费者最终会阻止生产者覆盖它还需要的数据，这就是背压。
+
+**多个生产者：申请序号和发布事件必须分开**
+
+上面的 `published` 只适用于单生产者按序发布。多个生产者可以通过原子操作申请不同序号，但完成写入的顺序可能不同：P1 申请 10 后尚未写完，P2 已经发布 11，此时不能让消费者跳过 10。
+
+一种简化实现是增加每个槽位的发布序号，用它区分同一物理槽位的不同轮次：
+
+```text
+next_claim = atomic(0)           // 替换单生产者私有变量。
+ready = N 个 atomic(-1)         // 替换单一 published 游标。
+
+produce_multi(event):
+    s = next_claim.fetch_add(1, relaxed)   // 只拿到唯一序号，尚不能直接写槽位。
+    while s - N > min(done[g].load_acquire() for g in gates):
+        pause()
+    slots[s % N] = event
+    ready[s % N].store_release(s)
+
+// 消费者处理自己的序号 s 前，用下面的检查替换前面代码的整个等待部分：
+while ready[s % N].load_acquire() != s:
+    pause()
+for dependency in dependencies[name]:
+    while done[dependency].load_acquire() < s:
+        pause()
+// 接着执行原来的事件处理、done[name].store_release(s) 和 s = s + 1。
+```
+
+消费者只检查自己接下来要处理的序号，因此会停在第一个尚未发布的事件上。申请序号的生产者必须最终完成发布，否则这个空洞会阻塞后续按序消费。实际实现也可以保存槽位的轮次标记。
+
+![多生产者下，后面的事件先发布，不能越过前面的空洞](assets/hft-02/disruptor-publication-gap.svg)
+
+*图 5：申请到序号不代表事件已发布；后面的事件先写完，也不能越过前面的发布空洞。*
+
+这套结构适合事件广播和有先后依赖的处理流程。A、B 的计算如果只有几条指令，线程交接和缓存一致性开销可能超过并行收益。工程实现通常还会加入批量发布、批量更新消费进度和进度缓存，以减少原子操作与跨核通信。
+
 
 <a id="validation"></a>
 
-## 7. 怎样验证一次优化
+## 3. 怎样验证一次优化
 
-### 7.1 让基准测到真正想比较的工作
+### 3.1 让基准测到真正想比较的工作
 
-手写一个循环，前后读两次时钟，很容易测偏：输入是常量，计算被折叠了；结果没人使用，循环被删掉了；把随机数生成、分配内存和打印都放进计时区间，最后反而主要测到这些辅助操作。
-
-下面用 Google Benchmark 比较普通求和与四路累加。输入在循环外生成，结果通过 `DoNotOptimize` 交给基准工具。编译器仍然可以对求和进行向量化、展开等优化，这正是需要比较的最终执行效果。
+下面用 Google Benchmark 比较普通求和与四路累加。输入在循环外生成，结果通过 `DoNotOptimize` 交给基准工具（避免编译器dead code优化）。编译器仍然可以对求和进行向量化、展开等优化，这正是需要比较的最终执行效果。
 
 ```cpp
 #include <benchmark/benchmark.h>
@@ -1011,18 +1561,13 @@ BENCHMARK_TEMPLATE(BM_Sum, true)->Arg(64)->Arg(4096);
 BENCHMARK_MAIN();
 ```
 
-安装 Google Benchmark 的头文件和库以后，把代码保存为 `bench.cpp`：
-
 ```bash
 g++ -std=c++20 -O3 -DNDEBUG -pthread bench.cpp -lbenchmark -o /tmp/ll-bench
 /tmp/ll-bench --benchmark_repetitions=5
 ```
 
-一轮测的是整个数组的求和，不是一个元素的延迟。它反复使用同一组数据，也更接近稳定运行时的缓存状态，不能由此推断冷启动或随机查找的表现。
 
-`DoNotOptimize` 不会禁止表达式内部的一切优化，`ClobberMemory` 也不会替程序刷新 CPU 缓存。仍要检查生成的汇编，以及输入是否代表实际业务。
-
-### 7.2 用性能计数器解释变化
+### 3.2 用性能计数器解释变化
 
 如果一项修改变快了，接下来应弄清楚少掉的成本在哪里。在支持相应事件的 Linux 环境中，可以先看：
 
@@ -1031,9 +1576,7 @@ perf stat -r 5 -e cycles,instructions,branches,branch-misses,cache-misses \
   /tmp/ll-bench --benchmark_filter='BM_Sum<false>/4096$' --benchmark_min_time=0.5s
 ```
 
-这条命令统计整个进程，会包含初始化和基准框架的工作；Google Benchmark 还可能自动调整迭代次数。因此比较两版时，不能只拿 `cache-misses` 的总数做结论，要同时看工作量、每次操作的成本和输入规模。某些硬件事件不可用时，工具也会明确报错，不能把缺失的计数当成零。
-
-### 7.3 读一次时间戳也有成本
+### 3.3 读一次时间戳也有成本
 
 `RDTSC` 可以在用户态直接读取时间戳计数器，正常执行时不需要陷入内核。不过，一条指令也可能需要几十个核心周期。uops.info 在重复执行裸 `RDTSC` 的实验中，测得以下平均成本：
 
@@ -1043,31 +1586,12 @@ perf stat -r 5 -e cycles,instructions,branches,branch-misses,cache-misses \
 | Intel Core i5-12600K 的 P 核 | Alder Lake-P | 26 | 约 8.7 ns |
 | AMD Ryzen 5 7600X | Zen 4 | 35 | 约 11.7 ns |
 
-这些数据对应的是**重复执行时的平均成本**，也就是倒数吞吐量，不是孤立一条指令从开始执行到结果可用的延迟。详细实验页中，Intel 的字段为 `Core cycles`，AMD 使用 `APERF` 计数；其中一组测试将指令展开 500 次，再报告归一化结果。表中的纳秒数按“周期数 ÷ 3 GHz”估算，并非原始实验直接测出的时间，也不代表换一台机器后仍然相同。
-
 这里还要分清两种计数：表中的核心周期数描述执行成本，`RDTSC` 返回的则是 TSC ticks。现代支持 invariant TSC 的处理器按固定速率推进 TSC，不能用 CPU 当前的睿频频率去换算 TSC 差值。
 
-这组数据说明，读钟本身就可能占掉十纳秒量级的预算。若为了测量几条指令，在它们前后各读一次时间戳，计时开销便可能与目标代码相当。用于可靠测量时，还要处理指令排序和编译器重排；加入所需围栏、保存结果以及日志输出后的完整开销，需要另行测量。
+这组数据说明，时钟读取本身就可能占掉十纳秒量级的预算。**若为了测量几条指令，在它们前后各读一次时间戳，计时开销便可能与目标代码相当**。用于可靠测量时，还需要正确处理指令排序和编译器重排
 
-### 7.4 最后回到完整消息链路
+### 4. 总结
 
-微基准有优势，是因为条件可控；它的局限也在这里。一个函数变快，整条链路可能仍在等待队列、共享状态或者日志线程。
+整体来说，由于超低延迟交易系统已经到了亚微秒级别的优化，所以我们很多时候需要到非常微观的层面上去抠优化点。这一点跟传统的high throughput system完全不一样。并且由于Quant这个行业的特性，相关的best pratice实际上并没有非常多的blog和论文进行解释，上述信息是笔者根据有限的可检索信息整理出来的。
 
-回放负载至少应包含平稳流量、短时突发和接近容量上限的情况，并保留排队时间。每处理完一条才发送下一条的测试，会隐藏系统繁忙期间本来应该继续到达的请求，低估拥塞时的延迟。
-
-最慢样本需要单独追查：它来自缺页、扩容、锁竞争、线程被调度走，还是昂贵的业务路径？这些样本应保留在尾延迟统计中。预先裁掉最慢的 1% 会改变样本分布，后续算出的 p99 也就无法代表原始负载。
-
-着手优化现有程序时，可以按下表寻找入口：
-
-| 观察到的现象 | 优先检查 | 常见改动 |
-|---|---|---|
-| 偶发扩容、分配尖峰 | 热路径是否创建容器和字符串 | 预分配、复用、固定容量及满载处理 |
-| 大量时间在查找和访存 | 键空间、对象大小、指针跳转 | 稠密索引、冷热分离、连续存储 |
-| 错误很少，成功路径仍在格式化 | 函数参数是否提前求值 | 把字符串构造放入错误分支 |
-| 线程越多，单条消息越慢 | 共享写入、交接次数、伪共享 | 单一写入者、减少交接、分离热点字段 |
-| 吞吐量提高，尾延迟反而变差 | 是否等批次、是否积压 | 限定批量大小、记录排队时间 |
-| 改了语法，性能没有变化 | 两版是否生成相同机器码 | 保留更清楚的写法，继续找实际瓶颈 |
-
-对于一条具体的消息，省去一次分配、一次字符串格式化或一次无用的线程交接，通常比把每个 `if` 改写成位运算更值得先尝试。找到成本以后，保留一份可复现的基准，再决定这项改动是否值得长期维护。
-
-文中的函数片段可以单独保存为 `.cpp`，用 `g++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -c demo.cpp` 检查编译，运行时再补上调用入口。Disruptor 和 Google Benchmark 两个完整程序的构建命令已在对应小节给出。
+说不定在真正的HFT头部团队内，又会有非常多的没有见过的编程魔法（需要持续保持学习了
