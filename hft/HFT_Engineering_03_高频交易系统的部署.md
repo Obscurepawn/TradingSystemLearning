@@ -261,6 +261,14 @@ Crypto 交易所的系统或接入网关，很多部署在 AWS 等公有云上�
 
 部署还包括决定上线哪一个二进制。PGO（Profile-Guided Optimization，剖面引导优化）先收集程序在代表性负载下的运行剖面，再用这些数据指导重新编译。编译器根据函数调用次数、分支走向和执行频率识别热点，调整函数内联、基本块布局等，让生成的机器码更适合实际交易路径。Clang 和 GCC 都支持这种优化。[Clang PGO][clang-pgo] [GCC PGO][gcc-pgo]
 
+有一些较为权威的量化机构也公开过 PGO 的实践与评价：
+
+- **Jane Street：部分重要程序取得了约 10%～20% 的运行时间改善。** 主要是用了内部 OCaml 的 FDO（Feedback-Directed Optimization，反馈引导优化）项目：采集运行Profile，调整函数和基本块的排列。早期在多个重要程序上看到约 10%、15%、20% 的运行时间改善。并且 FDO 消除了无关库变更引起的代码布局和性能波动。[Jane Street 编译器优化访谈][janestreet-fdo]
+- **G-Research：公开分享 PGO 的性能优化方法。** 没有给出具体的收益，但是对PGO的评价整体来说比较正向 [G-Research PGO 分享][gresearch-pgo]
+- **Optiver：加速之外，还要处理过拟合。** Optiver曾尝试在低延迟交易中把 PGO 列入构建与链接优化手段，同时指出它可能对训练负载过拟合，博客没有给出具体收益。部署时应将生成 profile 的行情与验收行情分开，检查换一个交易日、换一种行情节奏后，优化是否仍然有效。[Optiver 工程师演讲稿，第 71 页][optiver-pgo]
+
+根据真实的实践经验，我们还是能得出如果要在部署流程中加入PGO，还是需要测量多个行情节奏下是否能稳定取得性能收益。
+
 ## 参考资料
 
 - **进程与跨机通信**：[Linux POSIX 共享内存][shm]、[TCP 规范][tcp]、[UDP 使用指南][udp-guidelines]、[KCP][kcp]、[Aeron 简介][aeron-overview]。
@@ -272,6 +280,7 @@ Crypto 交易所的系统或接入网关，很多部署在 AWS 等公有云上�
 - **云上位置与实例放置**：[AWS 加密市场与共享 placement group][aws-crypto]、[AZ ID][aws-az-id]、[EC2 placement groups][aws-placement]。
 - **云上实例与网络**：[EC2 突发性能实例][aws-burstable]、[网络带宽与额度][aws-network-bandwidth]、[ENA 增强型网络][aws-ena]、[ENA Express][aws-ena-express]。
 - **PGO 与构建发布**：[Clang PGO][clang-pgo]、[GCC PGO][gcc-pgo]、[llvm-profdata][llvm-profdata]。
+- **量化机构的 PGO 实践与评价**：[Jane Street 编译器优化访谈][janestreet-fdo]、[G-Research PGO 分享][gresearch-pgo]、[Optiver 工程师演讲稿][optiver-pgo]。
 
 [shm]: https://man7.org/linux/man-pages/man7/shm_overview.7.html
 [tcp]: https://www.rfc-editor.org/rfc/rfc9293.html
@@ -309,3 +318,6 @@ Crypto 交易所的系统或接入网关，很多部署在 AWS 等公有云上�
 [clang-pgo]: https://clang.llvm.org/docs/UsersManual.html#profile-guided-optimization
 [gcc-pgo]: https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-fprofile-use
 [llvm-profdata]: https://llvm.org/docs/CommandGuide/llvm-profdata.html#merge
+[janestreet-fdo]: https://signalsandthreads.com/compiler-optimization/
+[gresearch-pgo]: https://www.gresearch.com/news/how-profile-guided-optimisation-makes-your-code-faster/
+[optiver-pgo]: https://meetingcpp.com/files/mcpp/2016/Carl%20Cook%20-%20The%20Speed%20Game-%20Automated%20trading%20in%20C%2B%2B.pdf#page=71
