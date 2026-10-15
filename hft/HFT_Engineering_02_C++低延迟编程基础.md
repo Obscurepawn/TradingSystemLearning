@@ -1518,6 +1518,248 @@ for dependency in dependencies[name]:
 这套结构适合事件广播和有先后依赖的处理流程。A、B 的计算如果只有几条指令，线程交接和缓存一致性开销可能超过并行收益。工程实现通常还会加入批量发布、批量更新消费进度和进度缓存，以减少原子操作与跨核通信。
 
 
+### 2.6 Stop-bit 变长整数：用短字段减少数据搬运
+
+行情协议不一定把整数按固定的 4 或 8 字节传输。例如，上交所 Level-2 产品使用 FIX/FAST 接口，而 FAST 的整数使用 stop-bit 编码。这里的优化机会是：如果大量字段值较小，用更少字节表示它们，可以减少传输量与缓冲区占用；代价则是需要识别字段终点、重建整数。它是否降低整体延迟，要结合数值分布和目标 CPU 测量。[上证所 Level-2 产品说明](https://www.sseinfo.com/services/assortment/level2/)
+
+#### 2.6.1 先固定编码规则，避免混用不同 varint
+
+本例实现 **FAST 风格、非空、无符号 `uint64_t` 的最短编码**：每个字节的低 7 位携带数据，最高位为 `1` 表示最后一个字节，为 `0` 表示后面还有字节；高位数据组先发送。这里不是 Protobuf 的低位组在前、最高位为 `1` 表示继续的 varint。
+
+| 数值 | 线上字节，十六进制 | 说明 |
+|---|---|---|
+| 0 | `80` | 一个结束字节，载荷为零 |
+| 127 | `FF` | 一个字节能表示的最大无符号值 |
+| 128 | `01 80` | `(1 << 7) \| 0` |
+| 300 | `02 AC` | `(2 << 7) \| 44` |
+| `UINT64_MAX` | `01 7F 7F 7F 7F 7F 7F 7F 7F FF` | 最多需要 10 字节 |
+
+这意味着 varint 不是对任何数值都节省空间：完整范围的 64 位整数可能比定长的 8 字节更大。价格差值很小时，差分编码可以先把绝对价格变成小整数，但差分和 stop-bit 是不同的编码优化手段。
+
+#### 2.6.2 编解码实现：短值快路径，长值有界展开
+
+下面是 C++20 对于Stop-bit 变长编码的标量实现（没有上SIMD优化）。它把调用频繁的一、两字节整数单独处理；对较长整数，只有在输入至少还剩 10 字节时才走展开路径，避免逐字节检查输入边界。
+
+编码时，`std::bit_width` 用于计算所需字节数，再直接向目标缓冲区倒序填入数据组，最终在线上仍是高位组在前。这样不需要临时数组和第二遍反转。`encode` 检查容量；调用方已经保证空间充足时，可以使用 `encode_unchecked`。
+
+```cpp
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <span>
+#include <type_traits>
+#include <utility>
+
+namespace stopbit {
+// FAST-style mandatory unsigned integer, shortest representation only.
+enum class Status { done, need_more, invalid };
+struct UIntState {
+    std::uint64_t value = 0;
+    unsigned count = 0;
+};
+struct Result {
+    Status status;
+    std::size_t consumed; // Bytes consumed from THIS span, including an invalid byte.
+};
+
+constexpr std::size_t encoded_size(std::uint64_t value) noexcept {
+    return std::max<std::size_t>(1, (std::bit_width(value) + 6) / 7);
+}
+
+// Caller guarantees enough writable bytes. Returns bytes written.
+inline std::size_t encode_unchecked(std::uint64_t value,
+                                    std::uint8_t* out) noexcept {
+    if (value < 128) {
+        out[0] = static_cast<std::uint8_t>(value | 0x80);
+        return 1;
+    }
+    const auto size = encoded_size(value);
+    out[size - 1] = static_cast<std::uint8_t>((value & 0x7f) | 0x80);
+    for (auto i = size - 1; i != 0; ) {
+        value >>= 7;
+        out[--i] = static_cast<std::uint8_t>(value & 0x7f);
+    }
+    return size;
+}
+
+// Zero means insufficient capacity; output remains unchanged.
+inline std::size_t encode(std::uint64_t value,
+                          std::span<std::uint8_t> out) noexcept {
+    if (out.size() < encoded_size(value)) return 0;
+    return encode_unchecked(value, out.data());
+}
+
+namespace detail {
+// Used only when at least 10 input bytes are accessible. I is a byte index.
+// Compile-time expansion removes loop bookkeeping and per-byte bounds checks.
+template<unsigned I>
+inline Result unrolled(const std::uint8_t* p, UIntState& s) noexcept {
+    const auto b = p[I];
+    if constexpr (I == 9) {
+        if (s.value > (UINT64_MAX >> 7) || (b & 0x80) == 0)
+            return {Status::invalid, I + 1};
+    }
+    s.value = (s.value << 7) | (b & 0x7f);
+    if (b & 0x80) {
+        s.count = 0;
+        return {Status::done, I + 1};
+    }
+    if constexpr (I < 9) return unrolled<I + 1>(p, s);
+    return {Status::invalid, I + 1};
+}
+} // namespace detail
+
+// s must be initialized, or retained from need_more; discard it after invalid.
+// On done, s.value is the decoded value and s.count == 0 (ready for next field).
+inline Result decode(std::span<const std::uint8_t> input,
+                     UIntState& s) noexcept {
+    if (input.empty()) return {Status::need_more, 0};
+    std::size_t i = 0;
+    if (s.count == 0) {
+        const auto b = input[i++];
+        s.value = b & 0x7f;
+        if (b & 0x80) return {Status::done, 1}; // Single-byte fast path.
+        if (b == 0) return {Status::invalid, 1}; // Redundant leading zero group.
+        s.count = 1;
+        if (input.size() == 1) return {Status::need_more, 1};
+        const auto second = input[i++];
+        s.value = (s.value << 7) | (second & 0x7f);
+        if (second & 0x80) {
+            s.count = 0;
+            return {Status::done, 2};
+        }
+        s.count = 2;
+        if (input.size() >= 10)
+            return detail::unrolled<2>(input.data(), s);
+    }
+    // Short input or a field split across receives: resume without rescanning.
+    while (i < input.size()) {
+        const auto b = input[i++];
+        if (s.count == 9 &&
+            (s.value > (UINT64_MAX >> 7) || (b & 0x80) == 0))
+            return {Status::invalid, i};
+        s.value = (s.value << 7) | (b & 0x7f);
+        ++s.count;
+        if (b & 0x80) {
+            s.count = 0;
+            return {Status::done, i};
+        }
+    }
+    return {Status::need_more, i};
+}
+} // namespace stopbit
+```
+
+`decode` 一次只解一个整数，结果分为 `done`、`need_more` 和 `invalid`。`consumed` 始终表示**本次输入**已消费的字节数；`need_more` 时保留 `UIntState`，下一次传入新字节，不要把旧字节重新喂进去。`done` 后 `value` 是完整结果，`count` 归零，下一次调用即可解析下一个字段。
+
+### 2.7 用状态机从字节流解析变长结构体
+
+TCP 不保留应用消息边界。一次接收可能只有某个整数的前半部分，也可能包含多条行情和下一条行情的一部分。即使每个整数都有 stop bit，它也只标记**字段结束**，不能单独告诉我们是哪一个字段、整条行情是否已经完成。
+
+为了简单说明状态机的实现，定义一个基础行情格式：每条消息按顺序包含 `instrument_id、sequence、price_ticks、quantity` 四个非空无符号整数。
+
+```text
+消息 A：id=1，seq=128，price=300，qty=10
+线上字节：[81] [01 80] [02 AC] [8A]
+
+接收 1：81 01         → id 已完成，seq 只收到第一组
+接收 2：80 02         → seq 已完成，price 只收到第一组
+接收 3：AC 8A 82 ...  → 完成 price、qty，交付 A；82 开始下一条消息
+```
+
+这里有两层状态：
+
+| 状态 | 保存什么 | 什么时候推进 |
+|---|---|---|
+| 字段内部状态 `integer_` | 已累计的整数值和字节数 | 收到 stop bit，才得到一个完整字段 |
+| 消息状态 `field_` | 接下来正在解析四个字段中的哪一个 | 一个字段完成后推进；第四个字段完成后交付消息并回到第一个字段 |
+
+每条连接持有一个 `QuoteStream`。输入字节直接参与移位和合并，已经消费的原始字节不再需要保存；跨接收边界时只留下整数进度和未完成的结构体，因此没有拼接字符串、动态分配或搬移残留字节的操作。
+
+
+```cpp
+namespace stopbit {
+// Teaching wire schema: exactly four mandatory unsigned fields, in this order.
+// Not a real exchange message, nor the native memory layout of this struct.
+struct Quote {
+    std::uint64_t instrument_id;
+    std::uint64_t sequence;
+    std::uint64_t price_ticks;
+    std::uint64_t quantity;
+    bool operator==(const Quote&) const = default;
+};
+
+inline std::size_t encode_quote(const Quote& q,
+                                std::span<std::uint8_t> out) noexcept {
+    const std::array values{q.instrument_id, q.sequence, q.price_ticks, q.quantity};
+    std::size_t size = 0;
+    for (auto v : values) size += encoded_size(v);
+    if (out.size() < size) return 0;
+    auto* p = out.data();
+    for (auto v : values) p += encode_unchecked(v, p);
+    return size;
+}
+
+class QuoteStream {
+    Quote current_{};
+    UIntState integer_{};
+    unsigned field_ = 0;
+    bool failed_ = false;
+public:
+    bool at_message_boundary() const noexcept {
+        return !failed_ && field_ == 0 && integer_.count == 0;
+    }
+
+    // Emit must synchronously accept the quote, must not throw or re-enter.
+    // Copy it if needed later: current_ is reused for subsequent messages.
+    // done means this input ended at a message boundary, not connection EOF.
+    template<class Emit>
+    Result feed(std::span<const std::uint8_t> input, Emit&& emit) noexcept {
+        static_assert(std::is_nothrow_invocable_v<Emit&, const Quote&>);
+        if (failed_) return {Status::invalid, 0};
+        std::size_t used = 0;
+        while (used < input.size()) {
+            const auto r = decode(input.subspan(used), integer_);
+            used += r.consumed;
+            if (r.status == Status::invalid) {
+                failed_ = true;
+                return {Status::invalid, used};
+            }
+            if (r.status == Status::need_more) return {Status::need_more, used};
+            switch (field_) {
+                case 0: current_.instrument_id = integer_.value; break;
+                case 1: current_.sequence = integer_.value; break;
+                case 2: current_.price_ticks = integer_.value; break;
+                case 3: current_.quantity = integer_.value; break;
+            }
+            if (++field_ == 4) {
+                emit(std::as_const(current_));
+                field_ = 0;
+            }
+        }
+        return {at_message_boundary() ? Status::done : Status::need_more, used};
+    }
+};
+} // namespace stopbit
+```
+
+使用方式如下。`received_bytes` 只覆盖本次实际收到的字节，解析器对象在连接存续期间保留：
+
+```cpp
+stopbit::QuoteStream parser; // 放在连接对象中，不是每次接收时重新构造。
+
+// 接收回调中：on_quote 必须同步接纳数据、noexcept，且不能重入 parser。
+auto result = parser.feed(received_bytes, on_quote);
+if (result.status == stopbit::Status::invalid) {
+    // 停止使用该流，由连接管理层处理错误、断线和恢复。
+}
+// need_more 不需要阻塞等待；下次有新字节时再次调用 feed。
+// TCP EOF 时另外检查 parser.at_message_boundary()，false 表示有残缺消息。
+```
+
 <a id="validation"></a>
 
 ## 3. 怎样验证一次优化
