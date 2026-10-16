@@ -304,6 +304,54 @@ ssize_t len = exanic_receive_frame(rx, buf, sizeof(buf), &timestamp);
 
 SDK 将各个 chunk 的有效帧字节拼接、复制到 `buf`，并把时间戳写入独立变量 `timestamp`。`buf` 中包含以太网帧头、数据和 FCS（帧校验序列），不包含那 8 字节接收元数据。`timestamp` 的原始值以网卡时钟计数为单位；接收后及时用 `exanic_expand_timestamp()` 恢复高位、扩展为 64 位，可以避免低 32 位回绕产生的歧义，再通过 `exanic_cycles_to_ns()` 等接口换算时间。[SDK 帧接收实现][exanic-rx-source]、[Cisco 时间戳接口说明][exanic-lib]
 
+### 6.3 镜像报文中的时间戳与旁路测量
+
+交换机还可以复制业务报文，在镜像副本上附加硬件时间戳，再送给旁路采集机分析。交易程序继续处理业务流量，采集机负责解码时间戳、关联报文和统计延迟。这种方案可以减少业务线程为了观测而逐包读钟的工作。
+
+一个实际例子是 **Cisco Nexus 3550-F Fusion**。它在报文第一 bit 到达入口端口时记录时间，等镜像副本从镜像端口输出时，再把这个已经记录好的时间戳写入副本。因此，时间戳表示业务报文进入交换机的时刻，不是镜像副本发出的时刻。[Cisco 镜像与时间戳说明][fusion-mirror]
+
+在它的 `timestamp append` 模式下，镜像帧的布局如下。这里省略前导码等物理层字段，帧数据包括以太网头和上层协议数据：
+
+```text
+原始帧：  [ 帧数据 ][ 原 FCS：4 B ]
+镜像副本：[ 帧数据 ][ 时间戳计数：4 B ][ 新 FCS：4 B ]
+```
+
+时间戳占据原 FCS 的位置，设备再为输出帧计算新的 FCS，镜像帧总长度增加 4 字节。这个字段保存的是硬件计数器的低 32 位；设备还会周期性发送 keyframe，提供完整计数与 UTC 时间的对应关系。采集端据此恢复时间，Cisco 也提供了现成的解码程序。[Cisco 镜像与时间戳说明][fusion-mirror]、[Cisco 时间戳解码工具][fusion-decoder]
+
+这里的时间戳确实作为镜像帧的字节在线路上传输。6.2 节中的 ExaNIC 接收元数据则位于主机的 DMA 缓冲区；交换机复制网络报文时，拿不到服务器内存里的那份元数据。
+
+测量一段网络路径的延迟时，可以在两个位置分别镜像同一个业务报文：
+
+```text
+业务路径：发送端 → A 的入口（记录 tA）→ 网络路径 → B 的入口（记录 tB）→ 接收端
+
+镜像路径：A 的副本及 tA ──┐
+                         ├→ 旁路采集机 → 配对同一报文 → 计算 tB − tA
+          B 的副本及 tB ──┘
+```
+
+例如，换算到共同时间基准后，同一个报文在 A 入口的时间为 `1,000,000 ns`，在 B 入口的时间为 `1,000,800 ns`，测得这两个入口之间的延迟就是 `800 ns`。它覆盖 A 后续的转发和两点间的网络路径，终点停在 B 的入口。
+
+即使两份副本经过不同的镜像队列、先后顺序发生变化，只要原始时间戳保留、报文配对正确，仍然可以计算上述差值。
+
+在 HFT 中，可以让行情和订单经过同一台交换机，从外部测量 tick-to-order 延迟。以 Fusion 为例，端口 1 接行情网络，端口 2 接交易服务器，端口 3 接旁路采集机，对端口 1、2 的入口流量配置带时间戳的镜像：
+
+1. 行情的第一 bit 到达端口 1，硬件记录 `t_tick`，业务报文沿正常路径转发给服务器。
+2. 镜像副本通过端口 3 发往采集机，携带刚才记录的 `t_tick`。这个过程由交换机完成，不用等服务器的接收函数返回，也不用等策略处理行情。
+3. 服务器处理行情并发出订单。订单的第一 bit 返回交换机、到达端口 2 时，硬件记录 `t_order`，再将带时间戳的订单副本送给采集机；原订单继续沿正常交易链路转发。
+
+打时间戳和发送镜像副本是两个时刻。在 Fusion 的 `timestamp append` 模式下，镜像路径采用存储转发：收齐整帧后再发送，镜像输出繁忙时还会排队。副本携带的仍是入口处已经记录好的时间；业务转发路径不因这个镜像模式而增加等待。服务器可以在行情镜像副本仍在排队时处理行情并发出订单。[Cisco 镜像转发方式][fusion-mirror]
+
+采集机建立行情与订单的对应关系后，计算 `t_order − t_tick`。这里两个打点共用交换机的硬件计数器，测量边界是 **“行情进入交换机 → 订单返回交换机”**。它包含交换机向服务器的转发、两者之间的往返链路、网卡收发和服务器内部处理。终点停在订单返回交换机入口，尚未包含后续到交易所的传输、撮合或确认。
+
+沿用这种外部测量方式，我们可以做到：
+
+- **生产监控与故障回溯。** 采集和分析运行在独立机器上，交易线程不必为外部测量额外逐包读钟、写采集日志。可以观察开盘、行情突发时的响应分布，保留延迟异常时对应的行情和订单。例如，策略函数自身计时仍然很短，但网卡或处理队列开始积压，外部测得的 tick-to-order 就会变长。
+- **第三方系统的外部评估。** 对不方便修改内部代码的交易系统，可以从网络入口和出口观察其表现。只要能解析协议并建立输入与输出的业务关系，就能采用统一的外部测量边界，而不依赖各家内部日志对“处理完成”的不同定义。
+
+行情和订单是不同消息，抓到两个包并不自动说明它们有因果关系。可靠的 tick-to-order 统计依赖明确的触发规则、业务标识，或应用提供的关联记录；无法配对的样本单独记录。若要进一步确定慢在行情解析、策略计算还是发单队列，就要结合服务器内部的分段打点。
+
 <a id="sec-7"></a>
 ## 7. 多台设备如何同步时钟
 
@@ -842,3 +890,7 @@ int main(int argc, char** argv) {
 [exanic-rx-layout]: https://github.com/cisco/exanic-software/blob/430e5eb35d455b06e84ba8053b1456c86d3f21a2/libs/exanic/fifo_if.h#L15-L73
 [exanic-rx-source]: https://github.com/cisco/exanic-software/blob/430e5eb35d455b06e84ba8053b1456c86d3f21a2/libs/exanic/fifo_rx.c#L365-L445
 [exanic-rx-mapping]: https://github.com/cisco/exanic-software/blob/430e5eb35d455b06e84ba8053b1456c86d3f21a2/libs/exanic/fifo_rx.c#L84-L85
+[fusion-mirror]: https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/3550-f/sw/user-guide/cisco-nexus-3550-f-fusion-user-guide/mirror.html
+[fusion-decoder]: https://github.com/CiscoDevNet/n3550-timestamp-decoder
+[arista-capture-timestamps]: https://www.arista.com/assets/data/pdf/Whitepapers/Overview_Arista_Timestamps.pdf
+[trading-passive-monitoring-case]: https://www.arista.com/assets/data/pdf/CaseStudies/CaseStudy-InvestmentBank.pdf
