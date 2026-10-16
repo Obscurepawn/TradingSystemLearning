@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 690" width="1200" height="690">
+<style>text{font-family:"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;fill:#111827} .title{font-size:30px;font-weight:600}.sub{font-size:18px;fill:#4b5563}.node{font-size:23px;font-weight:600}.body{font-size:19px}.small{font-size:17px;fill:#4b5563}</style>
+<defs>
+<marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#ea580c"/></marker>
+<marker id="arrow-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#6b7280"/></marker>
+</defs>
+<rect width="1200" height="690" fill="#ffffff"/>
+<text x="40" y="48" text-anchor="start" class="title">一条交易数据路径，可能涉及多只钟</text>
+<text x="40" y="82" text-anchor="start" class="sub">先确定事件发生的位置，再确认时间戳来自哪个时钟域。</text>
+<rect x="40" y="160" width="170" height="128" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="125" y="196" text-anchor="middle" style="font-size:22px;font-weight:600;fill:#111827">H0 · 网卡 RX</text>
+<text x="125" y="230" text-anchor="middle" style="font-size:18px;font-weight:400;fill:#111827">行情接收打点</text>
+<text x="125" y="260" text-anchor="middle" style="font-size:17px;font-weight:400;fill:#111827">PHC A</text>
+<rect x="990" y="160" width="170" height="128" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="1075" y="196" text-anchor="middle" style="font-size:22px;font-weight:600;fill:#111827">H1 · 网卡 TX</text>
+<text x="1075" y="230" text-anchor="middle" style="font-size:18px;font-weight:400;fill:#111827">订单发送打点</text>
+<text x="1075" y="260" text-anchor="middle" style="font-size:17px;font-weight:400;fill:#111827">PHC A 或 PHC B</text>
+<rect x="270" y="135" width="660" height="175" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="600" y="166" text-anchor="middle" style="font-size:21px;font-weight:600;fill:#111827">应用处理 · CPU TSC</text>
+<line x1="315" y1="224" x2="448" y2="224" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+<rect x="359.5" y="240" width="46" height="28" rx="4" fill="#fff7ed" opacity="0.97"/>
+<text x="382.5" y="260" text-anchor="middle" style="font-size:17px;font-weight:400;fill:#4b5563">解码</text>
+<line x1="460" y1="224" x2="593" y2="224" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+<rect x="479.0" y="240" width="97" height="28" rx="4" fill="#fff7ed" opacity="0.97"/>
+<text x="527.5" y="260" text-anchor="middle" style="font-size:17px;font-weight:400;fill:#4b5563">更新订单簿</text>
+<line x1="605" y1="224" x2="738" y2="224" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+<rect x="632.5" y="240" width="80" height="28" rx="4" fill="#fff7ed" opacity="0.97"/>
+<text x="672.5" y="260" text-anchor="middle" style="font-size:17px;font-weight:400;fill:#4b5563">策略决策</text>
+<line x1="750" y1="224" x2="883" y2="224" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+<rect x="769.0" y="240" width="97" height="28" rx="4" fill="#fff7ed" opacity="0.97"/>
+<text x="817.5" y="260" text-anchor="middle" style="font-size:17px;font-weight:400;fill:#4b5563">风控与编码</text>
+<circle cx="310" cy="224" r="5" fill="#2563eb"/>
+<text x="310" y="203" text-anchor="middle" style="font-size:21px;font-weight:600;fill:#111827">C0</text>
+<circle cx="455" cy="224" r="5" fill="#2563eb"/>
+<text x="455" y="203" text-anchor="middle" style="font-size:21px;font-weight:600;fill:#111827">C1</text>
+<circle cx="600" cy="224" r="5" fill="#2563eb"/>
+<text x="600" y="203" text-anchor="middle" style="font-size:21px;font-weight:600;fill:#111827">C2</text>
+<circle cx="745" cy="224" r="5" fill="#2563eb"/>
+<text x="745" y="203" text-anchor="middle" style="font-size:21px;font-weight:600;fill:#111827">C3</text>
+<circle cx="890" cy="224" r="5" fill="#2563eb"/>
+<text x="890" y="203" text-anchor="middle" style="font-size:21px;font-weight:600;fill:#111827">C4</text>
+<text x="310" y="290" text-anchor="middle" style="font-size:16px;font-weight:400;fill:#4b5563">应用取得</text>
+<text x="890" y="290" text-anchor="middle" style="font-size:16px;font-weight:400;fill:#4b5563">订单就绪</text>
+<line x1="210" y1="224" x2="303" y2="224" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+<line x1="897" y1="224" x2="990" y2="224" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+<rect x="226" y="187" width="46" height="28" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="249" y="208" text-anchor="middle" style="font-size:17px;font-weight:400;fill:#4b5563">行情</text>
+<rect x="932" y="187" width="46" height="28" rx="4" fill="#ffffff" opacity="0.97"/>
+<text x="955" y="208" text-anchor="middle" style="font-size:17px;font-weight:400;fill:#4b5563">订单</text>
+<g transform="translate(0,40)">
+<rect x="40" y="335" width="350" height="132" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+<text x="60" y="370" text-anchor="start" class="node">C4 − C0：应用内部耗时</text>
+<text x="60" y="405" text-anchor="start" class="small">同一可用 TSC 基准，换算计数差。</text>
+<text x="60" y="436" text-anchor="start" class="small">跨核使用前仍需核验计数一致性。</text>
+<rect x="425" y="335" width="350" height="132" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="445" y="370" text-anchor="start" class="node">H1 − H0：硬件收发间隔</text>
+<text x="445" y="405" text-anchor="start" class="small">若使用同一 PHC，可在本地求差。</text>
+<text x="445" y="436" text-anchor="start" class="small">若使用不同 PHC，先同步或映射。</text>
+<rect x="810" y="335" width="350" height="132" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="830" y="370" text-anchor="start" class="node">H0 ↔ C0：跨时钟域</text>
+<text x="830" y="405" text-anchor="start" class="small">PHC 与 TSC 需要建立转换关系。</text>
+<text x="830" y="436" text-anchor="start" class="small">统一成纳秒单位仍不足以直接相减。</text>
+<rect x="40" y="515" width="1120" height="92" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="62" y="551" text-anchor="start" class="body">打点边界：H1 只代表设备定义的发送事件，不代表交易所接收、受理或成交。</text>
+<text x="62" y="582" text-anchor="start" class="small">网卡 RX / TX 的具体位置、支持的报文和时间戳关联方式，需要依据设备能力确认。</text>
+</g>
+</svg>
