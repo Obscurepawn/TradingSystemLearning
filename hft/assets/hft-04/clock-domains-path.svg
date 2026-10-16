@@ -6,7 +6,7 @@
 <marker id="arrow-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#6b7280"/></marker>
 </defs>
 <rect width="1200" height="690" fill="#ffffff"/>
-<text x="40" y="48" text-anchor="start" class="title">一条交易数据路径，可能涉及多只钟</text>
+<text x="40" y="48" text-anchor="start" class="title">一条交易数据路径，可能涉及多个时钟</text>
 <text x="40" y="82" text-anchor="start" class="sub">先确定事件发生的位置，再确认时间戳来自哪个时钟域。</text>
 <rect x="40" y="160" width="170" height="128" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
 <text x="125" y="196" text-anchor="middle" style="font-size:22px;font-weight:600;fill:#111827">H0 · 网卡 RX</text>
