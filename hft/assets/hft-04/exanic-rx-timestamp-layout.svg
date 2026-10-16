@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1330" width="1400" height="1330">
+<style>text{font-family:"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;fill:#111827}.title{font-size:30px;font-weight:600}.subtitle{font-size:19px;fill:#4b5563}.section{font-size:23px;font-weight:600}.node{font-size:22px;font-weight:600}.body{font-size:20px}.small{font-size:18px;fill:#4b5563}.tiny{font-size:17px;fill:#4b5563}.code{font-size:20px;font-family:Menlo,Consolas,monospace}.blue{fill:#1d4ed8}.green{fill:#15803d}</style>
+<defs>
+<marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#16a34a"/></marker>
+<marker id="arrow-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#9ca3af"/></marker>
+</defs>
+<rect width="1400" height="1330" fill="#ffffff"/>
+<text x="40" y="48" text-anchor="start" class="title">ExaNIC：时间戳怎样随收包数据进入应用</text>
+<text x="40" y="85" text-anchor="start" class="subtitle">接收环形缓冲区中的内存布局；metadata 是网卡交付给软件的元数据。</text>
+<rect x="40" y="120" width="1320" height="265" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="60" y="157" text-anchor="start" class="section">① 网卡写入主机内存，SDK 读取这块 RX ring</text>
+<rect x="90" y="202" width="240" height="125" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="210" y="246" text-anchor="middle" class="node blue">ExaNIC 网卡</text>
+<text x="210" y="280" text-anchor="middle" class="body">接收以太网帧</text>
+<text x="210" y="307" text-anchor="middle" class="small">记录硬件时间戳</text>
+<rect x="610" y="192" width="700" height="153" rx="10" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="635" y="225" text-anchor="start" class="node">主机 DRAM：RX ring（接收环形缓冲区）</text>
+<rect x="635" y="246" width="145" height="65" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="707.5" y="273" text-anchor="middle" class="body blue">chunk 0</text>
+<text x="707.5" y="299" text-anchor="middle" class="small">128 B</text>
+<rect x="800" y="246" width="145" height="65" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="872.5" y="273" text-anchor="middle" class="body blue">chunk 1</text>
+<text x="872.5" y="299" text-anchor="middle" class="small">128 B</text>
+<rect x="965" y="246" width="145" height="65" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="1037.5" y="273" text-anchor="middle" class="body blue">chunk 2</text>
+<text x="1037.5" y="299" text-anchor="middle" class="small">128 B</text>
+<rect x="1130" y="246" width="155" height="65" rx="6" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" stroke-dasharray="5,4"/>
+<text x="1207.5" y="286" text-anchor="middle" class="node">⋯</text>
+<path d="M 330,264 L 610,264" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="415.0" y="218" width="110" height="30" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="470" y="240" text-anchor="middle" class="small blue">DMA 写入</text>
+<text x="470" y="299" text-anchor="middle" class="small">帧字节 + 元数据</text>
+<text x="635" y="369" text-anchor="start" class="small">驱动将 ring 映射到进程；用户态 SDK 读取同一块内存。</text>
+<rect x="40" y="415" width="1320" height="480" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="60" y="453" text-anchor="start" class="section">② 一个 chunk 共 128 B；最后 8 B 存放元数据</text>
+<text x="1310" y="485" text-anchor="end" class="tiny">字节偏移；图宽不按字节数等比例绘制</text>
+<text x="90" y="505" text-anchor="start" class="small">0</text>
+<text x="1010" y="505" text-anchor="start" class="small">120</text>
+<text x="1310" y="505" text-anchor="end" class="small">128</text>
+<rect x="90" y="520" width="920" height="76" rx="0" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<rect x="1010" y="520" width="300" height="76" rx="0" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="550" y="550" text-anchor="middle" class="node blue">payload[120]：这一块中的帧字节</text>
+<text x="550" y="579" text-anchor="middle" class="small">偏移 0–119 · 120 B</text>
+<text x="1160" y="550" text-anchor="middle" class="node green">metadata</text>
+<text x="1160" y="579" text-anchor="middle" class="small">偏移 120–127 · 8 B</text>
+<text x="90" y="635" text-anchor="start" class="body">将 8 B 元数据展开：</text>
+<path d="M 1160,596 L 1160,650" stroke="#16a34a" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+<path d="M 90,659 L 90,650 L 1310,650 L 1310,659" stroke="#16a34a" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+<rect x="90" y="675" width="420" height="106" rx="0" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="300.0" y="699" text-anchor="middle" class="tiny">偏移 120–123</text>
+<text x="300.0" y="733" text-anchor="middle" class="body green">timestamp</text>
+<text x="300.0" y="763" text-anchor="middle" class="tiny">4 B · 硬件时间计数低 32 位</text>
+<rect x="510" y="675" width="200" height="106" rx="0" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="610.0" y="699" text-anchor="middle" class="tiny">偏移 124</text>
+<text x="610.0" y="733" text-anchor="middle" class="body green">frame_status</text>
+<text x="610.0" y="763" text-anchor="middle" class="tiny">1 B · 状态 / 过滤区</text>
+<rect x="710" y="675" width="200" height="106" rx="0" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="810.0" y="699" text-anchor="middle" class="tiny">偏移 125</text>
+<text x="810.0" y="733" text-anchor="middle" class="body green">length</text>
+<text x="810.0" y="763" text-anchor="middle" class="tiny">1 B · 长度 / 结束标记</text>
+<rect x="910" y="675" width="200" height="106" rx="0" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="1010.0" y="699" text-anchor="middle" class="tiny">偏移 126</text>
+<text x="1010.0" y="733" text-anchor="middle" class="body green">matched_filter</text>
+<text x="1010.0" y="763" text-anchor="middle" class="tiny">1 B · 规则编号</text>
+<rect x="1110" y="675" width="200" height="106" rx="0" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+<text x="1210.0" y="699" text-anchor="middle" class="tiny">偏移 127</text>
+<text x="1210.0" y="733" text-anchor="middle" class="body green">generation</text>
+<text x="1210.0" y="763" text-anchor="middle" class="tiny">1 B · 环绕代数</text>
+<text x="90" y="825" text-anchor="start" class="body">length = 0：帧还没结束；length ≠ 0：这是末块，值为末块有效帧字节数。</text>
+<text x="90" y="861" text-anchor="start" class="body">一个帧可以跨多个 chunk；同一帧各块记录相同的帧首时间戳。</text>
+<rect x="40" y="925" width="1320" height="330" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="60" y="964" text-anchor="start" class="section">③ SDK 重组帧字节，并单独返回时间戳</text>
+<rect x="90" y="1010" width="410" height="205" rx="10" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="295" y="1049" text-anchor="middle" class="node">用户态 SDK</text>
+<text x="295" y="1090" text-anchor="middle" class="code">exanic_receive_frame</text>
+<text x="295" y="1125" text-anchor="middle" class="tiny">(rx, buf, sizeof(buf), &amp;timestamp)</text>
+<text x="295" y="1172" text-anchor="middle" class="body">读取 RX ring 中的 chunk</text>
+<text x="295" y="1201" text-anchor="middle" class="small">检查元数据，拼接帧字节</text>
+<rect x="800" y="1010" width="510" height="108" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="820" y="1042" text-anchor="start" class="node blue">应用 buf：完整以太网帧</text>
+<rect x="820" y="1061" width="150" height="37" rx="0" fill="#dbeafe" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="895.0" y="1087" text-anchor="middle" class="small">以太网头</text>
+<rect x="970" y="1061" width="225" height="37" rx="0" fill="#dbeafe" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="1082.5" y="1087" text-anchor="middle" class="small">帧负载</text>
+<rect x="1195" y="1061" width="95" height="37" rx="0" fill="#dbeafe" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="1242.5" y="1087" text-anchor="middle" class="small">FCS</text>
+<rect x="800" y="1152" width="510" height="80" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="820" y="1182" text-anchor="start" class="node green">独立 timestamp 变量</text>
+<text x="820" y="1213" text-anchor="start" class="small">硬件计数低 32 位；可通过 SDK 换算时间</text>
+<path d="M 500,1064 L 800,1064" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="575.0" y="1018" width="150" height="30" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="650" y="1040" text-anchor="middle" class="small blue">拷贝 / 重组帧</text>
+<text x="650" y="1094" text-anchor="middle" class="small">不包含 8 B 元数据</text>
+<path d="M 500,1189 L 800,1189" stroke="#16a34a" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<rect x="585.0" y="1143" width="130" height="30" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="650" y="1165" text-anchor="middle" class="small green">写出时间戳</text>
+<path d="M 60,1293 L 105,1293" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<text x="119" y="1299" text-anchor="start" class="small">帧字节流</text>
+<path d="M 280,1293 L 325,1293" stroke="#16a34a" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<text x="339" y="1299" text-anchor="start" class="small">时间戳元数据</text>
+<text x="1340" y="1299" text-anchor="end" class="small">依据：Cisco ExaNIC SDK v2.7.6</text>
+</svg>

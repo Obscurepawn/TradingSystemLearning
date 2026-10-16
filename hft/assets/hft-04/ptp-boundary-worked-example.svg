@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1350" width="1400" height="1350">
+<style>text{font-family:"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;fill:#111827}.title{font-size:30px;font-weight:600}.subtitle{font-size:20px;fill:#4b5563}.section{font-size:23px;font-weight:600}.node{font-size:23px;font-weight:600}.body{font-size:22px}.small{font-size:19px;fill:#4b5563}.calc{font-size:24px;font-family:Menlo,Consolas,"PingFang SC",monospace}.result{font-size:27px;font-weight:600}.blue{fill:#1d4ed8}.green{fill:#15803d}.purple{fill:#7c3aed}</style>
+<defs>
+<marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#16a34a"/></marker>
+<marker id="arrow-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#9ca3af"/></marker>
+</defs>
+<rect x="0" y="0" width="1400" height="1350" rx="0" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="40" y="50" text-anchor="start" class="title">边界时钟：S 先跟 G 对时，再给 A、B 授时</text>
+<text x="40" y="90" text-anchor="start" class="subtitle">假设演算：所有读数单位为 μs；链路双向对称；每轮交换期间时钟偏移固定。</text>
+<rect x="40" y="125" width="1320" height="355" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="65" y="166" text-anchor="start" class="section">授时分成两段，每一段都独立交换 PTP 报文、计算偏移</text>
+<rect x="85" y="245" width="240" height="112" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="205" y="286" text-anchor="middle" class="node blue">主时钟 G</text>
+<text x="205" y="327" text-anchor="middle" class="body">时间参考源</text>
+<rect x="545" y="245" width="285" height="112" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="687.5" y="286" text-anchor="middle" class="node green">交换机 S：边界时钟</text>
+<text x="687.5" y="327" text-anchor="middle" class="body">用自己的时钟向下授时</text>
+<rect x="1070" y="205" width="240" height="95" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="1190" y="244" text-anchor="middle" class="node blue">交易服务器 A</text>
+<text x="1190" y="279" text-anchor="middle" class="small">校正网卡 PHC</text>
+<rect x="1070" y="350" width="240" height="95" rx="10" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1190" y="389" text-anchor="middle" class="node">交易服务器 B</text>
+<text x="1190" y="424" text-anchor="middle" class="small">独立跟 S 对时</text>
+<path d="M 325,286 L 545,286" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="364.0" y="229" width="142" height="33" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="435" y="253" text-anchor="middle" class="body blue">① G → S</text>
+<path d="M 830,276 L 960,276 L 960,252 L 1070,252" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="885.0" y="196" width="142" height="33" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="956" y="220" text-anchor="middle" class="body blue">② S → A</text>
+<path d="M 830,329 L 960,329 L 960,397 L 1070,397" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="898.0" y="411" width="122" height="33" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="959" y="435" text-anchor="middle" class="body blue">S → B</text>
+<text x="65" y="467" text-anchor="start" class="small">蓝箭头表示参考时间的传递方向；每一段的 PTP 报文都双向传输。</text>
+<rect x="40" y="520" width="640" height="650" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="65" y="562" text-anchor="start" class="section">① 先让 S 跟 G 对时</text>
+<text x="65" y="600" text-anchor="start" class="small">这一轮只涉及 G 与 S：</text>
+<text x="65" y="651" text-anchor="start" class="body">G 发出 Sync</text>
+<text x="380" y="651" text-anchor="start" class="body">t1(G) = 100</text>
+<text x="65" y="698" text-anchor="start" class="body">S 收到 Sync</text>
+<text x="380" y="698" text-anchor="start" class="body">t2(S) = 112</text>
+<text x="65" y="745" text-anchor="start" class="body">S 发出 Delay_Req</text>
+<text x="380" y="745" text-anchor="start" class="body">t3(S) = 210</text>
+<text x="65" y="792" text-anchor="start" class="body">G 收到 Delay_Req</text>
+<text x="380" y="792" text-anchor="start" class="body">t4(G) = 202</text>
+<path d="M 65,820 L 655,820" stroke="#9ca3af" stroke-width="1.2" fill="none" stroke-linejoin="round"/>
+<text x="65" y="864" text-anchor="start" class="body">正向读数差：112 − 100 = 12</text>
+<text x="65" y="905" text-anchor="start" class="body">反向读数差：202 − 210 = −8</text>
+<text x="65" y="957" text-anchor="start" class="body blue">从钟偏移 = (12 − (−8)) / 2 = +10</text>
+<text x="65" y="1001" text-anchor="start" class="body">单向链路耗时 = (12 + (−8)) / 2 = 2</text>
+<rect x="60" y="1035" width="600" height="105" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="80" y="1075" text-anchor="start" class="body blue">S 的时钟快 10 μs，</text>
+<text x="80" y="1113" text-anchor="start" class="body blue">理想校正是向后调 10 μs。</text>
+<rect x="720" y="520" width="640" height="650" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="745" y="562" text-anchor="start" class="section">② S 对准 G 后，让 A 跟 S 对时</text>
+<text x="745" y="600" text-anchor="start" class="small">这是后来独立发起的另一轮交换：</text>
+<text x="745" y="651" text-anchor="start" class="body">S 发出 Sync</text>
+<text x="1060" y="651" text-anchor="start" class="body">t1(S) = 1000</text>
+<text x="745" y="698" text-anchor="start" class="body">A 收到 Sync</text>
+<text x="1060" y="698" text-anchor="start" class="body">t2(A) = 1033</text>
+<text x="745" y="745" text-anchor="start" class="body">A 发出 Delay_Req</text>
+<text x="1060" y="745" text-anchor="start" class="body">t3(A) = 2030</text>
+<text x="745" y="792" text-anchor="start" class="body">S 收到 Delay_Req</text>
+<text x="1060" y="792" text-anchor="start" class="body">t4(S) = 2003</text>
+<path d="M 745,820 L 1335,820" stroke="#9ca3af" stroke-width="1.2" fill="none" stroke-linejoin="round"/>
+<text x="745" y="864" text-anchor="start" class="body">正向读数差：1033 − 1000 = 33</text>
+<text x="745" y="905" text-anchor="start" class="body">反向读数差：2003 − 2030 = −27</text>
+<text x="745" y="957" text-anchor="start" class="body blue">从钟偏移 = (33 − (−27)) / 2 = +30</text>
+<text x="745" y="1001" text-anchor="start" class="body">单向链路耗时 = (33 + (−27)) / 2 = 3</text>
+<rect x="740" y="1035" width="600" height="105" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="760" y="1075" text-anchor="start" class="body blue">A 的 PHC 快 30 μs，</text>
+<text x="760" y="1113" text-anchor="start" class="body blue">理想校正是向后调 30 μs。</text>
+<rect x="40" y="1205" width="1320" height="105" rx="10" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="65" y="1245" text-anchor="start" class="body">这里的“偏移”是同一时刻的从钟读数减去参考钟读数；正数表示从钟走在前面。</text>
+<text x="65" y="1282" text-anchor="start" class="small">实际同步服务按配置跳时或逐渐调频；S 剩余的同步误差也会影响下游 A、B。</text>
+</svg>

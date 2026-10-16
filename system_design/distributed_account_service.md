@@ -483,7 +483,7 @@ sequenceDiagram
 
 ### 7.4 Position Engine
 
-**线程模型**：一个 Pod 负责若干分区，**每个分区一个单线程事件循环**。状态全部在内存（hash map，最好用 off-heap 结构以减少 GC 停顿）。
+**线程模型**：一个 Pod 负责若干分区，**每个分区一个单线程事件循环**。状态全部在内存。
 
 ```text
 on_event(e, offset):

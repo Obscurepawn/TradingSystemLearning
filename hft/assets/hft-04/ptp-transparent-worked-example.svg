@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1660" width="1400" height="1660">
+<style>text{font-family:"PingFang SC","Noto Sans CJK SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;fill:#111827}.title{font-size:30px;font-weight:600}.subtitle{font-size:20px;fill:#4b5563}.section{font-size:23px;font-weight:600}.node{font-size:23px;font-weight:600}.body{font-size:22px}.small{font-size:19px;fill:#4b5563}.calc{font-size:24px;font-family:Menlo,Consolas,"PingFang SC",monospace}.result{font-size:27px;font-weight:600}.blue{fill:#1d4ed8}.green{fill:#15803d}.purple{fill:#7c3aed}</style>
+<defs>
+<marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#16a34a"/></marker>
+<marker id="arrow-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#9ca3af"/></marker>
+</defs>
+<rect x="0" y="0" width="1400" height="1660" rx="0" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="40" y="50" text-anchor="start" class="title">透明时钟：A 仍跟 G 对时，S 测量并报告自己的转发耗时</text>
+<text x="40" y="90" text-anchor="start" class="subtitle">假设演算：读数单位均为 μs；A 的 PHC 比 G 快 30，S 的时钟比 G 快 4000；每轮偏移固定。</text>
+<text x="40" y="126" text-anchor="start" class="small">G—S 单向链路耗时 2 μs，S—A 为 3 μs，双向对称。纵向表示先后顺序，不按时间比例绘制。</text>
+<rect x="40" y="155" width="1320" height="820" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<rect x="70" y="180" width="220" height="95" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="180" y="218" text-anchor="middle" class="node blue">主时钟 G</text>
+<text x="180" y="252" text-anchor="middle" class="small">参考时间</text>
+<rect x="550" y="180" width="300" height="95" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="700" y="218" text-anchor="middle" class="node green">交换机 S：透明时钟</text>
+<text x="700" y="252" text-anchor="middle" class="small">读自己的时钟，计算驻留时间</text>
+<rect x="1110" y="180" width="220" height="95" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="1220" y="218" text-anchor="middle" class="node blue">服务器 A 的 PHC</text>
+<text x="1220" y="252" text-anchor="middle" class="small">待校正的时钟</text>
+<path d="M 180,290 L 180,910" stroke="#9ca3af" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-dasharray="5,5"/>
+<path d="M 700,290 L 700,910" stroke="#9ca3af" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-dasharray="5,5"/>
+<path d="M 1220,290 L 1220,910" stroke="#9ca3af" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-dasharray="5,5"/>
+<rect x="75.0" y="306" width="210" height="33" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="180" y="330" text-anchor="middle" class="body blue">t1(G) = 1000</text>
+<path d="M 180,360 L 700,400" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="315.0" y="327" width="210" height="33" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="420" y="351" text-anchor="middle" class="body blue">Sync · 链路 2 μs</text>
+<rect x="690" y="400" width="20" height="100" rx="2" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="735" y="420" text-anchor="start" class="body">入：S 读到 5002</text>
+<text x="735" y="485" text-anchor="start" class="body">出：S 读到 5010</text>
+<rect x="405" y="422" width="245" height="61" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="527.5" y="461" text-anchor="middle" class="small green">驻留：5010 − 5002 = 8</text>
+<path d="M 700,500 L 1220,540" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<rect x="866.0" y="505" width="210" height="33" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="971" y="529" text-anchor="middle" class="body blue">Sync · 链路 3 μs</text>
+<text x="1075" y="582" text-anchor="start" class="body blue">t2(A) = 1043</text>
+<rect x="60" y="601" width="630" height="35" rx="2" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="70" y="625" text-anchor="start" class="small">各列都是设备自己的读数；不要按跨列数值大小判断先后。</text>
+<text x="1075" y="682" text-anchor="start" class="body green">t3(A) = 2030</text>
+<path d="M 1220,710 L 700,750" stroke="#16a34a" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<rect x="835.0" y="685" width="270" height="33" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="970" y="709" text-anchor="middle" class="body green">Delay_Req · 链路 3 μs</text>
+<rect x="690" y="750" width="20" height="80" rx="2" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="735" y="770" text-anchor="start" class="body">入：S 读到 6003</text>
+<text x="735" y="815" text-anchor="start" class="body">出：S 读到 6005</text>
+<rect x="405" y="761" width="245" height="61" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="527.5" y="800" text-anchor="middle" class="small green">驻留：6005 − 6003 = 2</text>
+<path d="M 700,830 L 180,870" stroke="#16a34a" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<rect x="285.0" y="849" width="270" height="33" rx="4" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+<text x="420" y="873" text-anchor="middle" class="body green">Delay_Req · 链路 2 μs</text>
+<text x="70" y="921" text-anchor="start" class="body green">t4(G) = 2007</text>
+<path d="M 850,942 L 892,942" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-blue)"/>
+<text x="908" y="949" text-anchor="start" class="small">Sync 正向</text>
+<path d="M 1080,942 L 1122,942" stroke="#16a34a" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrow-green)"/>
+<text x="1138" y="949" text-anchor="start" class="small">Delay_Req 反向</text>
+<rect x="40" y="1000" width="1320" height="100" rx="10" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="65" y="1040" text-anchor="start" class="body">A 自己记录 t2、t3；其余时间戳与转发修正信息由 PTP 消息交给 A。</text>
+<text x="65" y="1077" text-anchor="start" class="small">两步模式下，Follow_Up 补充 t1；Delay_Resp 返回 t4。图中省略这些后续消息。</text>
+<text x="40" y="1146" text-anchor="start" class="section">① 先扣掉 S 的驻留时间，留下链路耗时与时钟偏移</text>
+<rect x="40" y="1170" width="640" height="110" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="65" y="1212" text-anchor="start" class="body">正向：t2 − t1 − 正向驻留</text>
+<text x="65" y="1254" text-anchor="start" class="calc blue">(1043 − 1000) − 8 = 35 μs</text>
+<rect x="720" y="1170" width="640" height="110" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="745" y="1212" text-anchor="start" class="body">反向：t4 − t3 − 反向驻留</text>
+<text x="745" y="1254" text-anchor="start" class="calc green">(2007 − 2030) − 2 = −25 μs</text>
+<text x="40" y="1328" text-anchor="start" class="section">② 求出 A 相对 G 的偏移，与剩余的单向链路耗时</text>
+<rect x="40" y="1350" width="1320" height="110" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="65" y="1394" text-anchor="start" class="result blue">A 的偏移 = (35 − (−25)) / 2 = +30 μs</text>
+<text x="65" y="1434" text-anchor="start" class="body">单向链路耗时 = (35 + (−25)) / 2 = 5 μs = 2 μs + 3 μs</text>
+<rect x="40" y="1490" width="1320" height="125" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="65" y="1533" text-anchor="start" class="result blue">③ A 的 PHC 快 30 μs；理想校正是向后调 30 μs</text>
+<text x="65" y="1572" text-anchor="start" class="body">8 μs、2 μs 是报文在 S 内的耗时；30 μs 才是要消除的 PHC 偏移。</text>
+<text x="65" y="1601" text-anchor="start" class="small">实际同步服务会连续采样，按配置跳时或逐渐调频，持续压低偏移。</text>
+</svg>
