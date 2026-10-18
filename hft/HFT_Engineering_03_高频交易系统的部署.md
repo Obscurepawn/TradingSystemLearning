@@ -1,46 +1,46 @@
 # HFT Engineering从入门到入土（3）—— 高频交易系统的部署
 
-同一份程序，换台服务器、换个 PCIe 插槽，甚至只是换一组 CPU，延迟都可能变化。即使服务器已经搬到交易所附近，主机内部的数据路径仍然值得优化。
+同一份程序，换台服务器、换个 PCIe 插槽，甚至只是换一组 CPU，延迟都可能变化。
 
 部署 Linux 交易系统时，行情、策略和网关怎么拆，线程放在哪些核上，服务器放在哪里，都会影响一条消息要走多远、经过多少次交接，以及途中会和谁争用资源。从行情接收到订单发出，完整路径如下：
 
-[![交易所行情出口经过接入线路与交换设备，到达本机网卡与接收队列，再依次完成行情处理、策略、风控与订单编码，经过本机发送队列与网卡及接入线路，最终到达交易所订单入口。](assets/hft-03/text-trading-path.png)](assets/hft-03/text-trading-path.png)
+[![交易所行情出口经过接入线路与交换设备，到达本机网卡与接收队列，再依次完成行情处理、策略、风控与订单编码，经过本机发送队列与网卡及接入线路，最终到达交易所订单入口。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-trading-path.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-trading-path.png)
 
-这条路径既经过线路和网络设备，也经过进程、线程、内存页和 CPU 缓存。同机的策略与网关若分属两个 CPU socket，通信就要跨 socket；交易线程即使绑了核，落到该核的网卡中断仍会打断它。若同一物理核上的 SMT 兄弟线程也在运行任务，还会与它争用执行资源。
-
-部署时先沿这条路径确定进程边界，再安排硬件资源。配置完成后，还要在预期的整机负载下验证延迟，并在后续发布中持续检查性能是否退化。
+这条路径既经过线路和网络设备，也经过进程、线程、内存页和 CPU 缓存。同机的策略与网关若分属两个 CPU socket，通信就要跨 socket；网卡中断会打断所在核上的交易线程，同一物理核上运行的 SMT 兄弟线程会与它争用执行资源。
 
 ## 目录
 
-- [1. 先确定一个交易单元里有哪些进程](#hft03-1)
-  - [1.1 从完整的交易路径划分职责](#hft03-1-1)
-  - [1.2 什么时候值得拆进程](#hft03-1-2)
-  - [1.3 优先按独立状态分片](#hft03-1-3)
-- [2. 交易模块之间怎样通信](#hft03-2)
-  - [2.1 同一台机器上的不同进程：共享内存 IPC](#hft03-2-1)
-  - [2.2 不同机器之间：网络通信](#hft03-2-2)
-  - [2.3 通信方式按边界选择](#hft03-2-3)
-- [3. 先看硬件拓扑，再分配 CPU](#hft03-3)
-  - [3.1 Socket、NUMA node 和逻辑 CPU 分别表示什么](#hft03-3-1)
-  - [3.2 把网卡、线程和热内存放在一起](#hft03-3-2)
-  - [3.3 一种常见的核分配方法](#hft03-3-3)
-  - [3.4 独占物理核之后，还要测试整机竞争](#hft03-3-4)
-- [4. 绑核之后，还要处理哪些干扰](#hft03-4)
-  - [4.1 Affinity 只规定线程可以在哪里运行](#hft03-4-1)
-  - [4.2 CPU isolation 是几层配置的配合](#hft03-4-2)
-  - [4.3 减少热路径核心上的中断与检测开销](#hft03-4-3)
-  - [4.4 电源设置](#hft03-4-4)
-- [5. 把内存准备工作移到运行之前](#hft03-5)
-  - [5.1 分配、触页、锁页与预热各有作用](#hft03-5-1)
-  - [5.2 开启 Huge Pages，减少TLB Cache压力](#hft03-5-2)
-- [6. SmartNIC 和 FPGA](#hft03-6)
-  - [6.1 硬件可以替主机完成什么](#hft03-6-1)
-- [7. 交易所接入与云上部署](#hft03-7)
-  - [7.1 传统交易所：靠近接入点](#hft03-7-1)
-  - [7.2 Crypto：公有云上的低延迟部署](#hft03-7-2)
-- [8. 用 PGO 优化上线的二进制](#hft03-8)
-- [9. 把性能回退检测纳入发布流程](#hft03-9)
-- [参考资料](#hft03-references)
+- [HFT Engineering从入门到入土（3）—— 高频交易系统的部署](#hft-engineering从入门到入土3-高频交易系统的部署)
+  - [目录](#目录)
+  - [1. 先确定一个交易单元里有哪些进程](#1-先确定一个交易单元里有哪些进程)
+    - [1.1 从完整的交易路径划分职责](#11-从完整的交易路径划分职责)
+    - [1.2 什么时候值得拆进程](#12-什么时候值得拆进程)
+    - [1.3 优先按独立状态分片](#13-优先按独立状态分片)
+  - [2. 交易模块之间怎样通信](#2-交易模块之间怎样通信)
+    - [2.1 同一台机器上的不同进程：共享内存 IPC](#21-同一台机器上的不同进程共享内存-ipc)
+    - [2.2 不同机器之间：网络通信](#22-不同机器之间网络通信)
+    - [2.3 通信方式按边界选择](#23-通信方式按边界选择)
+  - [3. 先看硬件拓扑，再分配 CPU](#3-先看硬件拓扑再分配-cpu)
+    - [3.1 Socket、NUMA node 和逻辑 CPU 分别表示什么](#31-socketnuma-node-和逻辑-cpu-分别表示什么)
+    - [3.2 把网卡、线程和热内存放在一起](#32-把网卡线程和热内存放在一起)
+    - [3.3 一种常见的核分配方法](#33-一种常见的核分配方法)
+    - [3.4 独占物理核之后，还要测试整机竞争](#34-独占物理核之后还要测试整机竞争)
+  - [4. 绑核之后，还要处理哪些干扰](#4-绑核之后还要处理哪些干扰)
+    - [4.1 Affinity 只规定线程可以在哪里运行](#41-affinity-只规定线程可以在哪里运行)
+    - [4.2 CPU isolation 是几层配置的配合](#42-cpu-isolation-是几层配置的配合)
+    - [4.3 减少热路径核心上的中断与检测开销](#43-减少热路径核心上的中断与检测开销)
+    - [4.4 电源设置](#44-电源设置)
+  - [5. 把内存准备工作移到运行之前](#5-把内存准备工作移到运行之前)
+    - [5.1 分配、触页、锁页与预热各有作用](#51-分配触页锁页与预热各有作用)
+    - [5.2 开启 Huge Pages，减少TLB Cache压力](#52-开启-huge-pages减少tlb-cache压力)
+  - [6. SmartNIC 和 FPGA](#6-smartnic-和-fpga)
+    - [6.1 硬件可以替主机完成什么](#61-硬件可以替主机完成什么)
+  - [7. 交易所接入与云上部署](#7-交易所接入与云上部署)
+    - [7.1 传统交易所：靠近接入点](#71-传统交易所靠近接入点)
+    - [7.2 Crypto：公有云上的低延迟部署](#72-crypto公有云上的低延迟部署)
+  - [8. 用 PGO 优化上线的二进制](#8-用-pgo-优化上线的二进制)
+  - [9. 把性能回退检测纳入发布流程](#9-把性能回退检测纳入发布流程)
+  - [参考资料](#参考资料)
 
 <a id="hft03-1"></a>
 ## 1. 先确定一个交易单元里有哪些进程
@@ -77,9 +77,9 @@
 
 以行情、策略、交易网关三个进程为例：
 
-[![行情 A/B 进入 market-data；market-data 发送行情事件到 strategy；strategy 发送订单意图到 order-gateway；order-gateway 向交易所发单，并将委托与成交回报反向传递给 strategy。](assets/hft-03/text-process-trading.png)](assets/hft-03/text-process-trading.png)
+[![行情 A/B 进入 market-data；market-data 发送行情事件到 strategy；strategy 发送订单意图到 order-gateway；order-gateway 向交易所发单，并将委托与成交回报反向传递给 strategy。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-process-trading.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-process-trading.png)
 
-[![market-data 的数据进入独立记录路径；控制面进程向各业务进程发送配置、启停与主备身份；各业务进程向观测进程发送计数器和采样事件。这三组关系相互独立，不表示先后顺序。](assets/hft-03/text-process-support.png)](assets/hft-03/text-process-support.png)
+[![market-data 的数据进入独立记录路径；控制面进程向各业务进程发送配置、启停与主备身份；各业务进程向观测进程发送计数器和采样事件。这三组关系相互独立，不表示先后顺序。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-process-support.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-process-support.png)
 
 `order-gateway` 维护订单状态和交易所连接，并在进程内完成每笔订单的风控检查。控制面按全账户交易限额分配各交易单元的额度。
 
@@ -98,7 +98,7 @@
 + 合并结果
 ```
 
-辅助核启动和返回都有成本，因此平均分配计算量未必最优。在并行阶段，缩短最后完成的分支，才可能缩短这一段关键路径。《The Latency Slippage》中的主核处理 40 个、辅助核处理 24 个期权，就是围绕交接成本安排分工的例子，具体比例依赖工作负载和核心位置；缓存行交接机制见[第 2 篇](HFT_Engineering_02_C++低延迟编程基础.md)，实验背景见[详细解读](../literature/The_Latency_Slippage_详细解读.md)。
+并行阶段的耗时由最后完成的分支决定，分配计算量时需要把请求和结果的交接成本算进去。《The Latency Slippage》的实验让主核处理 40 个、辅助核处理 24 个期权，为辅助核的交接留出时间。缓存行交接机制见本系列第 2 篇《常见低延迟系统访存与计算的优化手段》第 2.5.6 节，实验背景见[《The Latency Slippage》官方讲义][latency-slippage-slides]的“Multi-core”部分。
 
 <a id="hft03-2"></a>
 ## 2. 交易模块之间怎样通信
@@ -112,14 +112,14 @@
 
 这类队列常用 SPSC/SPMC RingBuffer 实现：
 
-[![行情进程把消息写入共享内存中的队列，策略进程从同一队列读取消息；共享内存中还维护发布位置和消费位置。](assets/hft-03/text-shared-memory-ipc.png)](assets/hft-03/text-shared-memory-ipc.png)
+[![行情进程把消息写入共享内存中的队列，策略进程从同一队列读取消息；共享内存中还维护发布位置和消费位置。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-shared-memory-ipc.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-shared-memory-ipc.png)
 
 <a id="hft03-2-2"></a>
 ### 2.2 不同机器之间：网络通信
 
 行情服务与策略部署在不同机器后，数据要经过两端的网络栈或用户态收发组件、网卡和交换网络：
 
-[![消息在主机 A 从业务线程经过发送缓冲、网络收发组件和网卡，穿过网络后，在主机 B 从网卡经过网络收发组件和接收缓冲，最终交给业务线程。](assets/hft-03/text-cross-host-path.png)](assets/hft-03/text-cross-host-path.png)
+[![消息在主机 A 从业务线程经过发送缓冲、网络收发组件和网卡，穿过网络后，在主机 B 从网卡经过网络收发组件和接收缓冲，最终交给业务线程。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-cross-host-path.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-cross-host-path.png)
 
 这种场景通常使用 UDP，把传输可靠性交给应用层实现。TCP 的协议设计考虑了公平性和拥塞控制：发生拥塞后限制自身的带宽占用，让网络恢复。在网络大多数时候稳定、以最低传输延迟为目标的场景中，我们希望减少这些机制的约束。
 
@@ -157,7 +157,7 @@ CPU socket 是物理处理器插槽，NUMA node 描述 CPU 与内存的访问局
 
 让网卡、处理线程和接收缓冲区位于同一 NUMA node，数据路径如下：
 
-[![NIC 通过本地 PCIe 到达本节点的接收内存，本节点上的行情、策略和网关线程使用接收数据，并沿本地发送路径发出。](assets/hft-03/text-numa-local-path.png)](assets/hft-03/text-numa-local-path.png)
+[![NIC 通过本地 PCIe 到达本节点的接收内存，本节点上的行情、策略和网关线程使用接收数据，并沿本地发送路径发出。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-numa-local-path.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-03/text-numa-local-path.png)
 
 如果网卡连在 socket 0，接收线程和缓冲区却在 socket 1，一部分数据访问就可能经过处理器之间的互联。把它们放在同一节点，可以减少这种绕行。
 
@@ -191,16 +191,16 @@ CPU socket 是物理处理器插槽，NUMA node 描述 CPU 与内存的访问局
 | 订单簿、队列、接收缓冲区 | node 0 内存 | 启动时分配、触页并验收 |
 | 其余非关键线程，例如录包 | node 1 或独立记录机 | 控制跨 socket 读取交易内存的频率 |
 
-这套分配保留了 SMT 的逻辑 CPU 编号，但为热线程预留整个物理核。CPU 18、19、20 要排除无关任务，并迁走可迁移的中断，不能只把交易线程绑在 CPU 2、3、4 上。也可以通过固件或 Linux 的 `nosmt` 启动参数关闭 SMT；关闭后重新检查在线 CPU 和实际编号，再安排资源。[Linux CPU isolation][cpu-isolation]
+这套分配为热线程预留整个物理核，CPU 18、19、20 同时排除无关任务和可迁移的中断。也可以通过固件或 Linux 的 `nosmt` 启动参数关闭 SMT，再按关闭后的在线 CPU 编号分配资源。[Linux CPU isolation][cpu-isolation]
 
 把录包线程放到另一个 socket，能减少部分 CPU 竞争；它读取共享日志时，仍会产生跨 socket 流量。如果交易与录包都很繁忙，就在网络侧把流量分给独立记录机，例如使用交换机镜像。
 
 <a id="hft03-3-4"></a>
 ### 3.4 独占物理核之后，还要测试整机竞争
 
-线程拥有独立的物理核和业务数据，仍可能与其他核心共享 LLC、片上互连、内存控制器和内存带宽。录包、监控或另一个策略的工作集变大后，可能挤掉交易线程原本能留住的缓存行，或让访存请求等待更久。**绑核隔离了执行位置，没有为线程独占整条访存路径。**
+不同物理核可能共享 LLC、片上互连、内存控制器和内存带宽。录包、监控或另一个策略的工作集变大后，可能挤掉交易线程的缓存行，或让访存请求等待更久。
 
-《When Nanoseconds Matter》用多个 worker 各自访问独立数组的实验说明了这一点：没有共享业务数据，也会遇到整机资源竞争。实验结果依赖随机访问模式、工作集和硬件，不能直接推成“增加核心没有收益”。实验过程见[详细解读第 7 节](../literature/When_Nanoseconds_Matter_详细解读.md#sec-7)，原始材料见[CppCon 官方讲义][when-nanoseconds-slides]。
+《When Nanoseconds Matter》让多个 worker 各自随机访问独立数组，展示了工作集扩大后共享资源竞争对吞吐的影响。实验代码与结果见[CppCon 官方讲义][when-nanoseconds-slides]的“You’re not alone”部分。
 
 核分配方案可以按下面三组条件验收。各组使用相同的行情回放、交易二进制和交易核位置，每组重复运行：
 
@@ -210,7 +210,7 @@ CPU socket 是物理处理器插槽，NUMA node 描述 CPU 与内存的访问局
 | 同时运行预期的行情、录包、监控与其他策略 | 正常共置部署是否已让延迟分布变差？ |
 | 逐步提高某个同机进程的负载或工作集 | 哪类邻居负载会先影响交易路径，容量余量有多大？ |
 
-同时观察处理时间、到达至完成的延迟、队列积压和丢弃数量。若只看处理函数的 p50，可能漏掉共置负载造成的排队和尾部退化。定位到影响后，再比较调整核心位置、减少共享数据访问、拆到其他 NUMA node 或独立机器的效果；跨节点传输增加的成本也要一起计入。
+记录处理时间和到达至完成的延迟分布，以及队列积压、丢弃数量。随后比较调整核心位置、减少共享数据访问、拆到其他 NUMA node 或独立机器的效果，并计入跨节点传输成本。
 
 <a id="hft03-4"></a>
 ## 4. 绑核之后，还要处理哪些干扰
@@ -218,12 +218,12 @@ CPU socket 是物理处理器插槽，NUMA node 描述 CPU 与内存的访问局
 <a id="hft03-4-1"></a>
 ### 4.1 Affinity 只规定线程可以在哪里运行
 
-Linux 的 CPU affinity 是线程属性。主线程的掩码设置好后，其他已有线程仍各自保留自己的 affinity，需要逐一检查。新线程继承创建者的掩码，应用可以在线程创建后分别设置。[sched_setaffinity 手册][affinity]
+Linux 的 CPU affinity 是线程属性，每个已有线程分别设置。新线程继承创建者的掩码，也可以在创建后单独调整。[sched_setaffinity 手册][affinity]
 
 <a id="hft03-4-2"></a>
 ### 4.2 CPU isolation 是几层配置的配合
 
-| 配置层 | 处理的干扰 | 仍需配合的工作 |
+| 配置层 | 处理的干扰 | 配套配置 |
 |---|---|---|
 | 线程 affinity | 线程迁移、执行位置不确定 | 阻止无关任务进入相同 CPU |
 | isolated cpuset partition | 普通任务调度与负载均衡 | IRQ、内核线程、定时器另行核对 |
@@ -232,7 +232,7 @@ Linux 的 CPU affinity 是线程属性。主线程的掩码设置好后，其他
 | IRQ affinity | 设备中断的投递位置 | 同时查看队列、softirq、驱动与 managed IRQ 行为 |
 | workqueue 与后台线程配置 | 其他内核及用户态工作 | 留足系统资源并检查实际运行位置 |
 
-`nohz_full` 适合线程长时间停留在用户态、每核只有一个可运行任务的模式。系统调用、设备中断等干扰仍然存在。内核会自动把 `nohz_full` CPU 上的 RCU 回调迁走，也可以通过 `rcu_nocbs` 单独指定需要迁走回调的 CPU。[NO_HZ 文档][nohz] [内核启动参数][kernel-parameters]
+`nohz_full` 适合线程长时间停留在用户态、每核只有一个可运行任务的模式。内核会自动把 `nohz_full` CPU 上的 RCU 回调迁走，也可以通过 `rcu_nocbs` 单独指定需要迁走回调的 CPU。[NO_HZ 文档][nohz] [内核启动参数][kernel-parameters]
 
 迁走的工作由 housekeeping CPU 承担。算力不足时，资源回收、网络管理和设备维护会积压，最终拖慢交易进程。
 
@@ -245,9 +245,9 @@ Linux 的 CPU affinity 是线程属性。主线程的掩码设置好后，其他
 |---|---|---|
 | **周期性调度 tick** | 在交易核上停止 | 内核启用 `CONFIG_NO_HZ_FULL`，再配置 `nohz_full`，保持只有一个可运行任务，并避免 POSIX CPU 时间定时器等依赖；`CONFIG_NO_HZ_IDLE` 只处理空闲核，对持续忙轮询不够 |
 | **管理网口、NVMe、SATA、USB 等设备 IRQ** | 设备还在使用时迁到 housekeeping 核 | 交易核不承担普通 socket、文件写入等 I/O，设备 IRQ 的 affinity 也要避开它 |
-| **网卡链路变化、设备移除及其他控制事件** | 保留必要通知，移到 housekeeping 核处理 | 数据队列轮询不代表控制面也没有中断；驱动和通信框架的控制线程需要单独安排 |
+| **网卡链路变化、设备移除及其他控制事件** | 保留必要通知，移到 housekeeping 核处理 | 将驱动和通信框架的控制线程安排到 housekeeping 核 |
 | **Soft/Hard Lockup watchdog** | 按检测需求决定是否排除热核 | `nohz_full` 核默认不运行这些 watchdog，也可通过 `kernel.watchdog_cpumask` 调整；排除后，该核进入内核时发生的相应锁死可能无法被这些检测器发现。[Lockup watchdogs][lockup-watchdogs] |
-| **处理器间中断 IPI** | 检查来源，减少可避免的触发 | IPI 也用于调度等内核工作，不能统称为 watchdog 或全部屏蔽；避免其他任务在热核唤醒，可减少调度 IPI。[每 CPU 内核线程][percpu-kthreads] |
+| **处理器间中断 IPI** | 检查来源，减少可避免的触发 | IPI 用于调度等内核工作；避免其他任务在热核唤醒，可减少调度 IPI。[每 CPU 内核线程][percpu-kthreads] |
 
 <a id="hft03-4-4"></a>
 ### 4.4 电源设置
@@ -274,7 +274,7 @@ Linux 的 CPU affinity 是线程属性。主线程的掩码设置好后，其他
 
 大页（Huge Pages）可以用于较大的订单簿、订单池和网络缓冲区，也可用于其他提前预留的内存。
 
-TLB 缓存虚拟地址到物理地址的映射。使用 2 MiB 大页后，一个条目就能覆盖原本需要 512 个 4 KiB 页面映射的地址范围，减轻 TLB 容量压力。预触页（Prefault）把首次触页的工作移到初始化阶段；运行期间 TLB 条目仍会被替换，大页可以继续减少映射所占的条目数量，两者可以配合使用。[THP 原理][thp]
+TLB 缓存虚拟地址到物理地址的映射。使用 2 MiB 大页后，一个条目就能覆盖原本需要 512 个 4 KiB 页面映射的地址范围。预触页（Prefault）把首次触页的工作移到初始化阶段，大页则减少运行期间地址映射占用的 TLB 条目。[THP 原理][thp]
 
 <a id="hft03-6"></a>
 ## 6. SmartNIC 和 FPGA
@@ -286,10 +286,10 @@ SmartNIC 覆盖的功能很多，选型时先看它承担哪部分工作：
 
 | 目标 | 典型数据路径 | 对部署的影响 |
 |---|---|---|
-| 缩短主机收发路径 | 网卡 → 用户态缓冲/协议栈 → CPU 程序 | 仍需处理 CPU、PCIe、NUMA 和用户态栈配置 |
+| 缩短主机收发路径 | 网卡 → 用户态缓冲/协议栈 → CPU 程序 | 配置 CPU、PCIe、NUMA 和用户态栈 |
 | 在 FPGA 上执行交易相关逻辑 | 报文 → 卡上解析/计算/检查 → 卡上构造输出 | 把部分路径移出 CPU |
 
-ExaNIC 这类 FPGA 网卡可以在数据陆续到达时逐段解析，让接收、字段提取和部分计算重叠。利用这种流式接口，所需字段已经到达、处理条件也已满足时，特定设计可以在整帧收齐前启动响应；若处理依赖帧尾字段或完整帧校验，仍需等待后续数据。这种流水线方式减少了收齐整帧后才开始处理的等待，帧本身的串行化时间仍由帧长和链路速率决定。[Cisco FDK 接口与示例](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/fdk/user-guide/cisco-nexus-3550-fdk-user-guide/exanic-fdk.html)、[Cisco SmartNIC 延迟测量说明](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/smartnic/sw/user-guide/cisco-nexus-smartnic-user-guide/benchmarking.html)
+ExaNIC 这类 FPGA 网卡可以在数据到达时逐段解析，让接收、字段提取和部分计算重叠。利用这种流式接口，特定设计在所需字段到齐、处理条件满足后，就可以在整帧收齐前启动响应；依赖帧尾字段或完整帧校验的处理则等待后续数据。[Cisco FDK 接口与示例](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/fdk/user-guide/cisco-nexus-3550-fdk-user-guide/exanic-fdk.html)、[Cisco SmartNIC 延迟测量说明](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/smartnic/sw/user-guide/cisco-nexus-smartnic-user-guide/benchmarking.html)
 
 <a id="hft03-7"></a>
 ## 7. 交易所接入与云上部署
@@ -299,7 +299,7 @@ ExaNIC 这类 FPGA 网卡可以在数据陆续到达时逐段解析，让接收�
 
 传统交易所通常提供机房托管（Colocation）或邻近托管服务。把服务器放进指定机房，通过机房内交叉连接或专线接入，能缩短行情和订单的网络路径。CME、JPX 都提供这类接入方式。[CME 接入方式][cme-connectivity] [JPX 接入方式][jpx-connectivity]
 
-先确认行情出口、订单入口和可用线路，再选机房与接入服务。即使同城，线路、交换设备和排队情况不同，延迟也会不同。主线路之外，还要安排独立的备用接入路径。
+按行情出口、订单入口和可用线路选择机房，比较线路、交换设备及排队带来的延迟，并安排独立的备用接入路径。
 
 <a id="hft03-7-2"></a>
 ### 7.2 Crypto：公有云上的低延迟部署
@@ -325,31 +325,23 @@ ExaNIC 这类 FPGA 网卡可以在数据陆续到达时逐段解析，让接收�
 一些量化机构公开过 PGO 的实践与评价：
 
 - **Jane Street：部分重要程序取得了约 10%～20% 的运行时间改善。** 其内部 OCaml 的 FDO（Feedback-Directed Optimization，反馈引导优化）项目通过采集运行剖面，调整函数和基本块的排列，早期在多个重要程序上取得了约 10%、15%、20% 的运行时间改善。FDO 还消除了无关库变更引起的代码布局和性能波动。[Jane Street 编译器优化访谈][janestreet-fdo]
-- **G-Research：公开分享 PGO 的性能优化方法。** 分享中没有给出具体收益，对 PGO 的评价整体较为正面。[G-Research PGO 分享][gresearch-pgo]
-- **Optiver：加速之外，还要处理过拟合。** Optiver 曾尝试在低延迟交易中将 PGO 列入构建与链接优化手段，同时指出它可能对训练负载过拟合，演讲稿没有给出具体收益。[Optiver 工程师演讲稿，第 71 页][optiver-pgo]
+- **G-Research：公开分享 PGO 的性能优化方法。** [G-Research PGO 分享][gresearch-pgo]
+- **Optiver：尝试将 PGO 用于低延迟交易。** Optiver 曾尝试将 PGO 列入构建与链接优化手段，并指出它可能对训练负载过拟合。[Optiver 工程师演讲稿，第 71 页][optiver-pgo]
 
 把 PGO 纳入部署流程时，将生成 profile 的行情与验收行情分开，用不同交易日、不同节奏的行情检查性能收益是否稳定。
 
 <a id="hft03-9"></a>
 ## 9. 把性能回退检测纳入发布流程
 
-上线时达到延迟目标，只说明这一版程序在当时的环境下达标。代码、编译器、微码、行情分布和同机进程都可能变化，后续发布需要继续比较。《When Nanoseconds Matter》将长期维持性能作为独立工程问题。发布验收与运行观测都需要保留可比较的性能记录。[CppCon 官方讲义][when-nanoseconds-slides]、[详细解读第 7 节](../literature/When_Nanoseconds_Matter_详细解读.md#sec-7)。
-
-**同时检查绝对预算和历史基线。** 绝对预算回答“是否超过业务允许的延迟”，历史基线回答“是否比可比较的旧版本变慢”。一个版本即使尚未超预算，也可能已经消耗了原有的容量余量。阈值应结合测量波动和业务目标制定，不沿用另一台机器上的固定纳秒数。
-
-每次验收结果至少关联以下信息，才能区分代码回退、工作负载变化与环境变化：
+《When Nanoseconds Matter》将长期维持性能作为独立工程问题，见[CppCon 官方讲义][when-nanoseconds-slides]中的“Being fast is good – staying fast is better”。发布验收与运行观测保留以下记录，用于区分代码回退、工作负载变化与环境变化：
 
 | 记录内容 | 需要保留什么 |
 |---|---|
 | 程序与构建 | 代码版本、编译器、优化与链接选项，使用 PGO 时的 profile 版本 |
 | 输入与节奏 | 回放数据版本、标的和更新分布、到达速率，以及稳定输入或突发输入 |
-| 硬件与部署 | CPU 型号、微码、频率策略、核与 NUMA 布局、内存配置、同机进程及其负载 |
+| 硬件与部署 | CPU 型号、Microcode、频率策略、核与 NUMA 布局、内存配置、同机进程及其负载 |
 | 测量与统计 | 起止边界、时钟与插桩方式、统计时间窗口、样本量、分位数、直方图范围与溢出数量 |
 | 结果与目标 | 绝对预算、可比较的历史基线、延迟分布、吞吐、积压和丢弃数量 |
-
-发布验收先确认输出正确，再用同一验收集对比新旧版本：稳定流量看处理成本，突发流量看排队和容量余量。交错重复测量的方法沿用[第 2 篇的对照实验](HFT_Engineering_02_C++低延迟编程基础.md#hft02-3-1)，回放节奏按[第 4 篇](HFT_Engineering_04_高频交易系统中的时钟.md#hft04-5-5)设置。保留每轮结果及其版本和部署记录，才能在上线后找到可比较的基线。
-
-发布后保留同样口径的运行指标，并为超预算或持续偏离基线设置检查条件。出现退化时，结合对应版本、输入和共置负载复查；不要只保存一张没有预期范围的曲线，也不要用多次运行中的最好成绩代替完整分布。逐轮比较与实验边界见[《The Latency Slippage》详细解读](../literature/The_Latency_Slippage_详细解读.md#measurement)。
 
 <a id="hft03-references"></a>
 ## 参考资料
@@ -364,7 +356,7 @@ ExaNIC 这类 FPGA 网卡可以在数据陆续到达时逐段解析，让接收�
 - **云上实例与网络**：[EC2 突发性能实例][aws-burstable]、[网络带宽与额度][aws-network-bandwidth]、[ENA 增强型网络][aws-ena]、[ENA Express][aws-ena-express]。
 - **PGO 与构建发布**：[Clang PGO][clang-pgo]、[GCC PGO][gcc-pgo]、[llvm-profdata][llvm-profdata]。
 - **量化机构的 PGO 实践与评价**：[Jane Street 编译器优化访谈][janestreet-fdo]、[G-Research PGO 分享][gresearch-pgo]、[Optiver 工程师演讲稿][optiver-pgo]。
-- **整机竞争与性能回退**：[When Nanoseconds Matter 官方讲义][when-nanoseconds-slides]、[详细解读](../literature/When_Nanoseconds_Matter_详细解读.md#sec-7)、[The Latency Slippage 详细解读](../literature/The_Latency_Slippage_详细解读.md#measurement)。
+- **整机竞争与性能回退**：[When Nanoseconds Matter 官方讲义][when-nanoseconds-slides]、[The Latency Slippage 官方讲义][latency-slippage-slides]、[The Latency Slippage 作者实验源码](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/10g_options_clwb.cpp)。
 
 [shm]: https://man7.org/linux/man-pages/man7/shm_overview.7.html
 [tcp]: https://www.rfc-editor.org/rfc/rfc9293.html
@@ -406,3 +398,4 @@ ExaNIC 这类 FPGA 网卡可以在数据陆续到达时逐段解析，让接收�
 [gresearch-pgo]: https://www.gresearch.com/news/how-profile-guided-optimisation-makes-your-code-faster/
 [optiver-pgo]: https://meetingcpp.com/files/mcpp/2016/Carl%20Cook%20-%20The%20Speed%20Game-%20Automated%20trading%20in%20C%2B%2B.pdf#page=71
 [when-nanoseconds-slides]: https://github.com/CppCon/CppCon2024/blob/main/Presentations/When_Nanoseconds_Matter.pdf
+[latency-slippage-slides]: https://github.com/CppCon/CppCon2026/blob/6f687701cdb4099eae39011485065b52ab7da0e9/Presentations/The_Latency_Slippage.pdf

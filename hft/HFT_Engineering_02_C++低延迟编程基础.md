@@ -2,63 +2,65 @@
 
 一条行情触发一批状态更新。程序已经没有动态分配，也没有互斥锁，却仍可能把时间花在等待数据、等待另一核心的结果上。有时，把一个循环拆成两遍、额外发出几条预取指令，反而能更早得到结果。要解释这种变化，既要看代码做了多少工作，也要看这些工作怎样在 CPU 上展开。
 
-这篇文章沿着“测清楚 → 准备内存与组织数据 → 安排计算与线程交接 → 验证收益”的顺序，讨论进程内的低延迟编程。初读时可以先读第 1 章，再从订单簿、预取或并发队列中选择一个熟悉的场景，最后用第 3 章的方法检查结论。网络 I/O 与内核旁路留给后续专题。
+这篇文章沿着“测量 → 内存与组织数据 → 数据传递 → 验证收益”的顺序，讨论进程内的低延迟编程。
 
-基础方法参考了 [Building Low Latency Applications with C++](https://github.com/PacktPublishing/Building-Low-Latency-Applications-with-CPP)、[C++ design patterns for low-latency applications including high-frequency trading](https://arxiv.org/abs/2309.04259)，以及 [LMAX Group 的技术博客](https://technology.lmax.com/)。订单簿和缓存案例还结合了 [When Nanoseconds Matter 的详细解读](../literature/When_Nanoseconds_Matter_详细解读.md)与 [The Latency Slippage 的详细解读](../literature/The_Latency_Slippage_详细解读.md)。案例中的硬件、输入分布和计时边界会影响结果，文中据此解释优化机会，不把某台机器的成绩当作通用保证。
+本文所讲述的延迟优化方法主要参考了 [Building Low Latency Applications with C++](https://github.com/PacktPublishing/Building-Low-Latency-Applications-with-CPP)、[C++ design patterns for low-latency applications including high-frequency trading](https://arxiv.org/abs/2309.04259)，以及 [LMAX Group 的技术博客](https://technology.lmax.com/)、 [David Gross 的 When Nanoseconds Matter 官方讲义](https://github.com/CppCon/CppCon2024/blob/main/Presentations/When_Nanoseconds_Matter.pdf)与 [Sanchit Gupta 的 The Latency Slippage 官方讲义](https://github.com/CppCon/CppCon2026/blob/6f687701cdb4099eae39011485065b52ab7da0e9/Presentations/The_Latency_Slippage.pdf)。
 
 ## 目录
 
-- [1. 延迟优化的前提是先要具备测量的手段](#hft02-1)
-  - [1.1 先确定测量的起点和终点](#hft02-1-1)
-  - [1.2 沿同一条消息拆分进程内耗时](#hft02-1-2)
-  - [1.3 选时钟时，先考虑可比较性，再考虑成本](#hft02-1-3)
-  - [1.4 既看分布，也保留同一条消息的分段记录](#hft02-1-4)
-  - [1.5 控制测量本身的干扰](#hft02-1-5)
-  - [1.6 用 SPSC 队列把时间戳交给统计线程](#hft02-1-6)
-  - [1.7 延迟数据交接大概要付出多少延迟](#hft02-1-7)
-- [2. 常见的 Latency 优化手段](#hft02-2)
-  - [2.1 编译期计算与静态分派](#hft02-2-1)
-    - [2.1.1 constexpr 编译期计算与查表](#hft02-2-1-1)
-    - [2.1.2 函数模板、CRTP 与编译期静态分派](#hft02-2-1-2)
-  - [2.2 内存分配、零拷贝视图与索引查找](#hft02-2-2)
-    - [2.2.1 预分配与固定容量缓冲区](#hft02-2-2-1)
-    - [2.2.2 对象池与空闲链表](#hft02-2-2-2)
-    - [2.2.3 非必要不创造数据副本](#hft02-2-2-3)
-    - [2.2.4 返回值优化（NRVO）与隐式移动](#hft02-2-2-4)
-    - [2.2.5 稠密 ID 映射与数组直接索引](#hft02-2-2-5)
-    - [2.2.6 订单簿：让容器和搜索顺应访问分布](#hft02-2-2-6)
-  - [2.3 数据布局与缓存局部性](#hft02-2-3)
-    - [2.3.1 结构体布局与冷热数据分离](#hft02-2-3-1)
-    - [2.3.2 AoS、SoA 与顺序访问](#hft02-2-3-2)
-    - [2.3.3 预缺页（Prefault）与预取（Prefetch）](#hft02-2-3-3)
-    - [2.3.4 读完的数据是否还值得留在缓存](#hft02-2-3-4)
-  - [2.4 分支、循环与数值计算优化](#hft02-2-4)
-    - [2.4.1 短路求值与条件检查顺序](#hft02-2-4-1)
-    - [2.4.2 延迟格式化与 cold/noinline 冷路径分离](#hft02-2-4-2)
-    - [2.4.3 无分支计算](#hft02-2-4-3)
-    - [2.4.4 循环展开和多路计算](#hft02-2-4-4)
-    - [2.4.5 SIMD 自动向量化与 __restrict__](#hft02-2-4-5)
-    - [2.4.6 浮点精度混用](#hft02-2-4-6)
-    - [2.4.7 signed/unsigned、整数转换与循环优化](#hft02-2-4-7)
-  - [2.5 并发通信与缓存一致性优化](#hft02-2-5)
-    - [2.5.1 单一写入者与线程局部计数](#hft02-2-5-1)
-    - [2.5.2 伪共享（False Sharing）与缓存行对齐](#hft02-2-5-2)
-    - [2.5.3 SPSC 环形队列与 acquire/release 内存序](#hft02-2-5-3)
-    - [2.5.4 异步日志与批量输出](#hft02-2-5-4)
-    - [2.5.5 Disruptor：事件广播和消费依赖](#hft02-2-5-5)
-    - [2.5.6 共享请求发布以后，少做一次读回](#hft02-2-5-6)
-    - [2.5.7 少访问共享游标，让接口允许原地填写](#hft02-2-5-7)
-    - [2.5.8 无锁算法还需要说明单次操作的进度](#hft02-2-5-8)
-  - [2.6 Stop-bit 变长整数：用短字段减少数据搬运](#hft02-2-6)
-    - [2.6.1 先固定编码规则，避免混用不同 varint](#hft02-2-6-1)
-    - [2.6.2 编解码实现：短值快路径，长值有界展开](#hft02-2-6-2)
-  - [2.7 用状态机从字节流解析变长结构体](#hft02-2-7)
-- [3. 怎样验证一次优化](#hft02-3)
-  - [3.1 让基准测到真正想比较的工作](#hft02-3-1)
-  - [3.2 用性能计数器解释变化](#hft02-3-2)
-  - [3.3 读一次时间戳也有成本](#hft02-3-3)
-  - [3.4 稀疏事件需要逐次打点，XRay 可以帮助切换测点](#hft02-3-4)
-- [4. 总结](#hft02-4)
+- [HFT Engineering从入门到入土（2）—— 常见低延迟系统访存与计算的优化手段](#hft-engineering从入门到入土2-常见低延迟系统访存与计算的优化手段)
+  - [目录](#目录)
+  - [1. 延迟优化的前提是先要具备测量的手段](#1-延迟优化的前提是先要具备测量的手段)
+    - [1.1 先确定测量的起点和终点](#11-先确定测量的起点和终点)
+    - [1.2 沿同一条消息拆分进程内耗时](#12-沿同一条消息拆分进程内耗时)
+    - [1.3 选时钟时，先考虑可比较性，再考虑成本](#13-选时钟时先考虑可比较性再考虑成本)
+    - [1.4 既看分布，也保留同一条消息的分段记录](#14-既看分布也保留同一条消息的分段记录)
+    - [1.5 控制测量本身的干扰](#15-控制测量本身的干扰)
+    - [1.6 用 SPSC 队列把时间戳交给统计线程](#16-用-spsc-队列把时间戳交给统计线程)
+    - [1.7 延迟数据交接大概要付出多少延迟](#17-延迟数据交接大概要付出多少延迟)
+  - [2. 常见的 Latency 优化手段](#2-常见的-latency-优化手段)
+    - [2.1 编译期计算与静态分派](#21-编译期计算与静态分派)
+      - [2.1.1 constexpr 编译期计算与查表](#211-constexpr-编译期计算与查表)
+      - [2.1.2 函数模板、CRTP 与编译期静态分派](#212-函数模板crtp-与编译期静态分派)
+    - [2.2 内存分配、零拷贝视图与索引查找](#22-内存分配零拷贝视图与索引查找)
+      - [2.2.1 预分配与固定容量缓冲区](#221-预分配与固定容量缓冲区)
+      - [2.2.2 对象池与空闲链表](#222-对象池与空闲链表)
+      - [2.2.3 非必要不创造数据副本](#223-非必要不创造数据副本)
+      - [2.2.4 返回值优化（NRVO）与隐式移动](#224-返回值优化nrvo与隐式移动)
+      - [2.2.5 稠密 ID 映射与数组直接索引](#225-稠密-id-映射与数组直接索引)
+      - [2.2.6 订单簿：让容器和搜索顺应访问分布](#226-订单簿让容器和搜索顺应访问分布)
+    - [2.3 数据布局与缓存局部性](#23-数据布局与缓存局部性)
+      - [2.3.1 结构体布局与冷热数据分离](#231-结构体布局与冷热数据分离)
+      - [2.3.2 AoS、SoA 与顺序访问](#232-aossoa-与顺序访问)
+      - [2.3.3 预缺页（Prefault）与预取（Prefetch）](#233-预缺页prefault与预取prefetch)
+      - [2.3.4 读完的数据是否还值得留在缓存](#234-读完的数据是否还值得留在缓存)
+    - [2.4 分支、循环与数值计算优化](#24-分支循环与数值计算优化)
+      - [2.4.1 短路求值与条件检查顺序](#241-短路求值与条件检查顺序)
+      - [2.4.2 延迟格式化与 cold/noinline 冷路径分离](#242-延迟格式化与-coldnoinline-冷路径分离)
+      - [2.4.3 无分支计算](#243-无分支计算)
+      - [2.4.4 循环展开和多路计算](#244-循环展开和多路计算)
+      - [2.4.5 SIMD 自动向量化与 __restrict__](#245-simd-自动向量化与-restrict)
+      - [2.4.6 浮点精度混用](#246-浮点精度混用)
+      - [2.4.7 signed/unsigned、整数转换与循环优化](#247-signedunsigned整数转换与循环优化)
+    - [2.5 并发通信与缓存一致性优化](#25-并发通信与缓存一致性优化)
+      - [2.5.1 单一写入者与线程局部计数](#251-单一写入者与线程局部计数)
+      - [2.5.2 伪共享（False Sharing）与缓存行对齐](#252-伪共享false-sharing与缓存行对齐)
+      - [2.5.3 SPSC 环形队列与 acquire/release 内存序](#253-spsc-环形队列与-acquirerelease-内存序)
+      - [2.5.4 异步日志与批量输出](#254-异步日志与批量输出)
+      - [2.5.5 Disruptor：事件广播和消费依赖](#255-disruptor事件广播和消费依赖)
+      - [2.5.6 共享请求发布以后，少做一次读回](#256-共享请求发布以后少做一次读回)
+      - [2.5.7 少访问共享游标，让接口允许原地填写](#257-少访问共享游标让接口允许原地填写)
+      - [2.5.8 无锁算法还需要说明单次操作的进度](#258-无锁算法还需要说明单次操作的进度)
+    - [2.6 Stop-bit 变长整数：用短字段减少数据搬运](#26-stop-bit-变长整数用短字段减少数据搬运)
+      - [2.6.1 先固定编码规则，避免混用不同 varint](#261-先固定编码规则避免混用不同-varint)
+      - [2.6.2 编解码实现：短值快路径，长值有界展开](#262-编解码实现短值快路径长值有界展开)
+    - [2.7 用状态机从字节流解析变长结构体](#27-用状态机从字节流解析变长结构体)
+  - [3. 怎样验证一次优化](#3-怎样验证一次优化)
+    - [3.1 让基准测到真正想比较的工作](#31-让基准测到真正想比较的工作)
+    - [3.2 用性能计数器解释变化](#32-用性能计数器解释变化)
+    - [3.3 读一次时间戳也有成本](#33-读一次时间戳也有成本)
+    - [3.4 稀疏事件需要逐次打点，XRay 可以帮助切换测点](#34-稀疏事件需要逐次打点xray-可以帮助切换测点)
+  - [4. 总结](#4-总结)
 
 <a id="hft02-1"></a>
 ## 1. 延迟优化的前提是先要具备测量的手段
@@ -72,11 +74,11 @@
 
 一次行情驱动的交易，大致经过下面这条路径：
 
-[![行情依次经过网卡、应用处理、发送与交易所。H0/H1是网卡边界，C0/C4是应用处理边界。](assets/hft-02/text-measurement-path.png)](assets/hft-02/text-measurement-path.png)
+[![行情依次经过网卡、应用处理、发送与交易所。H0/H1是网卡边界，C0/C4是应用处理边界。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-measurement-path.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-measurement-path.png)
 
 `C4 - C0` 是应用取得行情到订单准备完毕的进程内耗时；`H1 - H0` 则覆盖本机从收行情到发订单的路径，常被称为 tick-to-trade latency。后者包含网卡与主机之间的数据传递，以及收发路径中的等待。相减的前提是两端时钟可比较；例如网卡 PHC（PTP 硬件时钟）或设备计数器，与 CPU TSC 可能属于不同的时钟域，计算前要先确认两者的关系。
 
-`H0` 和 `H1` 可以来自网卡硬件时间戳，即网卡在收发报文经过特定位置时记录的时刻。它比应用调用收发函数时打点更接近网络边界。在支持该功能的 Linux socket 路径中，可以用 `SO_TIMESTAMPING` 请求硬件时间戳；接收时间戳通过普通 `recvmsg()` 的 `SCM_TIMESTAMPING` 辅助控制消息随报文交付，发送时间戳则从 socket 错误队列异步读取。部分设备另有帧内嵌入时间戳的方式，那是设备格式，不能当作这个标准接口的通用行为。接口和关联方法见 [Linux 时间戳文档](https://docs.kernel.org/networking/timestamping.html)。
+`H0` 和 `H1` 可以来自网卡硬件时间戳，即网卡在收发报文经过特定位置时记录的时刻。在支持硬件时间戳的 Linux socket 路径中，可以用 `SO_TIMESTAMPING` 请求时间戳：接收时间戳通过 `recvmsg()` 的 `SCM_TIMESTAMPING` 辅助控制消息随报文交付，发送时间戳则从 socket 错误队列异步读取。接口和关联方法见 [Linux 时间戳文档](https://docs.kernel.org/networking/timestamping.html)。
 
 发送硬件时间戳记录本机的发送边界。`send()` 返回、网卡发出、交易所接受订单、订单成交，是不同的完成点。这里测量 `C0` 到 `C4` 之间的计算、访存和线程交接。
 
@@ -85,7 +87,7 @@
 
 先看所有业务阶段都在同一线程中执行的情况。与其给每个阶段分别读两次时钟，可以在相邻阶段之间共用一个时间点：
 
-[![C0到C1解码，C1到C2更新订单簿，C2到C3策略计算，C3到C4风控与编码，总区间C4减C0。](assets/hft-02/text-stage-timestamps.png)](assets/hft-02/text-stage-timestamps.png)
+[![C0到C1解码，C1到C2更新订单簿，C2到C3策略计算，C3到C4风控与编码，总区间C4减C0。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-stage-timestamps.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-stage-timestamps.png)
 
 这样只需五个时间点，就能计算四段耗时和总耗时：
 
@@ -145,7 +147,7 @@ auto stage_durations_ns(const StageTrace& trace) {
 <a id="hft02-1-3"></a>
 ### 1.3 选时钟时，先考虑可比较性，再考虑成本
 
-`steady_clock` 保证时间点不倒退，适合计算时间间隔。C++ 不规定它以 Unix epoch 为起点，也不保证实现必须读取 TSC；底层计数源与换算方式由标准库和操作系统决定。采用原始 TSC 打点时，可以把计数差到纳秒的换算移到统计线程，但不能把这一做法当作 `steady_clock` 的内部实现说明。[C++ steady_clock 定义](https://eel.is/c++draft/time.clock.steady)
+`steady_clock` 保证时间点不倒退，适合计算时间间隔，底层计数源与换算方式由标准库和操作系统决定。直接使用原始 TSC 打点，则可以先保存计数，把纳秒换算移到统计线程。[C++ steady_clock 定义](https://eel.is/c++draft/time.clock.steady)
 
 当计算和访存耗时短到读钟成本不可忽略时，在 x86 上可以直接研究 TSC（Time Stamp Counter，时间戳计数器）。`RDTSC`、`RDTSCP` 可以读取它，差值按 TSC 频率换算：
 
@@ -153,7 +155,7 @@ auto stage_durations_ns(const StageTrace& trace) {
 elapsed_ns = (end_tsc - begin_tsc) × 1,000,000,000 / tsc_hz
 ```
 
-这里的 `tsc_hz` 是经过确认的 TSC 频率。用 CPU 当前的睿频频率代替它，会把核心频率变化引入时间换算。
+`tsc_hz` 使用 TSC 的固定计数频率，而 CPU 睿频描述的是核心当前的运行频率。
 
 裸 `RDTSC` 不能阻止 CPU 乱序执行，`RDTSCP` 也不是完整的双向序列化屏障。测量短区间时，按目标处理器和编译器的语义插入屏障，才能约束计时边界。
 
@@ -197,9 +199,7 @@ auto end = ordered_rdtsc();
 
 如果两个时间点来自不同 CPU 核，尤其是不同 CPU 插槽，先验证 TSC 是否一致。生产交易系统常通过精细的亲和性部署减少跨插槽的 TSC 误差，策略、交易和风控进程之间通过共享内存通信。
 
-网卡的 PTP 硬件时钟（PHC）和 CPU 的 TSC 属于不同的时钟域，起点和计数速率可以不同。计算 `应用时间 - 网卡时间` 前，先建立时钟映射并评估误差；只把单位统一成纳秒还不够。跨机器测量还涉及时钟同步，PTP 提供了相应机制。相关基础接口见 [Linux PHC](https://docs.kernel.org/driver-api/ptp.html)。
-
-测量进程内各阶段时，先统一使用一种可靠的单调时钟。全链路测量留到后续章节。
+网卡 PHC 和 CPU TSC 的起点、计数速率不同。计算 `应用时间 - 网卡时间` 时，先通过时钟映射把两者换算到同一基准。跨机器测量还需要时钟同步，PTP 提供了相应机制。相关基础接口见 [Linux PHC](https://docs.kernel.org/driver-api/ptp.html)。
 
 <a id="hft02-1-4"></a>
 ### 1.4 既看分布，也保留同一条消息的分段记录
@@ -253,12 +253,12 @@ public:
 
 各阶段的 p99 不能相加得到总耗时的 p99，因为各阶段的慢样本未必来自同一条消息。先对每条消息计算总耗时，再对这些总耗时求分位数。
 
-上面的记录器保存原始样本；如果改用固定大小的直方图来节省空间，就要同时记录桶宽、覆盖范围和溢出数。把 3 μs 和 30 μs 都合并到最后一桶后，无法再从中恢复真实长尾。输出单位为纳秒，也不代表统计结果具有 1 ns 的分辨能力。p99.9 还需要足够样本和重复运行，不能只凭一次测试中的少数慢事件判断稳定性。
+上面的记录器保存原始样本。固定大小的直方图更节省空间，统计粒度由桶宽决定；超过范围的样本要单独计数。把 3 μs 和 30 μs 都并入最后一桶，就会丢掉长尾的具体耗时。
 
 <a id="hft02-1-5"></a>
 ### 1.5 控制测量本身的干扰
 
-读钟、写时间戳和搬运统计数据都会消耗 CPU、缓存和内存带宽。当整个消息的处理时间很短时，增加五次时钟读取就可能明显改变结果；这些打点适合定位阶段边界，投入生产前还要评估扰动。
+读钟、写时间戳和搬运统计数据都会消耗 CPU、缓存和内存带宽。处理一条消息只需几百纳秒时，五次读钟就可能占去相当一部分时间。
 
 热路径只保存必要的整数、时间点和标识，格式化、排序、分位数计算和文件输出放到路径之外。每个线程独占自己的记录缓冲区，后台通过所有权移交或队列协议读取。
 
@@ -271,7 +271,7 @@ public:
 
 这里可以直接使用第 2.5.3 节的 SPSC 环形队列。SPSC 表示单生产者、单消费者：一个 worker 负责写入，一个统计线程负责读取。队列在启动时创建，两端持有同一个队列对象的引用，其寿命覆盖两端线程的整个运行期。
 
-[![业务线程写入预分配队列并发布完整StageTrace后继续业务；统计线程通过try_pop取得局部副本，计算差值、更新直方图并定期上报。](assets/hft-02/text-stage-trace-queue.png)](assets/hft-02/text-stage-trace-queue.png)
+[![业务线程写入预分配队列并发布完整StageTrace后继续业务；统计线程通过try_pop取得局部副本，计算差值、更新直方图并定期上报。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-stage-trace-queue.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-stage-trace-queue.png)
 
 统计线程读取的是队列内部数组中的槽位，不是 worker 栈上的 `trace`。一次交接按下面的顺序完成：
 
@@ -317,12 +317,10 @@ worker 入队后即可继续处理业务，统计线程异步取出记录并上�
 
 一个公开的数量级参照是 [Rigtorp SPSCQueue 基准](https://github.com/rigtorp/SPSCQueue#benchmarks)：在 AMD Ryzen 9 3900X 的同一 chiplet、不同核心上，用两个队列传递 `int`，报告的往返延迟为 **133 ns**。这个数值覆盖一次往返，单次 `try_push()` 的成本还要单独测量。
 
-做预算敏感性分析时，可以先把 worker 入队成本设在几十到几百纳秒之间，观察它对总预算的影响。
-
 <a id="hft02-2"></a>
 ## 2. 常见的 Latency 优化手段
 
-后面的例子分别改变准备工作、数据布局、计算依赖和线程交接。选择方法时，先指出当前路径在等待什么，再判断改动能否减少那一段等待。代码中标出的优化版本用于展示机会；是否更快，还要经过第 3 章的验证。
+下面从准备工作、数据布局、计算依赖和线程交接四个方向展开，看怎样减少消息处理中的等待。
 
 <a id="prepare"></a>
 
@@ -447,9 +445,9 @@ bool crtp_example() {
 
 调用链是 `check_crtp()` → `RuleBase<CrtpSpreadRule>::accept()` → `CrtpSpreadRule::accept_impl()`。编译器在实例化时已经知道 `Derived` 是 `CrtpSpreadRule`，直接确定调用目标；实现可见时，还能尝试把整条调用链内联起来。
 
-`static_cast` 不检查对象的动态类型，因此模板参数与实际派生对象匹配，且基类可访问、无歧义、非虚，才满足这里的转换条件。其他不匹配的类型若继承 `RuleBase<CrtpSpreadRule>` 后调用 `accept()`，就会破坏这一前提；示例中的 protected 构造函数只限制独立创建基类对象，继承用法仍由代码保证。相关转换条件见 [C++ static_cast 规则](https://eel.is/c++draft/expr.static.cast)。
+CRTP 的模板参数应当对应实际派生类型，例如 `CrtpSpreadRule` 继承 `RuleBase<CrtpSpreadRule>`。基类中的 `static_cast` 据此访问派生对象，不做运行时类型检查。相关转换条件见 [C++ static_cast 规则](https://eel.is/c++draft/expr.static.cast)。
 
-CRTP 与普通函数模板都能实现静态分派。CRTP 让基类调用派生类提供的实现，适合复用公共接口或处理流程；如果只是调用 `rule.accept(q)`，普通函数模板更直接。`RuleBase<A>` 和 `RuleBase<B>` 是两个不同类型，无法像同一个虚基类那样直接放进统一的基类指针容器。两种写法也可能生成相同的机器码，仅为了性能而引入 CRTP 没有必要。
+CRTP 让基类调用派生类提供的实现，适合复用公共接口或处理流程；只需调用 `rule.accept(q)` 时，普通函数模板更直接，两者也可能生成相同的机器码。`RuleBase<A>` 和 `RuleBase<B>` 是不同类型，各自对应一套静态接口。
 
 插件和运行时替换适合保留动态分派；目标可推断时，编译器有机会自行去虚拟化。静态分派的代价是模板实例化带来的代码增长，实例过多会增加指令缓存压力。
 
@@ -502,7 +500,7 @@ public:
 
 订单、订单簿节点和内部消息常常有已知的数量上限。与其每次 `new`、结束时 `delete`，可以预先放好一组对象，再用空闲链表管理槽位。
 
-![固定槽位池：申请从空闲链表摘下一个槽位，归还时放回链表头](assets/hft-02/02-slot-pool.svg)
+![固定槽位池：申请从空闲链表摘下一个槽位，归还时放回链表头](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/02-slot-pool.svg)
 
 *图 1：空闲链表只保存索引。申请和归还都修改少量元数据，不扫描全部槽位。*
 
@@ -583,7 +581,7 @@ bool pool_example() {
 
 例如，`OrderPool<4>` 当前的槽位 `0、1、2` 空闲，槽位 `3` 已借出，空闲链是：
 
-[![head等于0，空闲链为0到1到2到结束标记4，槽位3已借出不在空闲链中。](assets/hft-02/text-free-chain-before.png)](assets/hft-02/text-free-chain-before.png)
+[![head等于0，空闲链为0到1到2到结束标记4，槽位3已借出不在空闲链中。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-free-chain-before.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-free-chain-before.png)
 
 现在调用 `release(3)`，虽然旧 `head_ = 0` 的数值比 `3` 小，仍然执行同样的头插操作：
 
@@ -596,7 +594,7 @@ head_ = 3;        // 再把新归还的槽位设为链表头。
 
 结果是：
 
-[![归还槽位3后head等于3，空闲链变成3到0到1到2到结束标记4。](assets/hft-02/text-free-chain-after.png)](assets/hft-02/text-free-chain-after.png)
+[![归还槽位3后head等于3，空闲链变成3到0到1到2到结束标记4。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-free-chain-after.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-free-chain-after.png)
 
 下一次 `acquire()` 返回 `3`，并把 `head_` 更新为 `next_[3]`，也就是 `0`。这里的“前后”指链表中的逻辑顺序，与数组下标大小无关。若原来没有空闲槽位，即 `head_ == N`，归还后就是 `i -> N`，同样成立。
 
@@ -636,7 +634,7 @@ std::optional<std::uint32_t> parse_good(std::string_view field) {
 }
 ```
 
-这里省掉的是解析前的字符串副本。消息生产端还有另一种常见复制：先把消息序列化到临时 buffer，再复制到队列。若队列能先预留目标区域，序列化器就可以直接写入，完成后再发布。收益取决于接口是否允许这种生命周期；具体交接规则见 [2.5.7 节](#hft02-2-5-7)。
+这里省掉的是解析前的字符串副本。消息生产端还有一种常见复制：先序列化到临时 buffer，再复制入队。队列提供预留接口后，序列化器就可以直接填写目标区域，完成后发布。具体交接方式见 [2.5.7 节](#hft02-2-5-7)。
 
 <a id="hft02-2-2-4"></a>
 #### 2.2.4 返回值优化（NRVO）与隐式移动
@@ -693,15 +691,15 @@ struct DenseStates {
 <a id="hft02-2-2-6"></a>
 #### 2.2.6 订单簿：让容器和搜索顺应访问分布
 
-直接索引解决了“已知 ID 去哪里找状态”。订单簿还需要回答另一个问题：某个价格档位在哪里，最优价格及相邻档位又在哪里？这里通常需要一个有序价格索引，不能把 ID 数组原样当作全部解决方案。
+直接索引解决了“已知 ID 去哪里找状态”。订单簿还需要一个有序价格索引，用来查找价格档位、最优价格及相邻档位。
 
 在订单级行情中，订单 ID 索引负责恢复旧订单的方向、价格和数量，价格索引维护各档聚合量。修改一笔订单的数量，往往只改变现有档位；只有新增价格或该档数量归零时，才涉及档位插删。两类操作的频率，会直接影响容器选择。
 
 `std::map` 是合理的起点：按价格查找为 O(log n)，节点在未被删除时保持稳定，订单索引可以保存档位的迭代器。代价是沿树查找时，下一节点的地址依赖当前节点；节点若在长期分配后变得分散，还会增加随机访存。基准中紧凑的堆布局，可能掩盖部署后的成本。
 
-David Gross 在 *When Nanoseconds Matter* 中逐步调整了这一设计。值得迁移的是每一步所利用的条件：
+David Gross 在 *When Nanoseconds Matter* 中逐步调整了这一设计：
 
-| 调整 | 为什么可能更快 | 必须一起承担的代价 |
+| 调整 | 加速思路 | 代价 |
 |---|---|---|
 | 从节点树改为紧凑有序数组 | 一条缓存行包含更多有效档位，减少指针追踪 | 中间插删需要搬移元素 |
 | 把最优价放到数组尾部 | 热点插删靠近尾部时，平均搬移距离缩短 | 展示顺序与内部存储顺序需要分开 |
@@ -710,13 +708,13 @@ David Gross 在 *When Nanoseconds Matter* 中逐步调整了这一设计。值�
 
 以买方价格为例，最优买价是最高价。将它放到尾部后，一次提高最优价的插入可能变成追加：
 
-[![买方最优价为最高价。放在头部时插入101需搬移原元素；放在尾部且容量足够时可直接追加。](assets/hft-02/text-orderbook-direction.png)](assets/hft-02/text-orderbook-direction.png)
+[![买方最优价为最高价。放在头部时插入101需搬移原元素；放在尾部且容量足够时可直接追加。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-orderbook-direction.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-orderbook-direction.png)
 
-这不会让所有插入都变成 O(1)，但如果更新集中在最优价附近，实际搬移量就可能明显减少。卖方也可以采用相应方向，使最低卖价靠近尾部。
+更新集中在最优价附近时，把最优价放到尾部可以减少元素搬移。卖方也可以采用相应方向，让最低卖价靠近尾部。
 
-同样，热点端线性搜索不必每次扫描整个订单簿。若多数请求在前几个档位就结束，平均检查量取决于实际命中深度。二分减少了比较次数，但下一访问位置依赖前一次比较；带分支的实现可以沿预测路径提前执行，效果又取决于预测准确性和数据到达时机。案例中的线性搜索收益依赖规模、连续布局和热点分布。测试时应分别观察浅档热点、深档均匀更新、插删比例变化，而不是只比较容器名字。[完整案例与讲义定位](../literature/When_Nanoseconds_Matter_详细解读.md)
+热点端线性搜索也利用了这种分布：多数请求在前几个档位就结束，连续访问又有利于缓存。二分搜索的比较次数更少，但下一次访问位置依赖前一次比较；带分支的实现还会借助预测，提前沿某条路径执行。容器的布局、请求命中的深度和分支预测，共同影响搜索速度。[CppCon 官方讲义中的订单簿案例](https://github.com/CppCon/CppCon2024/blob/main/Presentations/When_Nanoseconds_Matter.pdf)
 
-容器替换还会改变索引的有效期。`vector::reserve()` 只能在容量足够时避免重新分配，不能阻止中间插入、删除造成的位置移动。原来保存在订单 ID 索引里的档位地址或迭代器，不能直接沿用；可以保留价格后重新定位，或另建稳定的间接索引，并把维护成本计入比较。[C++ vector 修改与失效规则](https://eel.is/c++draft/vector.modifiers)
+改用 `vector` 后，中间插删会移动档位，即使提前 `reserve()` 也一样。订单 ID 索引可以保存价格后重新定位，或通过稳定的间接索引找到档位，替代原来的节点地址和迭代器。[C++ vector 修改与失效规则](https://eel.is/c++draft/vector.modifiers)
 
 <a id="layout"></a>
 
@@ -748,11 +746,11 @@ struct OrderGood {
 };
 ```
 
-在常见的 64 位 ABI 上，两者分别占 32 和 24 字节，目标平台上的实际大小可用 `sizeof` 确认。重新排列字段减少了填充，字段含义保持不变。
+在常见的 64 位 ABI 上，两者分别占 32 和 24 字节。重新排列字段就减少了填充。
 
 如果订单对象还带着几十字节的备注、字符串和历史统计，仅调整顺序不够。可以把经常一起访问的字段放在一起，把很少访问的字段移到独立结构中。
 
-![AoS、冷热分离与 SoA：不同访问方式对应不同布局](assets/hft-02/01-data-layout.svg)
+![AoS、冷热分离与 SoA：不同访问方式对应不同布局](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/01-data-layout.svg)
 
 *图 2：按订单处理时可以保留紧凑结构体；只扫描数量时，连续的数量数组能避免带入无关字段。图中格子仅表示布局关系。*
 
@@ -782,7 +780,7 @@ struct ColdOrder {
 };
 ```
 
-冷热分离让热点循环少搬运无关数据，代价是访问冷字段时增加定位操作。是否划算，取决于热字段和冷字段各自的访问频率。
+冷热分离让热点循环少搬运无关数据，访问冷字段时则多一次定位。
 
 <a id="hft02-2-3-2"></a>
 #### 2.3.2 AoS、SoA 与顺序访问
@@ -898,7 +896,7 @@ void prefault_example() {
 
 长度为一页的缓冲区，如果从页内开始，就会跨越两个页面。假设页大小为 4096 字节，缓冲区从某页内偏移 1024 的位置开始，长度为 4096 字节。以下地址均相对于该页页首：
 
-[![4KiB缓冲区从页内1024开始，跨越两页，到5119结束；偏移0触及第一页，偏移4096越界，补写4095触及第二页。](assets/hft-02/text-prefault-cross-page.png)](assets/hft-02/text-prefault-cross-page.png)
+[![4KiB缓冲区从页内1024开始，跨越两页，到5119结束；偏移0触及第一页，偏移4096越界，补写4095触及第二页。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-prefault-cross-page.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-prefault-cross-page.png)
 
 如果只有按页步进的循环，它写完偏移 0 就退出了，因为下一个偏移 4096 已经等于缓冲区长度；但缓冲区实际跨了两个页面，第二页还没触碰。最后追加 `touch[size_ - 1] = 0`，就补齐了这一页，而且没有越界。
 
@@ -908,7 +906,7 @@ void prefault_example() {
 
 写入把这部分成本也移到初始化阶段。`volatile` 用于保留触页操作，避免编译器把它当成无用代码删除。
 
-Linux 5.14 起，在支持的可写映射上可以使用 `madvise(addr, length, MADV_POPULATE_WRITE)`，让内核完成可写 prefault，省去用户态逐页写零。返回失败时，部分页面仍可能已完成处理；返回成功也只表示完成预缺页，页面后续的驻留还涉及锁页。[Linux madvise 文档](https://www.man7.org/linux/man-pages/man2/madvise.2.html)
+Linux 5.14 起，支持的可写映射可以使用 `madvise(addr, length, MADV_POPULATE_WRITE)`，让内核完成可写 prefault，省去用户态逐页写零。失败时可能已有部分页面处理完成；需要让页面持续驻留时，再配合锁页。[Linux madvise 文档](https://www.man7.org/linux/man-pages/man2/madvise.2.html)
 
 ```cpp
 // Linux：放在构造函数中，mmap 成功之后。
@@ -930,11 +928,11 @@ if (::madvise(data_, size_, MADV_POPULATE_WRITE) == -1) {
 | 整段写零 | 覆盖每个字节，同时触页 | 启动成本不重要时，使用 memset 完成 prefault |
 | `MADV_POPULATE_WRITE` | 请求内核建立可写页表，不主动改写原有字节内容 | 支持该接口的 Linux 上做可写 prefault |
 
-Prefault 提前处理操作系统的缺页成本，Prefetch（预取）则提示 CPU 以缓存行为单位，提前把即将访问的数据从更远的缓存或内存带到较近的缓存。页面已经驻留在物理内存中，不代表其中的数据已经在 CPU 缓存里；预取也不能代替前面的可写 prefault。
+Prefault 提前建立可写物理页映射；Prefetch（预取）提示 CPU 以缓存行为单位，把即将访问的数据提前带到较近的缓存。前者准备页面，后者准备缓存，分别处理两层访问成本。
 
 **理解 prefetch 的关键，是区分指令的生命周期与访存请求的生命周期：取数请求可以继续由存储硬件处理，而 prefetch 指令本身不必一直等到数据返回才退休。** 它仍然消耗执行资源和传输带宽，收益来自把访存等待与当前工作重叠。
 
-下面以典型 Intel x86 乱序执行核心为例，假设页映射已经建立，访问的是普通可缓存内存。CPU 会分别跟踪尚未退休的指令与尚未完成的缓存行请求：
+以 Intel x86 乱序执行核心访问已映射的普通可缓存内存为例，CPU 分别跟踪尚未退休的指令与尚未完成的缓存行请求：
 
 | 跟踪对象 | 典型硬件结构 | 跟踪的状态 |
 |---|---|---|
@@ -950,11 +948,9 @@ Prefault 提前处理操作系统的缺页成本，Prefetch（预取）则提示
 
 这里的“等待”有两个不同影响。依赖 load 结果的指令必须等数据；不依赖它的后续指令可以先乱序执行，但不能越过这条尚未完成的 load 退休。若等待足够长，后续指令会在有限的 ROB 等结构中积累，最终限制 CPU 继续分配和执行更多指令。普通 load 在等内存时，并不会一直独占 ALU 或地址生成单元。[Intel 对 load、prefetch 与退休机制的说明，第 7 页](https://www.intel.com/content/dam/www/public/us/en/documents/research/1999-vol03-iss-2-intel-technology-journal.pdf)
 
-软件 prefetch 同样要经过译码、地址生成和地址翻译等步骤，但没有必须交给程序使用的目标数据寄存器。在 Intel 描述的这类实现中，prefetch 完成地址翻译后，可以不等数据返回就具备退休条件；实际退休仍遵守程序顺序。若取数请求已经发出，指令退休后，请求仍由 LFB 等存储子系统结构跟踪，直到相应处理完成。**指令从 ROB 中退出，与缓存行已经到达，是两个不同的完成点。** 地址翻译未命中或资源不足时，prefetch 本身也可能等待；某些情况下，预取请求还可能被忽略。[Intel 优化手册，3.7.1 节](https://cdrdv2-public.intel.com/779559/355308-Software-Optimization-Manual-047-Changes-Doc.pdf)、[Intel Fill Buffer 事件说明](https://perfmon-events.intel.com/platforms/emeraldrapids/core-events/core/)
+软件 prefetch 同样经过译码、地址生成和地址翻译，但没有必须交给程序使用的目标数据寄存器。在 Intel 描述的实现中，完成地址翻译后，它就可以按程序顺序退休，无须等到数据返回。已经发出的取数请求继续由 LFB 等结构跟踪。**指令从 ROB 中退出，与缓存行已经到达，是两个不同的完成点。** 地址翻译和资源不足仍会造成等待，预取请求也可能被硬件忽略。[Intel 优化手册，3.7.1 节](https://cdrdv2-public.intel.com/779559/355308-Software-Optimization-Manual-047-Changes-Doc.pdf)、[Intel Fill Buffer 事件说明](https://perfmon-events.intel.com/platforms/emeraldrapids/core-events/core/)
 
-取数期间，内存控制器继续推进请求，核心可以同时处理已经就绪的数据。prefetch 的收益就在于更早发出请求，让访存与计算重叠；缓存行传输和在途请求占用的资源仍然存在。
-
-逐页 load 与这里的预取目标也不同。以 4 KiB 页、64 B 缓存行为例，一页有 64 条缓存行，每页只读一个字节，不能保证整页数据都进入 CPU 缓存。即使在初始化时把每条缓存行都读一遍，数据集超过相关缓存容量后，早先读入的数据也可能在正式使用前被淘汰。运行中的 prefetch 通常只准备接下来实际要访问的数据，并控制提前量。
+逐页 load 只直接触及每页中的一条缓存行。以 4 KiB 页、64 B 缓存行为例，一页有 64 条缓存行，每页读一个字节远没有覆盖整页。即使启动时逐行读遍，大数据集也会把早先读入的行挤出缓存。运行中的 prefetch 则围绕即将使用的数据持续发出请求。
 
 提前执行普通 load 同样可以预热缓存、重叠访存；若其结果不用，编译器可能删掉这个读取。如果读取结果会在稍后真正使用，也可以通过循环展开、批处理等方式安排多个独立 load。硬件预取或乱序执行已经充分隐藏等待时，显式 prefetch 可能没有额外收益。
 
@@ -996,11 +992,11 @@ std::uint64_t sum_indirect(std::span<const std::uint64_t> values,
 }
 ```
 
-`__builtin_prefetch` 在目标支持时生成预取指令，具体预取行为与进入哪级缓存取决于编译器、提示和处理器实现；`locality = 1` 也只是复用程度的提示。预取不能替代后面真正读取数据的 load，也不承担数据同步的作用。[GCC 预取内建函数文档](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html#index-__builtin_prefetch)
+`__builtin_prefetch` 在目标支持时生成预取指令。`locality = 1` 表达预期复用程度，处理器决定具体缓存行为；后面的 load 才真正把数据读入寄存器。[GCC 预取内建函数文档](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html#index-__builtin_prefetch)
 
-这段代码的潜在收益来自第 `i` 次迭代与第 `i + 16` 次迭代之间的提前量。例如，`i = 0` 时准备 `values[ids[16]]`，`i = 1` 时准备 `values[ids[17]]`，同时继续读取、累加当前元素。等循环走到 `i = 16` 时，第 0 次迭代发出的取数请求可能已经完成，或者至少已经推进了一部分。前 16 项没有本循环为它们提前发出的预取；当 `ids.size() <= 16` 时，本例不会发出任何软件预取。
+这段代码用 16 次迭代拉开预取与使用的距离：`i = 0` 时准备 `values[ids[16]]`，`i = 1` 时准备 `values[ids[17]]`，同时读取、累加当前元素。等到 `i = 16`，先前的取数请求已经有时间向前推进，甚至完成。前 16 项直接读取；`ids.size() <= 16` 时，整个循环不发出预取。
 
-如果 `values` 的工作集较大、下标访问分散、原来的 load 经常等待更远的缓存或 DRAM，并且硬件预取与乱序执行尚未充分覆盖这段延迟，这些提前发出的请求就有机会缩短后续 load 的等待。即使各次迭代本身很短，向前准备多项数据也可能增加同时在途的有效访存请求数；收益仍受缓存和请求队列等资源限制。
+大工作集的分散访问经常要等待远端缓存或 DRAM，这正是预取可以发挥作用的地方：让多个取数请求同时在途，用当前计算覆盖后续读取的等待。
 
 **prefetch 后立刻 load 同一地址，通常缺少这种提前量，因此可能没有收益，甚至更慢。** 例如，在支持该内建函数的编译器上：
 
@@ -1016,30 +1012,30 @@ std::uint64_t read_immediately(const std::uint64_t* p) {
 
 缓存行尚未到达时，紧随其后的 load 仍要等待。实现即使将它并入同一个在途请求，也只能省下 prefetch 提前发出请求的那段时间；预取本身还增加了译码、地址生成和资源开销。能否获益，取决于两次实际发射之间有多少工作可以与取数重叠。
 
-源码顺序也不保证机器指令保持相同顺序。编译器可能把这个 load 排到 prefetch 前面，CPU 还可能乱序调度；因此需要检查目标编译设置生成的汇编，并结合实际执行情况判断提前量。即使机器码中 prefetch 在前，紧邻的 load 通常也没有为它留下足够的取数时间。
+提前量看的是实际执行间隔。编译器和 CPU 都可能重排指令；即使机器码把 prefetch 放在 load 前面，两条紧邻的指令通常也留不出足够的取数时间。
 
-只看重叠关系，假设当前还有 200 cycles 的独立工作，取数需要 300 cycles，忽略其他开销：若实际到工作结束才发出读取请求，总时间约为 `200 + 300 = 500 cycles`；若在工作开始时就有效预取，两者重叠后，约为 `max(200, 300) = 300 cycles`。这些数值只用于说明原理。如果普通 load 已被乱序执行提前发出，原路径也可能已经实现部分或全部重叠，不能把这 200 cycles 当作显式 prefetch 必然节省的时间。
+用一组简化数字看这个重叠：当前有 200 cycles 的独立工作，取数需要 300 cycles。工作结束后才发出读取，总共需要 `200 + 300 = 500 cycles`；在工作开始时发出请求，则约为 `max(200, 300) = 300 cycles`。普通 load 的乱序执行也能形成这种重叠；软件预取的作用是把请求进一步提前。
 
-预取距离太小，数据可能来不及到达；太大，数据可能在使用前被淘汰，也可能占满未完成请求的跟踪资源。数据已在缓存、访问模式已被硬件预取覆盖，或内存带宽已经饱和时，额外预取还可能增加争用。应在相同访问序列、缓存状态和编译设置下，对比不预取的版本与不同 `distance` 的版本；本例展示的是可利用的重叠机会，不保证 `distance = 16` 一定更快。[Intel 优化手册，第 9 章](https://cdrdv2-public.intel.com/821612/248966-Optimization-Reference-Manual-V1-050.pdf)
+预取距离太小，数据来不及到达；太大，数据可能提前被淘汰，或占满在途请求资源。数据已经命中缓存、硬件预取已经跟上，或内存带宽饱和时，额外预取还可能增加争用。调整 `distance` 就是在这些成本之间寻找合适的提前量。[Intel 优化手册，第 9 章](https://cdrdv2-public.intel.com/821612/248966-Optimization-Reference-Manual-V1-050.pdf)
 
-预取范围还要跟着实际字段走。如果一个记录跨两条缓存行，而计算要用到两条行中的字段，只预取记录首地址可能只准备了其中一部分。提示的局部性也要看后续事件是否继续复用这些数据：一次事件里只读一次的期权记录，可能在下一次事件里再次使用，并不因此适合 NTA 提示。批大小、距离和提示应分别做对照；最佳 p50 与最佳尾部分位数也可能出现在不同参数上。[The Latency Slippage 的预取对照](../literature/The_Latency_Slippage_详细解读.md)
+预取地址要覆盖实际使用的字段。一个记录跨两条缓存行，而计算两条都要读时，就要分别准备这两条行。局部性提示则看数据的复用方式：期权记录在每次事件中只读一次，却会在下一次事件继续使用，因此仍值得留在缓存里。[The Latency Slippage 官方讲义，第 22–28 页](https://github.com/CppCon/CppCon2026/blob/6f687701cdb4099eae39011485065b52ab7da0e9/Presentations/The_Latency_Slippage.pdf#page=22)
 
 <a id="hft02-2-3-4"></a>
 #### 2.3.4 读完的数据是否还值得留在缓存
 
 预取解决了数据何时到达，缓存容量还带来另一个选择：哪些数据值得留下。行情流中的一个事件可能只消费一次，而订单簿、持仓和估值状态会被反复访问。一次性数据持续进入缓存时，也可能把后面更有用的状态挤出去。
 
-通常先通过缩小工作集、紧凑布局和合适的访问方式减少污染。如果已经确认“读一次的流数据”在挤占热表空间，软件还可以研究主动使这些缓存行失效。x86 上几条相关指令的目的不同：
+缩小工作集、紧凑布局可以减少缓存污染。对于读完即弃的流数据，还可以主动使其缓存行失效，把空间让给热表。x86 上有三条相关指令：
 
-| 指令 | 主要行为 | 使用时需要分清什么 |
+| 指令 | 主要行为 | 执行特点 |
 |---|---|---|
-| `CLFLUSH` | 使目标行在一致性域内的缓存层次中失效；脏数据先写回 | 清除缓存副本不等于释放内存或清零业务字节 |
+| `CLFLUSH` | 使目标行在一致性域内的缓存层次中失效；脏数据先写回 | 逐条缓存行操作，脏行会产生写回流量 |
 | `CLFLUSHOPT` | 同样使目标行失效，并在需要时写回；排序约束更宽松 | 多行操作可以更充分地重叠；需要顺序约束时配合相应 fence |
-| `CLWB` | 写回脏数据，允许把行以非修改状态留在缓存层次中 | 保留是提示，不能指定留在 L3，也不能保证下次命中某一级 |
+| `CLWB` | 写回脏数据，允许把行以非修改状态留在缓存层次中 | 具体留存位置由处理器决定 |
 
-`CLFLUSHOPT` 影响的范围不只本核 L1，还可能使其他核心持有的副本失效。处理器也可能再次推测取入该数据，所以它不保证此后一直不驻留。`CLWB` 则适合讨论写回与交接成本，不能当作同一种淘汰操作。[Intel 指令手册](https://cdrdv2-public.intel.com/782156/325383-sdm-vol-2abcd.pdf)、[Intel 对 CLWB 留存行为的说明](https://edc.intel.com/content/www/us/en/design/platforms/core-processor-series-3-datasheet-volume-1-of-2/001/cache-line-write-back-clwb/)
+`CLFLUSHOPT` 会影响一致性域内的缓存副本，包括其他核心持有的副本；之后的访问或推测取数可以重新填入该行。`CLWB` 则着重于脏数据写回，允许保留缓存副本。[Intel 指令手册](https://cdrdv2-public.intel.com/782156/325383-sdm-vol-2abcd.pdf)、[Intel 对 CLWB 留存行为的说明](https://edc.intel.com/content/www/us/en/design/platforms/core-processor-series-3-datasheet-volume-1-of-2/001/cache-line-write-back-clwb/)
 
-下面只演示如何清除一个独占完整缓存行的事件。代码针对 GCC/Clang 的 x86-64 目标，按 64 B 缓存行编写；部署时仍需核对处理器的行大小。调用方已经确认所有消费者读完，且尚未把槽位交回生产者。
+下面清除一个独占缓存行的事件，示例按 64 B 行大小编写，使用 GCC/Clang 的 x86-64 接口。清除发生在所有消费者读完之后、槽位归还生产者之前。
 
 ```cpp
 #include <array>
@@ -1076,13 +1072,11 @@ bool try_flush_consumed_event(ConsumedEvent& event) noexcept {
 }
 ```
 
-示例将 CPUID 特性检查写在入口，实际热路径应在初始化时选择相应实现，避免逐事件执行这项检查。返回 `true` 表示执行了这组操作，并不证明它更快。若要评估完整处理周期，应把清除、屏障和槽位复用成本一起计入。
+示例在入口检查 CPUID 特性；热路径中可在初始化时选好实现，省去逐事件检查。清除指令和屏障构成这项优化的额外成本。
 
-这里最重要的前提是“这一条缓存行已经用完”。有下游还要读、多个对象共用一条行，或 ring 很快复用同一槽位时，清除都可能制造额外取数。前面的 SPSC 在消费者发布读游标后，生产者就可以重用槽位，因此不能在 `try_pop()` 返回后随意找到旧槽位再清除。
+清除应放在数据的最后一次使用之后。有下游继续读取，或多个对象共用一条行时，清除会迫使后续访问重新取数。前面的 SPSC 在 `try_pop()` 内就发布了读游标、归还槽位，所以要把清除操作安排在发布游标之前。
 
-《The Latency Slippage》用“流数据 + 热表”做了对照：有缓存压力时，主动清除流数据改善了报告的指标；没有压力时，清除反而更慢。主应用的改善也很小，而且固定版本源码在事件结束时间戳之后才执行 `CLFLUSHOPT` 和 `MFENCE`。这组结果说明了值得验证的机制，并未单凭局部计时证明完整循环的净收益。[实验条件与源码边界](../literature/The_Latency_Slippage_详细解读.md#measurement-boundaries)
-
-实际比较时，至少保留“不清除”“只清除确认用完的行”两个版本，同时观察热表命中、完整事件周期、吞吐和长尾。若只是把开销移出了结束时间戳，下一条事件仍然可能为它付出等待。
+《The Latency Slippage》用“流数据 + 热表”做了对照：有缓存压力时，清除流数据改善了延迟；没有压力时，清除反而更慢。作者把 `CLFLUSHOPT` 和 `MFENCE` 放在事件结束时间戳之后，因此业务延迟和包含清除的循环耗时要分开看，第 3.1 节会展开这个例子。[讲义中的缓存压力对照，第 34–35 页](https://github.com/CppCon/CppCon2026/blob/6f687701cdb4099eae39011485065b52ab7da0e9/Presentations/The_Latency_Slippage.pdf#page=34)、[作者实现的计时与收尾位置](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/10g_options_clwb.cpp#L327-L398)
 
 <a id="execution"></a>
 
@@ -1157,22 +1151,22 @@ void validate_good(OrderCheck o) {
 
 CPU 的指令缓存（I-cache）保存机器指令。如果大段诊断、错误格式化或恢复逻辑被排在正常处理的基本块之间，就会拉大代码跨度；函数内联到多个调用点时，还可能复制这些冷代码。
 
-抽离之后，常见路径可以更紧凑地排列，多个调用点也能共享一个冷函数，减少随内联复制的冷代码。这样有利于降低热代码的指令缓存占用和取指压力，收益取决于编译器最终布局、缓存行边界和实际执行路径；未执行的分支并非都会进入 I-cache。
+抽离之后，常见路径可以更紧凑地排列，多个调用点也能共享一份冷代码，减少热函数内联时复制的内容，降低指令缓存占用和取指压力。
 
 热函数变小后，也更容易被内联到上层调用者。例如，行情处理函数每次都调用 `validate_good`。抽离前，内联检查函数可能把格式化、异常构造及清理逻辑一起带入调用者；抽离后，内联只展开一个检查和一个冷调用。即使上层接收循环很大，这段小检查也更容易内联进去，省掉正常路径上的调用，并结合调用点信息继续优化。
 
 这里希望内联 `validate_good` 这样的热函数，而用 `noinline` 保留 `reject_zero_qty` 这样的独立冷函数。
 
-| 手段 | 主要作用 | 不保证什么 |
+| 手段 | 主要作用 | 怎样配合使用 |
 |---|---|---|
-| 将冷分支抽成独立函数 | 把少见处理从热函数的函数体中移出 | 编译器仍可能把普通函数重新内联回来 |
-| `[[gnu::noinline]]` | 阻止冷函数的函数体被内联到调用点 | 不表示该函数执行频率低，也不指定代码段位置 |
-| `[[gnu::cold]]` | 告诉编译器该函数很少执行，影响优化与布局；GCC 在许多目标上会把冷函数集中到专门的代码子段 | 不等于 `noinline`，也不是让 CPU 自动识别冷热代码的指令 |
-| `[[unlikely]]` / `__builtin_expect` | 提供分支概率提示，帮助编译器安排控制流和代码布局 | 不负责抽取冷函数，也不保证运行时分支预测正确 |
+| 将冷分支抽成独立函数 | 把少见处理移出热函数 | 配合 `noinline` 保持函数独立 |
+| `[[gnu::noinline]]` | 阻止函数体内联到调用点 | 配合 `cold` 表达低执行频率 |
+| `[[gnu::cold]]` | 提示函数很少执行，帮助优化和布局；GCC 在许多目标上会把冷函数集中到专门的代码子段 | 配合 `noinline` 分别控制布局与内联 |
+| `[[unlikely]]` / `__builtin_expect` | 提供分支概率提示，帮助编译器安排控制流和布局 | 用于函数内部的少见分支 |
 
 **怎样配合使用 `always_inline` 与 `noinline`**
 
-严格说，它们是编译器提供的函数属性，不是 C++ 标准关键字。GCC/Clang 可以写成 `[[gnu::always_inline]]`、`[[gnu::noinline]]`，也支持 `__attribute__((always_inline))`、`__attribute__((noinline))` 的写法。
+GCC/Clang 用函数属性控制内联，可以写成 `[[gnu::always_inline]]`、`[[gnu::noinline]]`，也支持 `__attribute__((always_inline))`、`__attribute__((noinline))`。
 
 `always_inline` 比普通 `inline` 更强，会要求编译器绕过常规内联收益阈值尝试展开。
 
@@ -1257,9 +1251,9 @@ bool side_index_example() {
 }
 ```
 
-这段代码把买卖方向的选择统一成了一次数组访问。最终是否生成条件跳转，要看目标编译器的汇编，源码里没有 `if` 并不构成保证。
+这段代码把买卖方向映射为数组下标，后续读写就可以共用一套逻辑。
 
-无分支的价值也取决于输入。分支方向难以预测时，增加少量条件选择或算术，可能比反复错误推测更便宜；若分支高度可预测，额外工作或更长的数据依赖反而可能抵消收益。前面的订单簿搜索适合用来做对照：同时检查 branch misses、核心周期和更新延迟，再判断改变来自哪里。
+分支方向难以预测时，少量条件选择或算术可以替代反复的错误推测；分支高度可预测时，原来的跳转往往更便宜。前面的订单簿搜索就是一个例子，branch misses 和核心周期能帮助解释两种实现的差异。
 
 <a id="hft02-2-4-4"></a>
 #### 2.4.4 循环展开和多路计算
@@ -1293,9 +1287,9 @@ std::uint64_t sum_unrolled(std::span<const std::uint64_t> x) {
 
 例如，一条行情需要更新一组彼此独立的记录。逐项读取后立即执行一长串计算，可能让有限的乱序执行窗口容纳不了更后面的读取。先收集一小批输入，再对这批输入计算，就改变了请求出现的位置：
 
-[![逐项处理在每次读取后执行长计算；批内重排先收集A、B、C输入，再计算各项，让独立访存有机会重叠。](assets/hft-02/text-mlp-batches.png)](assets/hft-02/text-mlp-batches.png)
+[![逐项处理在每次读取后执行长计算；批内重排先收集A、B、C输入，再计算各项，让独立访存有机会重叠。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-mlp-batches.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-mlp-batches.png)
 
-下面用只读输入和独立输出演示这种重排。计算式只用于制造一段依赖链，不代表真实估值模型。
+下面用带依赖链的计算模拟每条记录的处理工作，输入只读、输出独立。
 
 ```cpp
 #include <algorithm>
@@ -1348,11 +1342,11 @@ void evaluate_batched(std::span<const PricingInput> table,
 }
 ```
 
-可以从 `evaluate_batched<4>` 开始做对照，但 4 只是一个实验参数。临时数组、额外复制和循环都要付出成本；编译器也可能已经把串行版本展开或向量化，最终应检查两者的机器码。若进一步对下一批做 prefetch，应把它放在当前批计算之前，使计算提供取数提前量。
+`evaluate_batched<4>` 每次先准备四条输入，再集中计算，代价是临时数组和额外的读写。进一步预取下一批时，把 prefetch 放在当前批计算之前，就能利用这段计算时间等待数据。
 
-这与等待多条行情到齐再处理不同：批内工作已经可用，不额外增加攒消息时间。本例的表只读，所以重复 ID 也不改变含义；若改成读取后写回同一张状态表，重复 ID、前后更新依赖或可观察写回顺序，就可能破坏重排的等价性。
+这里处理的是同一事件中已经就绪的工作，没有等待新行情到齐。本例输入只读、输出独立，所以可以交换取数与计算的顺序；读写同一张状态表时，则要保留重复 ID 之间的更新顺序。
 
-批次也不能无限增大。一个记录可能跨多条缓存行，需求读取与预取又会竞争有限的 LFB 等资源；寄存器和栈空间同样有限。批处理后，即使 miss 数没有下降、指令数反而上升，也可能因为等待重叠而更快。验证时应一起看实际延迟、指令数、核心周期、未完成请求和 fill-buffer-full 停顿。[The Latency Slippage 的批处理实验](../literature/The_Latency_Slippage_详细解读.md)
+批次增大会占用更多 LFB、寄存器和栈空间。它的收益来自访存等待的重叠，所以 miss 数未降、指令数上升时，处理速度仍可能提高。核心周期和 fill-buffer-full 停顿可以帮助观察批大小的影响。[The Latency Slippage 官方讲义，第 15–20 页](https://github.com/CppCon/CppCon2026/blob/6f687701cdb4099eae39011485065b52ab7da0e9/Presentations/The_Latency_Slippage.pdf#page=15)、[作者的两阶段批处理实现](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/10b_options_batched.cpp#L186-L214)
 
 <a id="hft02-2-4-5"></a>
 #### 2.4.5 SIMD 自动向量化与 __restrict__
@@ -1406,7 +1400,7 @@ std::array<float, 4> spreads_aos(const std::array<QuotePair, 4>& quotes) {
 
 在常见布局下，报价字段按下面的顺序排列。采用四路向量减法时，可以先准备两组操作数，让同一组报价的买卖价处于对应的元素位置，也就是同一个 lane：
 
-[![AoS内每条记录包含相邻的bid与ask；向量运算先组织ask和bid两个操作数，使对应报价处于同一个lane，再逐lane相减。](assets/hft-02/text-aos-simd-lanes.png)](assets/hft-02/text-aos-simd-lanes.png)
+[![AoS内每条记录包含相邻的bid与ask；向量运算先组织ask和bid两个操作数，使对应报价处于同一个lane，再逐lane相减。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-aos-simd-lanes.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-aos-simd-lanes.png)
 
 从交错排列的字段得到这两组操作数，一种做法是先连续加载，再用 shuffle 指令调整元素位置；对于位置更分散的数据，也可以使用 gather，把多个地址上的元素收集到向量寄存器中。
 
@@ -1577,7 +1571,7 @@ struct CountersGood {
 
 SPSC（single producer, single consumer）环形队列适用于只有一个生产者和一个消费者的线程间通信，在低延迟系统之外也很常见。生产者写入槽位并公布写指针；消费者读完槽位，再公布读指针，通知生产者这个位置可以复用。
 
-![SPSC 环形队列中的数据发布和槽位复用](assets/hft-02/spsc-memory-order.svg)
+![SPSC 环形队列中的数据发布和槽位复用](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/spsc-memory-order.svg)
 
 *图 3：两个方向都通过同步操作交接数据。先写事件再发布；先读完事件再归还槽位。*
 
@@ -1693,7 +1687,7 @@ Disruptor 的核心是预分配的环形数组，加上生产者和每个消费�
 
 当数组绕回旧槽位时，新事件 `s` 将覆盖上一轮的事件 `s - N`。生产者等待 `done[C] >= s - N`，确认 C 已处理完旧事件后才覆盖它。生产者读取 C 的进度自行判断，无须单独的协调线程。
 
-![Disruptor 的消费依赖、变量含义，以及事件 6 复用事件 2 所在槽位的过程](assets/hft-02/disruptor-diamond-explained.svg)
+![Disruptor 的消费依赖、变量含义，以及事件 6 复用事件 2 所在槽位的过程](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/disruptor-diamond-explained.svg)
 
 *图 4：A、B 并行处理，C 等两者完成。容量为 4 时，事件 6 和事件 2 使用同一个槽位；C 完成事件 2 后，生产者才能写入事件 6。*
 
@@ -1817,7 +1811,7 @@ for dependency in dependencies[name]:
 
 消费者只检查当前待处理的序号，因此会停在第一个尚未发布的事件上。申请序号的生产者若一直未发布，这个空洞就会阻塞后续按序消费。实际实现也可以保存槽位的轮次标记。
 
-![多生产者下，后面的事件先发布，不能越过前面的空洞](assets/hft-02/disruptor-publication-gap.svg)
+![多生产者下，后面的事件先发布，不能越过前面的空洞](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/disruptor-publication-gap.svg)
 
 *图 5：生产者申请序号后还要写入、发布事件；消费者按序处理，在前面的发布空洞处等待。*
 
@@ -1831,22 +1825,22 @@ for dependency in dependencies[name]:
 
 《The Latency Slippage》中的主核先计算价格变化 `local_move`，把它写入共享请求并通知辅助核，随后继续计算自己的部分。两种写法在业务上使用相同的数值，访存路径却可能不同：
 
-[![两种写法都先写共享请求并release发布序号；原写法读回shared_request.move，改写继续使用local_move。](assets/hft-02/text-shared-readback.png)](assets/hft-02/text-shared-readback.png)
+[![两种写法都先写共享请求并release发布序号；原写法读回shared_request.move，改写继续使用local_move。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-shared-readback.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-shared-readback.png)
 
-辅助核正在轮询和读取共享请求，相关缓存行可能参与一致性交互。“我刚写过”并不保证稍后读回仍是本核 L1 命中。继续使用局部值，可以减少一次本来没有业务必要的共享访问；但编译器可能已经做了这件事，应先在汇编里确认原版本确实存在那条 load。
+辅助核轮询、读取共享请求时，这条缓存行会参与跨核一致性交互。主核继续使用 `local_move`，就能省掉从共享区域读回它的访问。编译器也可能自动保留这个局部值，汇编中的 load 能看出两种写法是否产生了差别。
 
-这属于真实共享成本：即使没有锁、没有 LLC 容量 miss，两核交接脏数据或获取写权限仍可能等待。对齐能够隔离无关对象，却不能消除双方确实需要访问同一条缓存行的通信。讲义中对端读取后原核副本如何变化，是该平台上的观察，不能推广成“远端一读，原核就必然失效”的 MESI 规则。[共享读回与一致性微基准](../literature/The_Latency_Slippage_详细解读.md)
+这属于真实共享成本：两核交接脏数据、获取写权限，都需要一致性通信。缓存行对齐可以隔离无关对象，而局部值复用进一步减少了对共享行本身的访问。[The Latency Slippage 官方讲义，第 41–49 页](https://github.com/CppCon/CppCon2026/blob/6f687701cdb4099eae39011485065b52ab7da0e9/Presentations/The_Latency_Slippage.pdf#page=41)
 
-对于辅助核刚写好、主核即将读取的结果，作者还尝试了 [2.3.4 节](#hft02-2-3-4)中的 `CLWB`。在那组实验里，结果读取更多地由 L3 响应，跨核 snoop 转发减少。这适合作为进阶对照：同时测交接延迟、snoop 和 LLC 响应，判断写回成本是否值得承担。`CLWB` 不保证把数据放在 L3，额外写回也可能拖慢生产者，不能据此给所有队列默认加入它。
+对于辅助核刚写好、主核即将读取的结果，作者还尝试了 [2.3.4 节](#hft02-2-3-4)中的 `CLWB`。那组实验中，结果读取更多地由 L3 响应，跨核 snoop 转发减少，代价是辅助核多做一次写回。
 
-还要区分发布正确性与写回时机。固定版本源码先 release 发布结果标志，再执行 `CLWB` 和 `MFENCE`；主核看见标志，并不表示后面的写回已经完成。缓存指令不能代替原子发布、槽位复用和对象生命周期协议。[结果发布的实际顺序](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/10g_options_clwb.cpp)
+源码先 release 发布结果标志，再执行 `CLWB` 和 `MFENCE`。主核看到标志后即可开始读取，此时写回可能仍在进行：原子发布负责交接，`CLWB` 调整数据的写回时机。[结果发布的实际顺序](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/10g_options_clwb.cpp)
 
-如果主核已经先于辅助核完成，再减少主核的几条指令，也未必缩短整个事件。多核拆分还要检查串行准备、两条分支谁最后完成，以及合并成本；部署篇的[并行关键路径说明](HFT_Engineering_03_高频交易系统的部署.md#hft03-1-3)给出了相应模型。
+整个事件要等较慢的分支完成，再合并结果。主核已经提前完成时，应优先缩短辅助核的路径；并行关键路径模型见本系列第 3 篇《高频交易系统的部署》1.3 节。
 
 <a id="hft02-2-5-7"></a>
 #### 2.5.7 少访问共享游标，让接口允许原地填写
 
-单写者只减少了写者之间的竞争。一个写者不断发布游标、多个读者不断刷新它，仍会产生一致性流量。优化这类队列时，可以先减少共享访问次数，而不是立即把内存序改弱。
+一个写者不断发布游标、多个读者不断刷新它，仍会产生一致性流量。减少共享游标的读写次数，可以降低这部分通信成本。
 
 | 做法 | 减少的工作 | 对协议和等待的影响 |
 |---|---|---|
@@ -1855,31 +1849,31 @@ for dependency in dependencies[name]:
 | 生产者批量发布完成进度 | 减少完成游标的共享写入 | 先写好的消息可能多等一段时间才能被看见 |
 | 消费者批量归还进度 | 减少消费游标的共享写入 | 生产者较晚获知空间可复用，可能更早遇到满队列 |
 
-这里要把“按块预留”和“等消息凑够后一起发布”分开。预留一块空间后，仍可以每完成一条消息就发布一次。前面的简单 SPSC 没有另设共享预留计数器，按块预留这一项不能直接套用到它的两个游标上；Disruptor 缓存可读范围时，也必须同时服从前置消费者的依赖上界。
+按块预留后，仍可以每写完一条消息就发布一次。它适用于另设共享预留上界的协议；前面的简单 SPSC 只有读、写两个游标，主要可以利用进度缓存和批量归还。Disruptor 缓存的可读范围还受前置消费者进度限制。
 
-Gross 的广播案例允许写者覆盖落后读者的数据，提前预留较大范围会缩小读者可依赖的旧数据保留窗口。它与前面等待末端消费者、再复用槽位的 Disruptor 语义不同。读取后再检查一次“是否被覆盖”，不能补救已经发生的非原子并发读写冲突。若选择覆盖式协议，必须另外解决读取期间的存储有效性和落后恢复。[广播协议与优化的适用边界](../literature/When_Nanoseconds_Matter_详细解读.md)、[C++ 数据竞争规则](https://eel.is/c++draft/intro.races)
+Gross 的广播案例允许写者覆盖落后读者的数据，预留越大，旧数据的保留窗口越短。这类协议要在读取期间保护存储，并处理读者落后后的恢复；单靠读后校验无法解决非原子并发读写。前面的 Disruptor 则用背压等待消费者，再复用槽位。[Gross 的官方讲义：广播协议与共享游标优化](https://github.com/CppCon/CppCon2024/blob/main/Presentations/When_Nanoseconds_Matter.pdf)、[C++ 数据竞争规则](https://eel.is/c++draft/intro.races)
 
 接口本身也决定了是否需要复制。调用方若必须先创建完整消息再 `push`，就常会经历“写临时区 → 复制入队”。另一种接口可以让序列化器直接填写预留区域：
 
-[![预留足够区域，直接编码，成功后发布，消费者读完后才允许复用。](assets/hft-02/text-inplace-publish.png)](assets/hft-02/text-inplace-publish.png)
+[![预留足够区域，直接编码，成功后发布，消费者读完后才允许复用。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-inplace-publish.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-inplace-publish.png)
 
-这是一种 API 设计思路，前面的 `SpscRing` 尚未提供这种接口。新增接口需要同时规定容量不足如何返回、编码失败如何取消预留、回调能否抛异常，以及发布后调用方是否还持有引用。只有这些规则明确，省掉的一次复制才不会换成并发访问错误。控制变量的缓存行隔离，也不意味着每条 payload 都必须独占一整条缓存行；消息布局仍要按读写方式权衡空间与共享成本。
+给 `SpscRing` 增加这类接口时，可以把写入分为“预留、填写、发布”：容量不足返回失败，编码失败取消预留，发布后调用方停止访问该区域。这样序列化器直接写入队列，就省掉了临时缓冲区和一次复制。
 
 <a id="hft02-2-5-8"></a>
 #### 2.5.8 无锁算法还需要说明单次操作的进度
 
-“没有 mutex”只说明实现形式的一部分。Lock-free 关注系统整体能持续取得进展；某个线程仍可能在 CAS 竞争中反复失败。Wait-free 要求每个操作在有界的自身算法步骤内完成，讨论的是更强的进度保证。
+Lock-free 保证系统整体持续取得进展，但某个线程可能在 CAS 竞争中反复失败。Wait-free 进一步要求每个操作都在有界的自身算法步骤内完成。
 
-这种有界不等于固定的墙钟延迟：线程可能被调度出去，原子指令也会受到缓存一致性和硬件争用影响。判断实际实现时，还要确认底层原子操作与元素处理满足算法的假设，不能仅凭源码里没有循环，或 `is_lock_free()` 返回 true，就推出 wait-free。
+Wait-free 限制的是算法步骤数；调度暂停和硬件争用仍会影响实际耗时。
 
-前面的 `try_push()` 在满队列时可以直接返回失败，但调用方如果写成“不断重试直到成功”，整体等待仍取决于消费者进度。Disruptor 主动等待慢消费者，也是为了保留背压与槽位生命周期，而非一个可以随意删掉的开销。
+前面的 `try_push()` 在满队列时直接返回失败；调用方若持续重试，就要等消费者释放空间。Disruptor 同样用等待慢消费者的方式保护槽位，形成背压。
 
-如果共享引用计数等状态无法避免，可以进一步学习如何消除无界 CAS 重试。Daniel Anderson 的 sticky counter 案例展示了状态表示、helping 和最终释放责任怎样一起设计；完整推演留在[详细解读的延伸阅读](../literature/When_Nanoseconds_Matter_详细解读.md#sec-8)。它提供的是分析方法，不能据算法名称保证每种负载下延迟都更低。
+共享引用计数等状态还可以通过算法设计消除无界 CAS 重试。Daniel Anderson 的 sticky counter 案例展示了状态表示、helping 和最终释放责任如何配合，算法推演见其 [When Lock-Free Still Isn't Enough 官方讲义](https://github.com/CppCon/CppCon2024/blob/main/Presentations/When_Lock-Free_Still_Isn%27t_Enough.pdf)。
 
 <a id="hft02-2-6"></a>
 ### 2.6 Stop-bit 变长整数：用短字段减少数据搬运
 
-行情协议也会使用变长整数，而非固定的 4 或 8 字节。例如，上交所 Level-2 产品使用 FIX/FAST 接口，FAST 的整数使用 stop-bit 编码。当大量字段值较小时，用更少字节表示它们能减少传输量与缓冲区占用，代价是解码时要识别字段终点、重建整数。整体延迟是否下降，取决于数值分布和目标 CPU 的测量结果。[上证所 Level-2 产品说明](https://www.sseinfo.com/services/assortment/level2/)
+行情协议也会使用变长整数。例如，上交所 Level-2 产品使用 FIX/FAST 接口，FAST 的整数采用 stop-bit 编码。大量字段值较小时，它能减少传输量和缓冲区占用，解码时再识别字段终点、重建整数。[上证所 Level-2 产品说明](https://www.sseinfo.com/services/assortment/level2/)
 
 <a id="hft02-2-6-1"></a>
 #### 2.6.1 先固定编码规则，避免混用不同 varint
@@ -2023,7 +2017,7 @@ TCP 不保留应用消息边界。一次接收既可以只有某个整数的前�
 
 用一个基础行情格式说明状态机：每条消息按顺序包含 `instrument_id、sequence、price_ticks、quantity` 四个非空无符号整数。
 
-[![消息A的四个字段编码为81、01 80、02 AC、8A。三次接收逐步完成id、seq、price、qty，第三次末尾的82开始下一条消息。](assets/hft-02/text-stream-decoding.png)](assets/hft-02/text-stream-decoding.png)
+[![消息A的四个字段编码为81、01 80、02 AC、8A。三次接收逐步完成id、seq、price、qty，第三次末尾的82开始下一条消息。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-stream-decoding.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-stream-decoding.png)
 
 这里有两层状态：
 
@@ -2120,7 +2114,7 @@ if (result.status == stopbit::Status::invalid) {
 <a id="hft02-3"></a>
 ## 3. 怎样验证一次优化
 
-前面的批处理、预取、缓存行淘汰和跨核交接，都可能增加指令，同时减少关键路径上的等待。验证时需要分别回答：目标延迟是否下降，哪些硬件行为支持这个解释，以及测量过程是否改变了结果。
+批处理、预取、缓存行淘汰和跨核交接，都可能用更多指令换来更少等待。延迟分布告诉我们快了多少，硬件计数器帮助解释为什么变快。
 
 <a id="hft02-3-1"></a>
 ### 3.1 让基准测到真正想比较的工作
@@ -2133,15 +2127,15 @@ if (result.status == stopbit::Status::invalid) {
 | 一次完整处理循环 | 取到事件 → 完成处理和收尾，准备接下一事件 | 统计、清理、屏障等后续工作加上去后，每次处理实际承担多少成本？ |
 | 到达至完成 | 事件到达所选入口 → 对应结果完成 | 事件进入系统后，连同排队在内等了多久？ |
 
-业务尚未到达时的空轮询是否纳入循环统计，要另外写清楚。到达至完成也取决于入口和终点的定义：应用队列的入口、网卡接收时间，以及计算完成、订单离开网卡，分别对应不同区间。
+空轮询时间可以单独统计。应用队列入口到计算完成，适合观察软件处理；网卡接收到订单发出，则覆盖本机的完整收发路径。
 
-例如，在正确约束计时指令顺序的前提下，下面的打点只测量业务区间：
+下面把开始与结束时间戳放在业务处理两端：
 
-[![事件到达与排队在业务计时之前；t_start到t_end覆盖业务处理与结果合并；CLFLUSHOPT、fence和统计在结束打点后，之后再处理下一事件。](assets/hft-02/text-measurement-cleanup.png)](assets/hft-02/text-measurement-cleanup.png)
+[![事件到达与排队在业务计时之前；t_start到t_end覆盖业务处理与结果合并；CLFLUSHOPT、fence和统计在结束打点后，之后再处理下一事件。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-measurement-cleanup.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-measurement-cleanup.png)
 
-若 flush、屏障和统计更新都放在 `t_end` 后，它们不会计入当前事件的 `t_end - t_start`，却仍消耗资源，并可能推迟下一事件的开始。flush 改善后续事件的缓存状态时，业务区间可以变短；整个循环的净收益，还要用包含收尾的统计和持续负载来验证。《The Latency Slippage》当前核对版本就存在这类区间差异，不能只用其业务分位数判断完整服务成本。[作者消费者路径](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/10g_options_clwb.cpp#L327-L398)、[计时边界解读](../literature/The_Latency_Slippage_详细解读.md#measurement-boundaries)
+`t_end` 之后的 flush、屏障和统计更新不会计入当前业务耗时，却会占用下一次处理前的时间。于是业务区间缩短，整轮处理仍可能变长。《The Latency Slippage》的消费者循环就把这些收尾放在结束打点后，比较时分别记录业务区间和完整循环即可看清差别。[作者消费者路径](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/10g_options_clwb.cpp#L327-L398)
 
-明确边界后，再固定输入、构建和机器条件。比较两个版本时使用同一份数据与访问分布，保留优化级别、CPU 与核位置、频率策略及共置负载；先确认结果一致，再交错运行新旧版本并独立重复。这样可以减少温度、频率或后台负载随时间变化造成的偏差。需要验证泛化时，另外换一组输入，两版一起重测。
+比较两个版本时，用同一份输入、相同的编译选项和核心配置，交错运行新旧版本。这样能减少温度、频率和后台负载随时间变化带来的偏差。
 
 下面用 Google Benchmark 比较普通求和与四路累加。输入在循环外生成，结果通过 `DoNotOptimize` 交给基准工具，避免被当成无用代码删除。编译器仍可对求和进行向量化、展开等优化，基准比较的是这些优化后的执行结果。
 
@@ -2185,11 +2179,11 @@ g++ -std=c++20 -O3 -DNDEBUG -pthread bench.cpp -lbenchmark -o /tmp/ll-bench
 /tmp/ll-bench --benchmark_repetitions=5
 ```
 
-这个基准反复扫描相同的数组，主要比较该工作集在重复访问下的执行情况。`ClobberMemory()` 约束编译器对内存的处理，不会把 CPU 缓存清空。因此，它不能直接代表每次都从 DRAM 取数，也不能代表首次跨核交接。
+这个基准反复扫描同一数组，缓存会随着重复访问预热。`ClobberMemory()` 约束的是编译器对内存的处理，不会清空 CPU 缓存。
 
-研究冷数据或跨核访问时，**每一轮都要重新建立目标状态**：例如让指定核心先写目标行，双方通过握手确认准备完成，再由另一核心计时一次读取。准备工作放在目标区间外，并单独记录其范围。若只在第一次准备状态，随后对同一地址读一百万次求平均，后面的大量本核命中会掩盖首次访问成本。利用容量压力或 flush 构造状态后，还要结合计数器检查实际发生的访问，不能仅凭准备代码断定某条行必定驻留在指定层级。[单次访存实验解读](../literature/The_Latency_Slippage_详细解读.md#measurement)
+测跨核读取时，每轮先由指定核心写入目标行，通过握手通知另一核心，再由后者计时一次读取。准备工作放在计时区间外，避免大量后续的本核命中淹没第一次访问的成本。[作者的单次 load、逐轮握手与空窗口实现](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/06_dirty_line_level.cpp)
 
-最后回到有真实到达节奏的工作负载，分别观察稳定输入与突发输入下的处理时间、排队、吞吐和丢弃。若负载发生器总等上一事件结束才发下一事件，就可能避开实际过载时的等待；函数微基准无法替代这一层验证。
+整条处理链可以按真实行情节奏回放，观察突发时的排队、吞吐和丢弃。负载发生器按到达时间发送，才能保留过载时的等待；总等上一事件结束再发送，会把这段排队隐藏掉。
 
 <a id="hft02-3-2"></a>
 ### 3.2 用性能计数器解释变化
@@ -2201,45 +2195,45 @@ perf stat -r 5 -e cycles,instructions,branches,branch-misses,cache-misses \
   /tmp/ll-bench --benchmark_filter='BM_Sum<false>/4096$' --benchmark_min_time=0.5s
 ```
 
-上面的 `perf stat` 包围整个程序启动与退出，计数包含基准初始化及工具自身的部分工作；Google Benchmark 报告的循环时间则有自己的边界。长时间重复可以减小一次性准备的相对占比，仍不意味着两个窗口完全一致。要分析事件处理阶段，应在初始化结束后采集，或通过计数器启停明确限定阶段。
+`perf stat` 统计整个程序运行，包括初始化和退出；Google Benchmark 统计基准循环。只分析事件处理时，可以在初始化结束后开启计数，在处理结束时关闭。
 
 **先判断瓶颈类别，再定位具体操作。** 在支持相应指标的平台上，Top-Down 方法把流水线槽位的使用情况归入四类：
 
 | 类别 | 表达的含义 | 如何继续调查 |
 |---|---|---|
-| Retiring | 对应最终退休的微操作 | 检查是否存在多余的复制、重复计算或可减少的指令；退休不代表业务必需 |
-| Bad Speculation | 错误推测及恢复造成的浪费 | 检查分支误预测、machine clears 等，而不是直接删除所有条件分支 |
+| Retiring | 对应最终退休的微操作 | 查找多余复制、重复计算和可减少的指令 |
+| Bad Speculation | 错误推测及恢复造成的浪费 | 检查分支误预测、machine clears 等 |
 | Frontend Bound | 前端未能及时提供足够的微操作 | 检查热代码体积、取指、指令缓存、解码等限制 |
 | Backend Bound | 后端资源或依赖限制了推进 | 继续区分执行端口、数据依赖、缓存与内存等待 |
 
-这些百分比描述特定模型下的流水线利用情况，不是四类函数的墙钟耗时分摊。指标的支持范围和公式依赖微架构，不能把另一代 CPU 的结果直接套用。[Intel Top-Down 方法](https://www.intel.com/content/www/us/en/docs/vtune-profiler/cookbook/2025-4/top-down-microarchitecture-analysis-method.html)
+Top-Down 百分比描述流水线槽位的利用情况，具体事件和公式按 CPU 微架构选取。[Intel Top-Down 方法](https://www.intel.com/content/www/us/en/docs/vtune-profiler/cookbook/2025-4/top-down-microarchitecture-analysis-method.html)
 
 从总体统计走到具体修改，可以沿下面的路径调查：
 
-[![先用perf stat比较总体计数及可用Top-Down指标，再采样找持续热点，用annotate查看源码和汇编，修改后同时比较延迟与计数。](assets/hft-02/text-perf-investigation.png)](assets/hft-02/text-perf-investigation.png)
+[![先用perf stat比较总体计数及可用Top-Down指标，再采样找持续热点，用annotate查看源码和汇编，修改后同时比较延迟与计数。](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-perf-investigation.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/text-perf-investigation.png)
 
-分析构建应尽量保留部署时的优化，使内联、循环变换和寄存器分配接近真实版本；为定位源码保留调试符号，再检查反汇编中是否确有预期的 load、prefetch 或 flush。不要只因增加了某个源码调用，就认定机器码和访存路径已经按预想改变。《When Nanoseconds Matter》的[测量部分](../literature/When_Nanoseconds_Matter_详细解读.md#sec-6)给出了这一调查过程。
+分析时保留部署版本的编译优化，并加入调试符号，用 `annotate` 对照源码与汇编，查看实际生成的 load、prefetch 或 flush。《When Nanoseconds Matter》[官方讲义中的性能分析部分](https://github.com/CppCon/CppCon2024/blob/main/Presentations/When_Nanoseconds_Matter.pdf)给出了这一调查过程。
 
 针对本文的优化，可以先提出一个能被对照实验检验的解释，再选择对应指标：
 
-| 改动与假设 | 可以观察的证据 | 仍需排除的解释 |
+| 改动 | 主要观察指标 | 同时关注的开销 |
 |---|---|---|
-| 批处理提高内存级并行（MLP） | miss 数近似不变，未完成请求更多地重叠，停顿或核心周期下降；同时检查 fill-buffer-full 等资源压力 | 批量过大可能耗尽请求资源，更多并发并非总会更快 |
-| prefetch 让数据更早到达 | 需求 load 等待减少，命中层级变化；扫描预取距离与提示，比较事件延迟 | 多出的请求可能挤占带宽和填充缓冲区；miss 下降本身不等于收益 |
-| flush 减少一次性数据污染 | 被保护热数据的命中改善，并在缓存压力增大时出现收益 | 完整循环还要承担 flush、写回和屏障成本，工作集较小时可能反而变慢 |
-| 局部副本或写回提示改善跨核交接 | snoop/转发、缓存响应层级与结果可用延迟一起变化 | 行状态、核心拓扑和发布时间都可能改变结果；L3 miss 为零也不排除一致性成本 |
+| 批处理提高内存级并行（MLP） | 未完成请求的重叠程度、停顿与核心周期 | 批次增大后的 fill-buffer-full 停顿、临时数据读写 |
+| prefetch 让数据更早到达 | 需求 load 的等待、缓存命中层级、不同预取距离下的延迟 | 新增请求的带宽和填充缓冲区占用 |
+| flush 减少一次性数据污染 | 热表命中率、缓存压力变化前后的延迟 | flush、写回和屏障占用的时间 |
+| 局部副本或写回提示改善跨核交接 | snoop/转发、缓存响应层级、结果可用延迟 | 写回操作和跨核通信成本 |
 
-表中的计数支持机制解释，不能单独证明因果。例如批处理增加指令却减少周期，可能说明等待更充分地重叠；还需核对输入和输出相同，并确认没有漏计收尾或丢弃事件。具体实验及适用边界见[《The Latency Slippage》测量部分](../literature/The_Latency_Slippage_详细解读.md#measurement)。
+例如，批处理后 miss 数相近、指令数增加、核心周期下降，就可以沿“更多等待被重叠”的方向分析。相应实验见 [The Latency Slippage 官方讲义](https://github.com/CppCon/CppCon2026/blob/6f687701cdb4099eae39011485065b52ab7da0e9/Presentations/The_Latency_Slippage.pdf)，计数轮的实现见[作者实验框架](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/harness.h#L216-L285)。
 
 **硬件事件的名字、采集窗口和分母，需要一起核对。** `cache-misses` 这样的通用事件不足以区分每一级缓存、需求读取与预取；实际可用事件及其含义要查目标 CPU 文档。退休 load 数、缓存行填充数和访问字节数也不是同一个单位，同一条缓存行可以被重复读取。
 
-PMU 开启到关闭之间的窗口，未必等于两次 TSC 打点之间的区间。假如开始读钟前开启计数，结束读钟后又做 flush、屏障和直方图更新，最后才关闭计数，这些收尾工作就可能进入 PMU 统计。`exclude_kernel` 只排除内核执行，不会自动去掉用户态的记录与驱动代码。把这样的计数除以事件数，得到的是较宽窗口内的平均计数，不能称为纯业务区间的逐事件计数。[作者计数与计时窗口解读](../literature/The_Latency_Slippage_详细解读.md#measurement-windows)
+PMU 窗口由计数器的开启与关闭位置决定。开始读钟前开启、结束读钟后完成 flush 和统计再关闭，得到的计数就包含这些收尾。`exclude_kernel` 只排除内核执行，用户态记录和驱动代码仍在其中。[作者消费者循环中的 PMU 与 TSC 打点位置](https://github.com/0xsanchit/CacheLatency/blob/5ea23c07d524a057179e6db52b8038131927ffd1/src/exp/10g_options_clwb.cpp#L327-L398)
 
-硬件计数器槽位有限，同时请求过多事件会发生时间复用。`time_running` 小于 `time_enabled` 时，缩放后的计数属于估计；工作负载分阶段变化时，未采集的那段时间未必与已采集部分相同。可以减少单轮事件数量，在可比较的重复负载下分组采集；同轮计算的 IPC 等比例也要保持事件窗口一致，并记录计数器实际运行时间。[Linux perf_event_open](https://man7.org/linux/man-pages/man2/perf_event_open.2.html)
+硬件计数器槽位有限，请求过多事件时，perf 会分时采集并缩放结果。`time_running` 小于 `time_enabled` 就表明发生了时间复用。减少单轮事件数、分组重复采集，可以降低这种估算的影响；IPC 等比例使用同一窗口的计数计算。[Linux perf_event_open](https://man7.org/linux/man-pages/man2/perf_event_open.2.html)
 
-对几百纳秒的路径，可将轻量计时与硬件归因分成两类运行：计时轮保存业务延迟分布，计数轮检查硬件行为，并分别保留结果和运行标识。逐事件开关计数器可能涉及系统调用，足以让消费者落后；分开测量能减少对计时轮的干扰，但不能让计数轮恢复成未插桩时的负载。
+几百纳秒的路径适合分开计时与计数：计时轮记录延迟分布，计数轮观察硬件行为。逐事件开关计数器可能触发系统调用，把它移到独立运行中，可以减少对计时轮的干扰。
 
-计数轮若发生丢弃、覆盖或跳过事件，归一化分母应使用同一统计窗口内实际完成的事件数，同时报告丢弃数量。否则，用计划发送数去除计数，会把“少处理了工作”误判成“每事件成本下降”。同样，来自不同轮次的最好延迟和最低 miss 不能拼成同一次运行的画像；先分别保存，再在可比较条件下解释它们的关系。
+每事件平均计数用“计数总量 / 同一窗口内实际完成的事件数”计算，并单独记录丢弃数量。各轮的延迟与计数成组保存，便于回查当时的运行情况。
 
 <a id="hft02-3-3"></a>
 ### 3.3 读一次时间戳也有成本
@@ -2256,26 +2250,23 @@ PMU 开启到关闭之间的窗口，未必等于两次 TSC 打点之间的区�
 
 按表中假设的核心频率换算，读钟成本约为十纳秒量级。测量几条指令时，前后各读一次时间戳的成本就可能与目标代码相当；加入约束指令排序和编译器重排的措施后，还要计入这些措施的成本。
 
-空计时窗口可以帮助观察读钟与屏障的基线及波动，但把一个常数从所有结果里减掉，无法消除测量器对指令重叠、缓存状态和代码布局的全部影响。应同时保留原始结果，并比较插桩开启和关闭时的完整路径；TSC 的顺序约束、频率换算与跨核可比较性见[第 4 篇时钟专题](HFT_Engineering_04_高频交易系统中的时钟.md)。
+先测空窗口，可以看到读钟和屏障的开销。屏障还会改变指令之间的重叠，因此这部分影响很难靠减去一个固定数值消除。TSC 的顺序约束、频率换算与跨核读数见本系列第 4 篇《深入理解 TSC、PHC 和时钟同步》。
 
 <a id="hft02-3-4"></a>
 ### 3.4 稀疏事件需要逐次打点，XRay 可以帮助切换测点
 
 忙轮询线程可以占满一个核心，却只在行情到来时运行短暂的策略判断。采样大多落在轮询上，可能准确反映 CPU 时间的分布，却没有足够样本回答“每次发单判断的 p99 是多少”。这时需要在少量关键边界逐次记录时间戳或作用域跨度。
 
-一种做法是用 RAII 作用域记录进入和退出时间，将区间标识、事件标识和时间戳写入预分配的线程本地缓冲区，再由后台线程汇总。热路径只保留必要记录，字符串格式化、磁盘与网络导出放到后面，并定义缓冲区写满时的处理方式。异步导出仍会占用缓存和带宽，因此还要比较不开启记录、低频记录与目标记录频率下的延迟分布。
+一种做法是用 RAII 作用域记录进入和退出时间，把区间标识、事件标识和时间戳写入预分配的线程本地缓冲区。后台线程负责汇总、格式化和导出，热路径只追加少量固定字段。
 
-若排查时经常需要换一组函数测点，LLVM XRay 提供另一种工作流：**编译时预留插桩位置，运行时按需开启或关闭。** 使用 `-fxray-instrument` 构建后，符合条件的函数中会保留插桩区域及其映射，运行库再修改这些位置，切换到处理函数。运行时开关依赖这个构建准备，无法让任意未插桩二进制自动获得全部测点。[LLVM XRay](https://llvm.org/docs/XRay.html)
-
+经常切换测点时，可以用 LLVM XRay：**编译时预留插桩位置，运行时按需开启或关闭。** 使用 `-fxray-instrument` 构建后，符合条件的函数会留下插桩区域及其映射，运行库修改这些位置，即可切换到记录处理函数。[LLVM XRay](https://llvm.org/docs/XRay.html)
 XRay 的默认启发式选择至少约 200 条指令或包含循环的函数，短函数可能需要调整 `-fxray-instruction-threshold` 或显式使用 `[[clang::xray_always_instrument]]`。记录 handler 应使用 `[[clang::xray_never_instrument]]` 等方式避免自身再次被插桩，并保持足够轻量。[XRay 函数选择与标记](https://llvm.org/docs/XRay.html#instrumenting-your-c-c-objective-c-application)
 
-关闭记录时，预留代码仍可能影响布局；开启后，还会增加处理函数调用、读钟和缓冲写入。XRay 方便的是切换跟踪范围，不能替代计时边界和扰动验证。先用总体统计与采样缩小范围，再为稀疏关键区间补充打点，通常比给所有小函数都记录入口出口更容易解释结果。原演讲的测量思路见[《When Nanoseconds Matter》第 6 节](../literature/When_Nanoseconds_Matter_详细解读.md#sec-6)。
+排查时先用总体统计和采样找到热点，再为短暂的关键区间开启 XRay，逐次记录耗时。这样既能切换跟踪范围，也能把记录量控制在关注的函数内。原演讲的测量思路见 [When Nanoseconds Matter 官方讲义](https://github.com/CppCon/CppCon2024/blob/main/Presentations/When_Nanoseconds_Matter.pdf)中的性能分析与跟踪部分。
 
 <a id="hft02-4"></a>
 ## 4. 总结
 
-订单簿的连续布局减少了随机访问，批内并行让多次访存有机会重叠，局部值复用减少了共享行读回。这些改动作用于不同的等待，新增指令和更低延迟也可以同时出现。判断优化是否成立，要把源码变化、机器指令、硬件行为和业务结果连起来看。
+订单簿的连续布局减少随机访问，批内并行让多次访存重叠，预取把取数请求提前，局部值复用省掉共享行读回。它们都在缩短数据抵达和结果产生之间的等待，所以多执行几条指令，也可能更早完成一条消息。
 
-记录一次优化时，把等待发生的位置、改动及其证据、适用的输入和硬件条件写清楚；公开案例的效果仍需用本系统的数据和完成边界验证。
-
-局部路径测清以后，还要检查真实部署中的缓存竞争、核心位置和后台负载。下一篇[部署专题](HFT_Engineering_03_高频交易系统的部署.md)继续把这些结果放回整台机器；需要深入读钟和跨设备对时的部分，可以转到[时钟专题](HFT_Engineering_04_高频交易系统中的时钟.md)。
+本系列第 3 篇《高频交易系统的部署》继续讨论整机上的缓存竞争、核心分配和后台负载；第 4 篇《深入理解 TSC、PHC 和时钟同步》展开读钟与跨设备对时。
