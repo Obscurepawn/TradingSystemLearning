@@ -1,5 +1,8 @@
 {
-  "article": "hft/HFT_Engineering_02_C++低延迟编程基础.md",
+  "articles": [
+    "hft/HFT_Engineering_02_C++内存与计算优化.md",
+    "hft/HFT_Engineering_03_C++线程通信与性能测量.md"
+  ],
   "diagrams": [
     {
       "id": "text-measurement-path",

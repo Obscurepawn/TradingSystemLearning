@@ -1,7 +1,7 @@
 
 # Stop-bit 整数与增量行情解析示例
 
-对应 [HFT C++ 低延迟文章](../../HFT_Engineering_02_C++低延迟编程基础.md) 的第 2.6、2.7 节。
+对应 [C++内存与计算优化](../../HFT_Engineering_02_C++内存与计算优化.md)的第 5、6 章。
 
 - `stop_bit.hpp`：可移植 C++20 header，非空无符号 uint64_t 的 FAST 风格最短 stop-bit 编码，以及四字段教学行情的流式解析器。不是完整 FAST 实现，不支持 signed、nullable、presence map 或字典操作。
 - `test.cpp`：参考实现、随机/边界及输入切分测试；参考解码器使用 GCC/Clang 支持的 128 位整数。
