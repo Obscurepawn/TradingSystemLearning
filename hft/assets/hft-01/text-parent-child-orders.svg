@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="655" viewBox="0 0 1280 655" role="img" aria-labelledby="title description">
+<title id="title">客户委托与交易所订单</title>
+<desc id="description">客户委托 P001 买入 1,000 股，拆成 C201 的 600 股和 C202 的 400 股，分别对应交易所 A 的 E101 与交易所 B 的 E202。</desc>
+<style>text { font-family: "Noto Sans CJK SC", sans-serif; }</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1,1 L9,5 L1,9 Z" fill="#64748b"/></marker></defs>
+<rect width="1280" height="655" fill="white"/>
+<text x="36" y="58" font-size="36" fill="#15243b" font-weight="700" text-anchor="start">客户委托与交易所订单</text>
+<rect x="330.0" y="95.0" width="620.0" height="120" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="348.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">客户委托 P001</text>
+<text x="348.0" y="187.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">买入 1,000 股</text>
+<path d="M 640.0 215.0 L 640.0 245" fill="none" stroke="#64748b" stroke-width="2.6" stroke-linejoin="round" />
+<path d="M 330.0 245 L 950.0 245" fill="none" stroke="#64748b" stroke-width="2.6" stroke-linejoin="round" />
+<path d="M 330.0 245 L 330.0 275" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<rect x="36.0" y="281" width="588.0" height="338" rx="16" fill="#eff6ff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="52.0" y="327" font-size="30" fill="#2563eb" font-weight="700" text-anchor="start">交易所 A</text>
+<rect x="52.0" y="349.0" width="556.0" height="120" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="70.0" y="397.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">子订单 C201</text>
+<text x="70.0" y="441.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">买入 600 股</text>
+<rect x="52.0" y="527.0" width="556.0" height="76" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="70.0" y="575.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">交易所订单 E101</text>
+<path d="M 330.0 475.0 L 330.0 521.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 950.0 245 L 950.0 275" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<rect x="656.0" y="281" width="588.0" height="338" rx="16" fill="#f0fdfa" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="672.0" y="327" font-size="30" fill="#0f766e" font-weight="700" text-anchor="start">交易所 B</text>
+<rect x="672.0" y="349.0" width="556.0" height="120" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/>
+<text x="690.0" y="397.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">子订单 C202</text>
+<text x="690.0" y="441.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">买入 400 股</text>
+<rect x="672.0" y="527.0" width="556.0" height="76" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/>
+<text x="690.0" y="575.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">交易所订单 E202</text>
+<path d="M 950.0 475.0 L 950.0 521.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+</svg>

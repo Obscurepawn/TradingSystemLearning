@@ -1,0 +1,315 @@
+{
+  "article": "hft/HFT_Engineering_01_建立对于HFT的基础认识.md",
+  "diagrams": [
+    {
+      "id": "text-parent-child-orders",
+      "title": "客户委托与交易所订单",
+      "description": "客户委托 P001 买入 1,000 股，拆成 C201 的 600 股和 C202 的 400 股，分别对应交易所 A 的 E101 与交易所 B 的 E202。",
+      "type": "fork",
+      "source_text": "客户委托 P001：买入 1,000 股\n  ├─ 子订单 C201：买入 600 股 → 交易所 A 的订单 E101\n  └─ 子订单 C202：买入 400 股 → 交易所 B 的订单 E202",
+      "steps": [
+        {
+          "title": "客户委托 P001",
+          "tone": "purple",
+          "body": [
+            "买入 1,000 股"
+          ]
+        }
+      ],
+      "branches": [
+        {
+          "title": "交易所 A",
+          "tone": "blue",
+          "steps": [
+            {
+              "title": "子订单 C201",
+              "tone": "blue",
+              "body": [
+                "买入 600 股"
+              ]
+            },
+            {
+              "title": "交易所订单 E101",
+              "tone": "blue"
+            }
+          ],
+          "arrows": true
+        },
+        {
+          "title": "交易所 B",
+          "tone": "teal",
+          "steps": [
+            {
+              "title": "子订单 C202",
+              "tone": "teal",
+              "body": [
+                "买入 400 股"
+              ]
+            },
+            {
+              "title": "交易所订单 E202",
+              "tone": "teal"
+            }
+          ],
+          "arrows": true
+        }
+      ]
+    },
+    {
+      "id": "text-fifo-fill-quantity",
+      "title": "同价队列与成交数量",
+      "description": "100.00 的买方队列中，你的 100 股订单排在竞争者的 100 股订单前；随后 120 股主动卖单到达，你成交 100 股，竞争者成交 20 股。",
+      "type": "flow",
+      "source_text": "同为 100.00 的买单：你的订单 100 股 -> 竞争者的订单 100 股\n随后只有 120 股主动卖单到达。\n\n你成交 100 股，竞争者成交 20 股。",
+      "steps": [
+        {
+          "title": "同价买单：100.00",
+          "tone": "blue",
+          "rows": [
+            {
+              "label": "队列从前到后",
+              "cells": [
+                "1 · 你的订单\n100 股",
+                "2 · 竞争者订单\n100 股"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "随后主动卖单到达",
+          "tone": "orange",
+          "body": [
+            "只有 120 股"
+          ]
+        },
+        {
+          "title": "按队列顺序成交",
+          "tone": "teal",
+          "rows": [
+            {
+              "label": "成交数量",
+              "cells": [
+                "你\n100 股",
+                "竞争者\n20 股"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "text-price-level-queue",
+      "title": "买方订单簿的价位与队列",
+      "description": "100.01 元档位有 D 的 100 股订单；100.00 元档位从队首到队尾依次是 A、B、C，各 100 股；所有订单均尚未成交。",
+      "type": "panels",
+      "source_text": "100.01 元：D（100 股）\n100.00 元：A（100 股）-> B（100 股）-> C（100 股）",
+      "panels": [
+        {
+          "title": "100.01 元",
+          "tone": "blue",
+          "steps": [
+            {
+              "title": "D",
+              "tone": "blue",
+              "body": [
+                "100 股"
+              ]
+            }
+          ],
+          "arrows": false
+        },
+        {
+          "title": "100.00 元：从队首到队尾",
+          "tone": "teal",
+          "steps": [
+            {
+              "title": "A",
+              "tone": "teal",
+              "body": [
+                "100 股"
+              ]
+            },
+            {
+              "title": "B",
+              "tone": "teal",
+              "body": [
+                "100 股"
+              ]
+            },
+            {
+              "title": "C",
+              "tone": "teal",
+              "body": [
+                "100 股"
+              ]
+            }
+          ],
+          "arrows": true
+        }
+      ],
+      "note": "所有订单都还没有成交。"
+    },
+    {
+      "id": "text-etf-creation-flow",
+      "title": "从股票篮子到 ETF 卖出",
+      "description": "买入规定股票并补足现金，再申购 ETF，最后卖出 ETF。",
+      "type": "flow",
+      "source_text": "ETF 可卖出的价格：100.10\n买齐规定股票并补足现金的成本：100.00\n每份对应的其他全部成本：0.03\n\n买入规定股票并补足现金 → 申购 ETF → 卖出 ETF\n每份净差额 = 100.10 - 100.00 - 0.03 = 0.07",
+      "steps": [
+        {
+          "title": "买入规定股票",
+          "tone": "blue",
+          "body": [
+            "并补足现金"
+          ]
+        },
+        {
+          "title": "申购 ETF",
+          "tone": "purple"
+        },
+        {
+          "title": "卖出 ETF",
+          "tone": "teal"
+        }
+      ]
+    },
+    {
+      "id": "text-triangular-fx-flow",
+      "title": "三角兑换的资金流转",
+      "description": "按所列可成交报价，100 USD 依次兑换为 15,000 JPY、93.75 EUR，最终得到 100.20 USD。",
+      "type": "flow",
+      "source_text": "卖出 USD 换 JPY：1 USD 得到 150 JPY\n买入 EUR 支付 JPY：1 EUR 需要 160 JPY\n卖出 EUR 换 USD：1 EUR 得到 1.0688 USD\n\n100 USD -> 15,000 JPY -> 93.75 EUR -> 100.20 USD\n三条腿全部完成后的毛差额：0.20 USD",
+      "steps": [
+        {
+          "title": "起点",
+          "tone": "blue",
+          "body": [
+            "100 USD"
+          ]
+        },
+        {
+          "title": "卖出 USD，换取 JPY",
+          "tone": "purple",
+          "body": [
+            "15,000 JPY"
+          ]
+        },
+        {
+          "title": "买入 EUR，支付 JPY",
+          "tone": "orange",
+          "body": [
+            "93.75 EUR"
+          ]
+        },
+        {
+          "title": "卖出 EUR，换回 USD",
+          "tone": "teal",
+          "body": [
+            "100.20 USD"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "text-event-to-exchange",
+      "title": "事件到交易所处理的链路",
+      "description": "交易所产生事件后，行情经发布传输进入本机，本地接收、维护订单簿、决策、风控并发送订单，随后订单经网络与交易所接入，最终由交易所排序和处理。",
+      "type": "flow",
+      "source_text": "交易所产生事件\n  -> 行情发布和传输\n  -> 本机网卡收到数据\n  -> 解析与维护订单簿\n  -> 更新特征、估值与策略决策\n  -> 本地风控与订单状态处理\n  -> 编码并发送订单\n  -> 网络传输和交易所接入\n  -> 交易所排序、处理请求",
+      "steps": [
+        {
+          "title": "交易所产生事件",
+          "tone": "blue"
+        },
+        {
+          "title": "行情发布和传输",
+          "tone": "blue"
+        },
+        {
+          "title": "本机网卡收到数据",
+          "tone": "purple"
+        },
+        {
+          "title": "解析与维护订单簿",
+          "tone": "purple"
+        },
+        {
+          "title": "更新特征、估值",
+          "tone": "purple",
+          "body": [
+            "与策略决策"
+          ]
+        },
+        {
+          "title": "本地风控",
+          "tone": "purple",
+          "body": [
+            "与订单状态处理"
+          ]
+        },
+        {
+          "title": "编码并发送订单",
+          "tone": "purple"
+        },
+        {
+          "title": "网络传输",
+          "tone": "teal",
+          "body": [
+            "和交易所接入"
+          ]
+        },
+        {
+          "title": "交易所排序、处理请求",
+          "tone": "teal"
+        }
+      ]
+    },
+    {
+      "id": "text-order-book-indexes",
+      "title": "本地订单簿的两组索引",
+      "description": "按 order_id 查找方向、价格、剩余数量和公开的优先级信息；按价格档位查找该价位上的订单和总数量。",
+      "type": "panels",
+      "source_text": "order_id -> 方向、价格、剩余数量、公开的优先级信息\n价格档位 -> 该价位上的订单和总数量",
+      "panels": [
+        {
+          "title": "按订单标识查找",
+          "tone": "blue",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "order_id",
+              "tone": "blue"
+            },
+            {
+              "title": "对应订单信息",
+              "tone": "blue",
+              "body": [
+                "方向、价格、剩余数量",
+                "公开的优先级信息"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "按价格档位查找",
+          "tone": "teal",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "价格档位",
+              "tone": "teal"
+            },
+            {
+              "title": "对应价位信息",
+              "tone": "teal",
+              "body": [
+                "该价位上的订单",
+                "总数量"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

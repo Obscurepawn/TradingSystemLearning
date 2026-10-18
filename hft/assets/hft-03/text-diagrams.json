@@ -1,0 +1,289 @@
+{
+  "article": "hft/HFT_Engineering_03_高频交易系统的部署.md",
+  "diagrams": [
+    {
+      "id": "text-trading-path",
+      "title": "从行情到订单",
+      "description": "交易所行情出口经过接入线路与交换设备，到达本机网卡与接收队列，再依次完成行情处理、策略、风控与订单编码，经过本机发送队列与网卡及接入线路，最终到达交易所订单入口。",
+      "type": "flow",
+      "source_text": "交易所行情出口\n  → 接入线路与交换设备\n  → 本机网卡与接收队列\n  → 行情处理 → 策略 → 风控与订单编码\n  → 本机发送队列与网卡\n  → 接入线路\n  → 交易所订单入口",
+      "steps": [
+        {
+          "title": "交易所行情出口",
+          "body": [],
+          "tone": "purple"
+        },
+        {
+          "title": "接入线路与交换设备",
+          "body": [],
+          "tone": "gray"
+        },
+        {
+          "title": "本机网卡与接收队列",
+          "body": [],
+          "tone": "teal"
+        },
+        {
+          "title": "行情处理",
+          "body": [],
+          "tone": "blue"
+        },
+        {
+          "title": "策略",
+          "body": [],
+          "tone": "blue"
+        },
+        {
+          "title": "风控与订单编码",
+          "body": [],
+          "tone": "blue"
+        },
+        {
+          "title": "本机发送队列与网卡",
+          "body": [],
+          "tone": "teal"
+        },
+        {
+          "title": "接入线路",
+          "body": [],
+          "tone": "gray"
+        },
+        {
+          "title": "交易所订单入口",
+          "body": [],
+          "tone": "purple"
+        }
+      ]
+    },
+    {
+      "id": "text-process-trading",
+      "title": "三个进程的交易路径",
+      "description": "行情 A/B 进入 market-data；market-data 发送行情事件到 strategy；strategy 发送订单意图到 order-gateway；order-gateway 向交易所发单，并将委托与成交回报反向传递给 strategy。",
+      "type": "flow",
+      "source_text": "行情 A/B ──→ market-data ──行情事件──→ strategy ──订单意图──→ order-gateway\n                │                       ↑                       │   │\n                │                       └────委托/成交回报────────┘   └──→ 交易所\n                │\n                └──────────→ 独立记录路径\n\n控制面进程 ──配置、启停、主备身份──→ 各业务进程\n观测进程 ←─计数器、采样事件───── 各业务进程",
+      "steps": [
+        {
+          "title": "行情 A/B",
+          "body": [],
+          "tone": "teal"
+        },
+        {
+          "title": "market-data",
+          "body": [
+            "向策略发送\n行情事件"
+          ],
+          "tone": "blue"
+        },
+        {
+          "title": "strategy",
+          "body": [
+            "向网关提交\n订单意图"
+          ],
+          "tone": "blue"
+        },
+        {
+          "title": "order-gateway",
+          "body": [
+            "向交易所发单"
+          ],
+          "tone": "blue"
+        },
+        {
+          "title": "交易所",
+          "body": [],
+          "tone": "purple"
+        }
+      ],
+      "width": 1600,
+      "columns": 5,
+      "returns": [
+        {
+          "from": 3,
+          "to": 2,
+          "label": "委托 / 成交回报"
+        }
+      ]
+    },
+    {
+      "id": "text-process-support",
+      "title": "记录、控制与观测",
+      "description": "market-data 的数据进入独立记录路径；控制面进程向各业务进程发送配置、启停与主备身份；各业务进程向观测进程发送计数器和采样事件。这三组关系相互独立，不表示先后顺序。",
+      "type": "panels",
+      "source_text": "行情 A/B ──→ market-data ──行情事件──→ strategy ──订单意图──→ order-gateway\n                │                       ↑                       │   │\n                │                       └────委托/成交回报────────┘   └──→ 交易所\n                │\n                └──────────→ 独立记录路径\n\n控制面进程 ──配置、启停、主备身份──→ 各业务进程\n观测进程 ←─计数器、采样事件───── 各业务进程",
+      "panels": [
+        {
+          "title": "独立记录路径",
+          "tone": "teal",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "market-data",
+              "body": [],
+              "tone": "teal"
+            },
+            {
+              "title": "独立记录",
+              "body": [],
+              "tone": "teal"
+            }
+          ]
+        },
+        {
+          "title": "控制面下发管理信息",
+          "tone": "purple",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "控制面进程",
+              "body": [
+                "配置、启停、主备身份"
+              ],
+              "tone": "purple"
+            },
+            {
+              "title": "各业务进程",
+              "body": [],
+              "tone": "purple"
+            }
+          ]
+        },
+        {
+          "title": "业务进程上报观测信息",
+          "tone": "gray",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "各业务进程",
+              "body": [
+                "计数器、采样事件"
+              ],
+              "tone": "gray"
+            },
+            {
+              "title": "观测进程",
+              "body": [],
+              "tone": "gray"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "text-shared-memory-ipc",
+      "title": "共享内存 IPC",
+      "description": "行情进程把消息写入共享内存中的队列，策略进程从同一队列读取消息；共享内存中还维护发布位置和消费位置。",
+      "type": "flow",
+      "source_text": "行情进程                        策略进程\n  写入消息                        读取消息\n     │                              ↑\n     └────── 共享内存中的队列 ────────┘\n             发布位置、消费位置",
+      "steps": [
+        {
+          "title": "行情进程",
+          "body": [
+            "写入消息"
+          ],
+          "tone": "blue"
+        },
+        {
+          "title": "共享内存中的队列",
+          "body": [
+            "发布位置、消费位置"
+          ],
+          "tone": "teal"
+        },
+        {
+          "title": "策略进程",
+          "body": [
+            "读取消息"
+          ],
+          "tone": "purple"
+        }
+      ]
+    },
+    {
+      "id": "text-cross-host-path",
+      "title": "跨机器的消息路径",
+      "description": "消息在主机 A 从业务线程经过发送缓冲、网络收发组件和网卡，穿过网络后，在主机 B 从网卡经过网络收发组件和接收缓冲，最终交给业务线程。",
+      "type": "flow",
+      "source_text": "主机 A：业务线程 → 发送缓冲 → 网络收发组件 → 网卡\n                                                │\n                                              网络\n                                                │\n主机 B：业务线程 ← 接收缓冲 ← 网络收发组件 ← 网卡",
+      "steps": [
+        {
+          "title": "主机 A · 业务线程",
+          "body": [],
+          "tone": "blue"
+        },
+        {
+          "title": "主机 A · 发送缓冲",
+          "body": [],
+          "tone": "blue"
+        },
+        {
+          "title": "主机 A · 网络收发组件",
+          "body": [],
+          "tone": "blue"
+        },
+        {
+          "title": "主机 A · 网卡",
+          "body": [],
+          "tone": "blue"
+        },
+        {
+          "title": "网络",
+          "body": [],
+          "tone": "gray"
+        },
+        {
+          "title": "主机 B · 网卡",
+          "body": [],
+          "tone": "teal"
+        },
+        {
+          "title": "主机 B · 网络收发组件",
+          "body": [],
+          "tone": "teal"
+        },
+        {
+          "title": "主机 B · 接收缓冲",
+          "body": [],
+          "tone": "teal"
+        },
+        {
+          "title": "主机 B · 业务线程",
+          "body": [],
+          "tone": "teal"
+        }
+      ]
+    },
+    {
+      "id": "text-numa-local-path",
+      "title": "同一 NUMA 节点内的数据路径",
+      "description": "NIC 通过本地 PCIe 到达本节点的接收内存，本节点上的行情、策略和网关线程使用接收数据，并沿本地发送路径发出。",
+      "type": "flow",
+      "source_text": "NIC ──本地 PCIe──→ 本节点的接收内存\n                         │\n               本节点上的行情/策略/网关线程\n                         │\n                    本地发送路径",
+      "steps": [
+        {
+          "title": "NIC",
+          "body": [
+            "经本地 PCIe"
+          ],
+          "tone": "purple"
+        },
+        {
+          "title": "本节点的\n接收内存",
+          "body": [],
+          "tone": "teal"
+        },
+        {
+          "title": "本节点上的\n业务线程",
+          "body": [
+            "行情 / 策略 / 网关"
+          ],
+          "tone": "blue"
+        },
+        {
+          "title": "本地发送路径",
+          "body": [],
+          "tone": "teal"
+        }
+      ]
+    }
+  ]
+}

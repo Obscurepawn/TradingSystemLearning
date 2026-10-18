@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="251" viewBox="0 0 1280 251" role="img" aria-labelledby="title description">
+<title id="title">共享内存 IPC</title>
+<desc id="description">行情进程把消息写入共享内存中的队列，策略进程从同一队列读取消息；共享内存中还维护发布位置和消费位置。</desc>
+<style>text { font-family: "Noto Sans CJK SC", sans-serif; }</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1,1 L9,5 L1,9 Z" fill="#64748b"/></marker></defs>
+<rect width="1280" height="251" fill="white"/>
+<text x="36" y="58" font-size="36" fill="#15243b" font-weight="700" text-anchor="start">共享内存 IPC</text>
+<rect x="36.0" y="95.0" width="372.0" height="120" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="54.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">行情进程</text>
+<text x="54.0" y="187.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">写入消息</text>
+<rect x="454.0" y="95.0" width="372.0" height="120" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/>
+<text x="472.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">共享内存中的队列</text>
+<text x="472.0" y="187.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">发布位置、消费位置</text>
+<rect x="872.0" y="95.0" width="372.0" height="120" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="890.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">策略进程</text>
+<text x="890.0" y="187.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">读取消息</text>
+<path d="M 414.0 155.0 L 448.0 155.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 832.0 155.0 L 866.0 155.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+</svg>

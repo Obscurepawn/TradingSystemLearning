@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="753" viewBox="0 0 1280 753" role="img" aria-labelledby="title description">
+<title id="title">缓冲区跨页，末字节补齐</title>
+<desc id="description">4KiB缓冲区从页内1024开始，跨越两页，到5119结束；偏移0触及第一页，偏移4096越界，补写4095触及第二页。</desc>
+<style>text { font-family: "Noto Sans CJK SC", sans-serif; }</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1,1 L9,5 L1,9 Z" fill="#64748b"/></marker></defs>
+<rect width="1280" height="753" fill="white"/>
+<text x="36" y="58" font-size="36" fill="#15243b" font-weight="700" text-anchor="start">缓冲区跨页，末字节补齐</text>
+<rect x="36.0" y="95" width="590.0" height="510" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="52.0" y="141" font-size="30" fill="#64748b" font-weight="700" text-anchor="start">缓冲区：[1024, 5120)</text>
+<rect x="52.0" y="163.0" width="558.0" height="184" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="70.0" y="211.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">第 1 页：[0, 4096)</text>
+<rect x="70.0" y="227.0" width="257.0" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="198.5" y="265.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">[0, 1024)</text>
+<text x="198.5" y="303.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">范围外</text>
+<rect x="335.0" y="227.0" width="257.0" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="463.5" y="265.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">[1024, 4096)</text>
+<text x="463.5" y="303.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">缓冲区</text>
+<rect x="52.0" y="405.0" width="558.0" height="184" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="70.0" y="453.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">第 2 页：[4096, 8192)</text>
+<rect x="70.0" y="469.0" width="257.0" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="198.5" y="507.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">[4096, 5120)</text>
+<text x="198.5" y="545.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">缓冲区</text>
+<rect x="335.0" y="469.0" width="257.0" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="463.5" y="507.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">[5120, 8192)</text>
+<text x="463.5" y="545.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">范围外</text>
+<rect x="654.0" y="95" width="590.0" height="560" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="670.0" y="141" font-size="30" fill="#64748b" font-weight="700" text-anchor="start">三个偏移的落点</text>
+<rect x="670.0" y="163.0" width="558.0" height="120" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="688.0" y="211.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">偏移 0 → 地址 1024</text>
+<text x="688.0" y="255.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">落在第 1 页，循环会写入。</text>
+<rect x="670.0" y="341.0" width="558.0" height="120" rx="14" fill="#fff7ed" stroke="#c2410c" stroke-width="1.6"/>
+<text x="688.0" y="389.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">偏移 4096 → 地址 5120</text>
+<text x="688.0" y="433.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">已经越出缓冲区，不能写入。</text>
+<rect x="670.0" y="519.0" width="558.0" height="120" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/>
+<text x="688.0" y="567.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">偏移 4095 → 地址 5119</text>
+<text x="688.0" y="611.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">补写末字节，触及第 2 页。</text>
+<text x="36" y="707" font-size="28" fill="#475569" font-weight="400" text-anchor="start">缓冲区长度为 4096 B。范围格子只标明归属，不按字节比例绘制。</text>
+</svg>

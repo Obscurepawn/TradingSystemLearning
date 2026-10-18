@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="563" viewBox="0 0 1280 563" role="img" aria-labelledby="title description">
+<title id="title">事件到交易所处理的链路</title>
+<desc id="description">交易所产生事件后，行情经发布传输进入本机，本地接收、维护订单簿、决策、风控并发送订单，随后订单经网络与交易所接入，最终由交易所排序和处理。</desc>
+<style>text { font-family: "Noto Sans CJK SC", sans-serif; }</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1,1 L9,5 L1,9 Z" fill="#64748b"/></marker></defs>
+<rect width="1280" height="563" fill="white"/>
+<text x="36" y="58" font-size="36" fill="#15243b" font-weight="700" text-anchor="start">事件到交易所处理的链路</text>
+<rect x="36.0" y="95.0" width="372.0" height="76" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="54.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">交易所产生事件</text>
+<rect x="454.0" y="95.0" width="372.0" height="76" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="472.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">行情发布和传输</text>
+<rect x="872.0" y="95.0" width="372.0" height="76" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="890.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">本机网卡收到数据</text>
+<rect x="872.0" y="251.0" width="372.0" height="76" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="890.0" y="299.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">解析与维护订单簿</text>
+<rect x="454.0" y="229.0" width="372.0" height="120" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="472.0" y="277.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">更新特征、估值</text>
+<text x="472.0" y="321.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">与策略决策</text>
+<rect x="36.0" y="229.0" width="372.0" height="120" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="54.0" y="277.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">本地风控</text>
+<text x="54.0" y="321.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">与订单状态处理</text>
+<rect x="36.0" y="429.0" width="372.0" height="76" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="54.0" y="477.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">编码并发送订单</text>
+<rect x="454.0" y="407.0" width="372.0" height="120" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/>
+<text x="472.0" y="455.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">网络传输</text>
+<text x="472.0" y="499.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">和交易所接入</text>
+<rect x="872.0" y="429.0" width="372.0" height="76" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/>
+<text x="890.0" y="477.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">交易所排序、处理请求</text>
+<path d="M 414.0 133.0 L 448.0 133.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 832.0 133.0 L 866.0 133.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 1058.0 177.0 L 1058.0 245.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 866.0 289.0 L 832.0 289.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 448.0 289.0 L 414.0 289.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 222.0 355.0 L 222.0 423.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 414.0 467.0 L 448.0 467.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 832.0 467.0 L 866.0 467.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+</svg>

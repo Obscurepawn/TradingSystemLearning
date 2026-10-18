@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="333" viewBox="0 0 1280 333" role="img" aria-labelledby="title description">
+<title id="title">从总体计数定位到机器指令</title>
+<desc id="description">先用perf stat比较总体计数及可用Top-Down指标，再采样找持续热点，用annotate查看源码和汇编，修改后同时比较延迟与计数。</desc>
+<style>text { font-family: "Noto Sans CJK SC", sans-serif; }</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1,1 L9,5 L1,9 Z" fill="#64748b"/></marker></defs>
+<rect width="1280" height="333" fill="white"/>
+<text x="36" y="58" font-size="36" fill="#15243b" font-weight="700" text-anchor="start">从总体计数定位到机器指令</text>
+<rect x="36.0" y="95.0" width="267.5" height="202" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="54.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">perf stat</text>
+<text x="54.0" y="187.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">比较总体计数与可</text>
+<text x="54.0" y="225.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">用的</text>
+<text x="54.0" y="269.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">Top-Down 指标</text>
+<rect x="349.5" y="97.0" width="267.5" height="198" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="367.5" y="145.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">perf record /</text>
+<text x="367.5" y="185.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">report</text>
+<text x="367.5" y="229.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">采样定位持续执行</text>
+<text x="367.5" y="267.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">的热点</text>
+<rect x="663.0" y="117.0" width="267.5" height="158" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="681.0" y="165.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">perf annotate</text>
+<text x="681.0" y="209.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">核对源码、基本块</text>
+<text x="681.0" y="247.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">和机器指令</text>
+<rect x="976.5" y="97.0" width="267.5" height="198" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/>
+<text x="994.5" y="145.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">修改实现，再次</text>
+<text x="994.5" y="185.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">比较</text>
+<text x="994.5" y="229.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">观察目标延迟与支</text>
+<text x="994.5" y="267.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">持机制解释的计数</text>
+<path d="M 309.5 196.0 L 343.5 196.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 623.0 196.0 L 657.0 196.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 936.5 196.0 L 970.5 196.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+</svg>

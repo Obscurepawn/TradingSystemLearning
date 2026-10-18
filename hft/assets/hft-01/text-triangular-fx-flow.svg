@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="291" viewBox="0 0 1280 291" role="img" aria-labelledby="title description">
+<title id="title">三角兑换的资金流转</title>
+<desc id="description">按所列可成交报价，100 USD 依次兑换为 15,000 JPY、93.75 EUR，最终得到 100.20 USD。</desc>
+<style>text { font-family: "Noto Sans CJK SC", sans-serif; }</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1,1 L9,5 L1,9 Z" fill="#64748b"/></marker></defs>
+<rect width="1280" height="291" fill="white"/>
+<text x="36" y="58" font-size="36" fill="#15243b" font-weight="700" text-anchor="start">三角兑换的资金流转</text>
+<rect x="36.0" y="115.0" width="267.5" height="120" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="54.0" y="163.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">起点</text>
+<text x="54.0" y="207.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">100 USD</text>
+<rect x="349.5" y="95.0" width="267.5" height="160" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+<text x="367.5" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">卖出 USD，换取</text>
+<text x="367.5" y="183.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">JPY</text>
+<text x="367.5" y="227.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">15,000 JPY</text>
+<rect x="663.0" y="95.0" width="267.5" height="160" rx="14" fill="#fff7ed" stroke="#c2410c" stroke-width="1.6"/>
+<text x="681.0" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">买入 EUR，支付</text>
+<text x="681.0" y="183.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">JPY</text>
+<text x="681.0" y="227.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">93.75 EUR</text>
+<rect x="976.5" y="95.0" width="267.5" height="160" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/>
+<text x="994.5" y="143.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">卖出 EUR，换回</text>
+<text x="994.5" y="183.0" font-size="30" fill="#15243b" font-weight="700" text-anchor="start">USD</text>
+<text x="994.5" y="227.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">100.20 USD</text>
+<path d="M 309.5 175.0 L 343.5 175.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 623.0 175.0 L 657.0 175.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+<path d="M 936.5 175.0 L 970.5 175.0" fill="none" stroke="#64748b" stroke-width="2.6" marker-end="url(#arrow)"/>
+</svg>

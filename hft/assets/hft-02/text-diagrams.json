@@ -1,0 +1,763 @@
+{
+  "article": "hft/HFT_Engineering_02_C++低延迟编程基础.md",
+  "diagrams": [
+    {
+      "id": "text-measurement-path",
+      "title": "行情到订单：打点在哪里",
+      "description": "行情依次经过网卡、应用处理、发送与交易所。H0/H1是网卡边界，C0/C4是应用处理边界。",
+      "source_text": "行情进入网卡 → 应用取得行情 → 解码 → 更新订单簿 → 策略 → 风控与编码\n    H0            C0                                      C4\n                                                          │\n                          交易所处理 ← 网络 ← 网卡发出 ← 提交发送\n                                               H1\n",
+      "type": "flow",
+      "steps": [
+        {
+          "tone": "blue",
+          "title": "H0 · 网卡收到行情"
+        },
+        {
+          "tone": "blue",
+          "title": "C0 · 应用取得行情"
+        },
+        {
+          "tone": "blue",
+          "title": "解码"
+        },
+        {
+          "tone": "blue",
+          "title": "更新订单簿"
+        },
+        {
+          "tone": "blue",
+          "title": "策略计算"
+        },
+        {
+          "tone": "blue",
+          "title": "C4 · 完成风控与编码",
+          "body": [
+            "订单已准备完毕"
+          ]
+        },
+        {
+          "tone": "blue",
+          "title": "提交发送"
+        },
+        {
+          "tone": "blue",
+          "title": "H1 · 网卡发出订单"
+        },
+        {
+          "tone": "blue",
+          "title": "网络传输"
+        },
+        {
+          "tone": "blue",
+          "title": "交易所处理"
+        }
+      ],
+      "note": "C4 − C0：进程内处理耗时。H1 − H0：本机收行情到发订单。相减前先确认时钟域可比较。"
+    },
+    {
+      "id": "text-stage-timestamps",
+      "title": "五个打点，四段处理",
+      "description": "C0到C1解码，C1到C2更新订单簿，C2到C3策略计算，C3到C4风控与编码，总区间C4减C0。",
+      "source_text": "C0          C1               C2           C3                C4\n│── 解码 ──│── 更新订单簿 ──│── 策略 ──│── 风控与编码 ──│\n└──────────────── 应用处理总耗时 ───────────────────────────┘\n",
+      "type": "flow",
+      "steps": [
+        {
+          "tone": "blue",
+          "title": "C0 → C1",
+          "body": [
+            "解码"
+          ]
+        },
+        {
+          "tone": "blue",
+          "title": "C1 → C2",
+          "body": [
+            "更新订单簿"
+          ]
+        },
+        {
+          "tone": "blue",
+          "title": "C2 → C3",
+          "body": [
+            "策略计算"
+          ]
+        },
+        {
+          "tone": "blue",
+          "title": "C3 → C4",
+          "body": [
+            "风控与编码"
+          ]
+        }
+      ],
+      "note": "应用处理总耗时 = C4 − C0。相邻阶段共用边界打点。"
+    },
+    {
+      "id": "text-stage-trace-queue",
+      "title": "时间戳怎样交给统计线程",
+      "description": "业务线程写入预分配队列并发布完整StageTrace后继续业务；统计线程通过try_pop取得局部副本，计算差值、更新直方图并定期上报。",
+      "source_text": "worker                       预分配的环形队列                  统计线程\n业务处理、记录时间戳\n        │\n完整的 StageTrace\n        └── try_push ──────→ [记录][记录][空槽] ─── try_pop ──→ 局部副本\n        │                                                       │\n继续下一条业务消息                                         计算时间差、更新直方图\n                                                          定期上报聚合指标\n",
+      "type": "fork",
+      "steps": [
+        {
+          "tone": "blue",
+          "title": "业务线程 worker",
+          "body": [
+            "处理业务，记录时间戳",
+            "生成完整的 StageTrace"
+          ]
+        },
+        {
+          "tone": "blue",
+          "title": "try_push 成功：写入并发布",
+          "body": [
+            "预分配的环形队列"
+          ],
+          "rows": [
+            {
+              "label": "",
+              "cells": [
+                "记录",
+                "记录",
+                "空槽"
+              ],
+              "arrows": false
+            }
+          ]
+        }
+      ],
+      "branches": [
+        {
+          "title": "业务线程继续推进",
+          "steps": [
+            {
+              "tone": "blue",
+              "title": "处理下一条业务消息"
+            }
+          ],
+          "tone": "blue",
+          "arrows": true
+        },
+        {
+          "title": "统计线程独立取数",
+          "steps": [
+            {
+              "tone": "purple",
+              "title": "try_pop → 局部副本"
+            },
+            {
+              "tone": "purple",
+              "title": "计算时间差，更新直方图"
+            },
+            {
+              "tone": "purple",
+              "title": "定期上报聚合指标"
+            }
+          ],
+          "tone": "purple",
+          "arrows": true
+        }
+      ],
+      "note": "发布后两条路径可以独立推进，业务线程不等待统计完成。"
+    },
+    {
+      "id": "text-free-chain-before",
+      "title": "归还前：槽位 3 已借出",
+      "description": "head等于0，空闲链为0到1到2到结束标记4，槽位3已借出不在空闲链中。",
+      "source_text": "head_ = 0\n空闲链：0 -> 1 -> 2 -> 4（结束标记）\n已借出：3\n",
+      "type": "panels",
+      "panels": [
+        {
+          "title": "空闲链按 next_ 连接",
+          "steps": [
+            {
+              "tone": "blue",
+              "title": "head_ = 0",
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "0",
+                    "1",
+                    "2",
+                    "N=4"
+                  ],
+                  "arrows": true
+                }
+              ]
+            }
+          ],
+          "tone": "gray",
+          "arrows": true
+        },
+        {
+          "title": "已借出",
+          "steps": [
+            {
+              "tone": "purple",
+              "title": "槽位 3"
+            }
+          ],
+          "tone": "purple",
+          "arrows": false
+        }
+      ],
+      "note": "N = 4 是结束标记，不是可访问的槽位。"
+    },
+    {
+      "id": "text-free-chain-after",
+      "title": "归还后：槽位 3 成为链表头",
+      "description": "归还槽位3后head等于3，空闲链变成3到0到1到2到结束标记4。",
+      "source_text": "head_ = 3\n空闲链：3 -> 0 -> 1 -> 2 -> 4（结束标记）\n",
+      "type": "flow",
+      "steps": [
+        {
+          "tone": "blue",
+          "title": "head_ = 3",
+          "rows": [
+            {
+              "label": "",
+              "cells": [
+                "3",
+                "0",
+                "1",
+                "2",
+                "N=4"
+              ],
+              "arrows": true
+            }
+          ]
+        }
+      ],
+      "note": "新归还的槽位接在原链表头前。对象仍留在原数组位置。"
+    },
+    {
+      "id": "text-orderbook-direction",
+      "title": "最优价放在哪里",
+      "description": "买方最优价为最高价。放在头部时插入101需搬移原元素；放在尾部且容量足够时可直接追加。",
+      "source_text": "最优价在头部：[100, 99, 98, 97]\n插入 101：    [101, 100, 99, 98, 97]  原有元素需要后移\n\n最优价在尾部：[97, 98, 99, 100]\n插入 101：    [97, 98, 99, 100, 101]  容量足够时直接追加\n",
+      "type": "panels",
+      "panels": [
+        {
+          "title": "最优价在头部",
+          "steps": [
+            {
+              "tone": "blue",
+              "title": "插入前",
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "100",
+                    "99",
+                    "98",
+                    "97"
+                  ],
+                  "arrows": false
+                }
+              ]
+            },
+            {
+              "tone": "blue",
+              "title": "插入 101 后",
+              "body": [
+                "原有元素需要后移"
+              ],
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "101",
+                    "100",
+                    "99",
+                    "98",
+                    "97"
+                  ],
+                  "arrows": false
+                }
+              ]
+            }
+          ],
+          "tone": "gray",
+          "arrows": true
+        },
+        {
+          "title": "最优价在尾部",
+          "steps": [
+            {
+              "tone": "teal",
+              "title": "插入前",
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "97",
+                    "98",
+                    "99",
+                    "100"
+                  ],
+                  "arrows": false
+                }
+              ]
+            },
+            {
+              "tone": "teal",
+              "title": "插入 101 后",
+              "body": [
+                "容量足够时直接追加"
+              ],
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "97",
+                    "98",
+                    "99",
+                    "100",
+                    "101"
+                  ],
+                  "arrows": false
+                }
+              ]
+            }
+          ],
+          "tone": "teal",
+          "arrows": true
+        }
+      ]
+    },
+    {
+      "id": "text-prefault-cross-page",
+      "title": "缓冲区跨页，末字节补齐",
+      "description": "4KiB缓冲区从页内1024开始，跨越两页，到5119结束；偏移0触及第一页，偏移4096越界，补写4095触及第二页。",
+      "source_text": "第 1 页：[0, 4096)          第 2 页：[4096, 8192)\n缓冲区：[1024, 5120)       最后一个字节位于 5119\n\n缓冲区偏移 0    -> 地址 1024：位于第 1 页，循环会写这里。\n缓冲区偏移 4096 -> 地址 5120：已经越出缓冲区，不能写。\n缓冲区偏移 4095 -> 地址 5119：位于第 2 页，末字节补写会覆盖这里。\n",
+      "type": "panels",
+      "panels": [
+        {
+          "title": "缓冲区：[1024, 5120)",
+          "steps": [
+            {
+              "tone": "blue",
+              "title": "第 1 页：[0, 4096)",
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "[0, 1024)\n范围外",
+                    "[1024, 4096)\n缓冲区"
+                  ],
+                  "arrows": false
+                }
+              ]
+            },
+            {
+              "tone": "blue",
+              "title": "第 2 页：[4096, 8192)",
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "[4096, 5120)\n缓冲区",
+                    "[5120, 8192)\n范围外"
+                  ],
+                  "arrows": false
+                }
+              ]
+            }
+          ],
+          "tone": "gray",
+          "arrows": false
+        },
+        {
+          "title": "三个偏移的落点",
+          "steps": [
+            {
+              "tone": "blue",
+              "title": "偏移 0 → 地址 1024",
+              "body": [
+                "落在第 1 页，循环会写入。"
+              ]
+            },
+            {
+              "tone": "orange",
+              "title": "偏移 4096 → 地址 5120",
+              "body": [
+                "已经越出缓冲区，不能写入。"
+              ]
+            },
+            {
+              "tone": "teal",
+              "title": "偏移 4095 → 地址 5119",
+              "body": [
+                "补写末字节，触及第 2 页。"
+              ]
+            }
+          ],
+          "tone": "gray",
+          "arrows": false
+        }
+      ],
+      "note": "缓冲区长度为 4096 B。范围格子只标明归属，不按字节比例绘制。"
+    },
+    {
+      "id": "text-mlp-batches",
+      "title": "先取一小批，再分别计算",
+      "description": "逐项处理在每次读取后执行长计算；批内重排先收集A、B、C输入，再计算各项，让独立访存有机会重叠。",
+      "source_text": "逐项：读取 A → 长计算 A → 读取 B → 长计算 B → 读取 C → 长计算 C\n批内：收集 A、B、C 的输入 → 分别计算 A、B、C\n",
+      "type": "panels",
+      "panels": [
+        {
+          "title": "逐项处理",
+          "steps": [
+            {
+              "tone": "blue",
+              "title": "A：读取 → 长计算"
+            },
+            {
+              "tone": "blue",
+              "title": "B：读取 → 长计算"
+            },
+            {
+              "tone": "blue",
+              "title": "C：读取 → 长计算"
+            }
+          ],
+          "tone": "gray",
+          "arrows": true
+        },
+        {
+          "title": "批内两阶段",
+          "steps": [
+            {
+              "tone": "teal",
+              "title": "收集 A、B、C 的输入"
+            },
+            {
+              "tone": "teal",
+              "title": "分别计算 A、B、C"
+            }
+          ],
+          "tone": "teal",
+          "arrows": true
+        }
+      ],
+      "note": "这些工作项已经可用，不需要等待多条行情凑批。重排以工作项相互独立为前提。"
+    },
+    {
+      "id": "text-aos-simd-lanes",
+      "title": "从交错报价到四路减法",
+      "description": "AoS内每条记录包含相邻的bid与ask；向量运算先组织ask和bid两个操作数，使对应报价处于同一个lane，再逐lane相减。",
+      "source_text": "AoS 内存： [bid0 ask0] [bid1 ask1] [bid2 ask2] [bid3 ask3]\n\n操作数 A： [ask0 ask1 ask2 ask3]\n操作数 B： [bid0 bid1 bid2 bid3]\n向量相减： [ask0-bid0  ask1-bid1  ask2-bid2  ask3-bid3]\n",
+      "type": "panels",
+      "panels": [
+        {
+          "title": "AoS：每格是一条报价",
+          "steps": [
+            {
+              "tone": "blue",
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "bid0\nask0",
+                    "bid1\nask1",
+                    "bid2\nask2",
+                    "bid3\nask3"
+                  ],
+                  "arrows": false
+                }
+              ]
+            }
+          ],
+          "tone": "gray",
+          "arrows": false
+        },
+        {
+          "title": "整理后逐 lane 运算",
+          "steps": [
+            {
+              "tone": "blue",
+              "title": "准备两个操作数",
+              "rows": [
+                {
+                  "label": "操作数 A",
+                  "cells": [
+                    "ask0",
+                    "ask1",
+                    "ask2",
+                    "ask3"
+                  ],
+                  "arrows": false
+                },
+                {
+                  "label": "操作数 B",
+                  "cells": [
+                    "bid0",
+                    "bid1",
+                    "bid2",
+                    "bid3"
+                  ],
+                  "arrows": false
+                }
+              ]
+            },
+            {
+              "tone": "teal",
+              "title": "对应元素相减",
+              "rows": [
+                {
+                  "label": "",
+                  "cells": [
+                    "ask0\n− bid0",
+                    "ask1\n− bid1",
+                    "ask2\n− bid2",
+                    "ask3\n− bid3"
+                  ],
+                  "arrows": false
+                }
+              ]
+            }
+          ],
+          "tone": "gray",
+          "arrows": true
+        }
+      ],
+      "note": "同一组报价的 ask 与 bid 位于相同 lane。格子表示元素关系，不代表字节比例。"
+    },
+    {
+      "id": "text-inplace-publish",
+      "title": "先填写完整，再发布与复用",
+      "description": "预留足够区域，直接编码，成功后发布，消费者读完后才允许复用。",
+      "source_text": "申请足够的可写区域\n    → 直接在区域中编码消息\n    → 编码成功后发布完成位置\n    → 消费者读完后，才允许复用该区域\n",
+      "type": "flow",
+      "steps": [
+        {
+          "tone": "blue",
+          "title": "申请足够的可写区域"
+        },
+        {
+          "tone": "blue",
+          "title": "直接在区域中编码消息"
+        },
+        {
+          "tone": "blue",
+          "title": "编码成功，发布完成位置"
+        },
+        {
+          "tone": "blue",
+          "title": "消费者读取并处理"
+        },
+        {
+          "tone": "teal",
+          "title": "读完后，允许复用该区域"
+        }
+      ]
+    },
+    {
+      "id": "text-measurement-cleanup",
+      "title": "计时终点之后，还有收尾",
+      "description": "事件到达与排队在业务计时之前；t_start到t_end覆盖业务处理与结果合并；CLFLUSHOPT、fence和统计在结束打点后，之后再处理下一事件。",
+      "source_text": "事件到达 → 排队 → t_start → 业务处理与结果合并 → t_end\n                                               ↓\n                              CLFLUSHOPT → fence → 更新统计 → 处理下一事件\n",
+      "type": "flow",
+      "steps": [
+        {
+          "tone": "gray",
+          "title": "事件到达"
+        },
+        {
+          "tone": "gray",
+          "title": "排队"
+        },
+        {
+          "tone": "blue",
+          "title": "t_start · 开始打点"
+        },
+        {
+          "tone": "blue",
+          "title": "业务处理与结果合并"
+        },
+        {
+          "tone": "blue",
+          "title": "t_end · 结束打点"
+        },
+        {
+          "tone": "orange",
+          "title": "CLFLUSHOPT"
+        },
+        {
+          "tone": "orange",
+          "title": "fence"
+        },
+        {
+          "tone": "orange",
+          "title": "更新统计"
+        },
+        {
+          "tone": "gray",
+          "title": "处理下一事件"
+        }
+      ],
+      "note": "t_end − t_start 只覆盖业务区间。区间外的清除、屏障和统计仍有成本。"
+    },
+    {
+      "id": "text-perf-investigation",
+      "title": "从总体计数定位到机器指令",
+      "description": "先用perf stat比较总体计数及可用Top-Down指标，再采样找持续热点，用annotate查看源码和汇编，修改后同时比较延迟与计数。",
+      "source_text": "perf stat：比较总体计数和可用的 Top-Down 指标\n    → perf record / report：采样定位持续执行的热点\n    → perf annotate：核对热点对应的源码、基本块和机器指令\n    → 修改实现：再次比较目标延迟与支持机制解释的计数\n",
+      "type": "flow",
+      "steps": [
+        {
+          "tone": "blue",
+          "title": "perf stat",
+          "body": [
+            "比较总体计数与可用的",
+            "Top-Down 指标"
+          ]
+        },
+        {
+          "tone": "blue",
+          "title": "perf record / report",
+          "body": [
+            "采样定位持续执行的热点"
+          ]
+        },
+        {
+          "tone": "blue",
+          "title": "perf annotate",
+          "body": [
+            "核对源码、基本块和机器指令"
+          ]
+        },
+        {
+          "tone": "teal",
+          "title": "修改实现，再次比较",
+          "body": [
+            "观察目标延迟与支持机制解释的计数"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "text-shared-readback",
+      "title": "发布相同请求，后续取值不同",
+      "description": "两种写法都先写共享请求并release发布序号；原写法读回shared_request.move，改写继续使用local_move。",
+      "source_text": "共同的发布步骤：\n    shared_request.move = local_move\n    release 发布请求序号\n\n需要核对的原写法：主核计算(shared_request.move)\n可尝试的改写：    主核计算(local_move)\n",
+      "type": "panels",
+      "panels": [
+        {
+          "title": "原写法：从共享请求读回",
+          "tone": "orange",
+          "steps": [
+            {
+              "title": "写入请求",
+              "body": [
+                "shared_request.move = local_move"
+              ]
+            },
+            {
+              "title": "release 发布请求序号"
+            },
+            {
+              "title": "主核继续计算",
+              "body": [
+                "使用 shared_request.move"
+              ],
+              "tone": "orange"
+            }
+          ]
+        },
+        {
+          "title": "改写：复用已持有的局部值",
+          "tone": "teal",
+          "steps": [
+            {
+              "title": "写入请求",
+              "body": [
+                "shared_request.move = local_move"
+              ]
+            },
+            {
+              "title": "release 发布请求序号"
+            },
+            {
+              "title": "主核继续计算",
+              "body": [
+                "使用 local_move"
+              ],
+              "tone": "teal"
+            }
+          ]
+        }
+      ],
+      "note": "发布步骤相同，比较的是主核后续的取值路径。"
+    },
+    {
+      "id": "text-stream-decoding",
+      "title": "同一条消息，分三次接收",
+      "description": "消息A的四个字段编码为81、01 80、02 AC、8A。三次接收逐步完成id、seq、price、qty，第三次末尾的82开始下一条消息。",
+      "source_text": "消息 A：id=1，seq=128，price=300，qty=10\n线上字节：[81] [01 80] [02 AC] [8A]\n\n接收 1：81 01         → id 已完成，seq 只收到第一组\n接收 2：80 02         → seq 已完成，price 只收到第一组\n接收 3：AC 8A 82 ...  → 完成 price、qty，交付 A；82 开始下一条消息\n",
+      "type": "panels",
+      "panels": [
+        {
+          "title": "消息 A 与线上编码",
+          "arrows": false,
+          "steps": [
+            {
+              "title": "字段取值",
+              "rows": [
+                {
+                  "cells": [
+                    "id\n1",
+                    "seq\n128",
+                    "price\n300",
+                    "qty\n10"
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "对应的线上字节",
+              "rows": [
+                {
+                  "cells": [
+                    "81",
+                    "01 80",
+                    "02 AC",
+                    "8A"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "接收与解析进度",
+          "steps": [
+            {
+              "title": "接收 1：81 01",
+              "body": [
+                "id 已完成",
+                "seq 只收到第一组"
+              ]
+            },
+            {
+              "title": "接收 2：80 02",
+              "body": [
+                "seq 已完成",
+                "price 只收到第一组"
+              ]
+            },
+            {
+              "title": "接收 3：AC 8A 82 …",
+              "body": [
+                "完成 price、qty，交付 A",
+                "82 开始下一条消息"
+              ],
+              "tone": "teal"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

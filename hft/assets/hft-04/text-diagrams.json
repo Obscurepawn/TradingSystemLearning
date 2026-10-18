@@ -1,0 +1,235 @@
+{
+  "article": "hft/HFT_Engineering_04_高频交易系统中的时钟.md",
+  "diagrams": [
+    {
+      "id": "text-tsc-read-order",
+      "title": "读钟位置决定计时边界",
+      "type": "panels",
+      "description": "对照期望顺序与一种可能的乱序执行：裸 RDTSC 可能在加载数据返回、计算完成之前取得终点读数，导致测量漏掉后半段耗时。",
+      "source_text": "希望测到：起点读数 → 发起加载 → 数据返回 → 计算完成 → 终点读数\n可能发生：起点读数 → 发起加载 → 终点读数 → 数据返回 → 计算完成",
+      "panels": [
+        {
+          "title": "希望测到的顺序",
+          "tone": "blue",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "读取起点"
+            },
+            {
+              "title": "发起加载"
+            },
+            {
+              "title": "数据返回"
+            },
+            {
+              "title": "计算完成"
+            },
+            {
+              "title": "读取终点"
+            }
+          ]
+        },
+        {
+          "title": "可能发生的顺序",
+          "tone": "orange",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "读取起点"
+            },
+            {
+              "title": "发起加载"
+            },
+            {
+              "title": "提前读取终点",
+              "tone": "orange",
+              "body": [
+                "裸 RDTSC 可能在此执行"
+              ]
+            },
+            {
+              "title": "数据返回"
+            },
+            {
+              "title": "计算完成"
+            }
+          ]
+        }
+      ],
+      "note": "后一种顺序漏掉数据返回与计算完成前的后半段耗时。"
+    },
+    {
+      "id": "text-measurement-cleanup",
+      "title": "业务计时与循环收尾",
+      "type": "flow",
+      "description": "消费者先取得事件，在起点和终点读数之间执行业务计算、等待并合并结果。清除缓存行、fence 和统计更新在终点读数之后，随后才处理下一事件；收尾仍然占用完整消费者循环。",
+      "source_text": "取得事件 → 读取起点 → 业务计算、等待并合并结果 → 读取终点\n                                                     ↓\n                                  清除缓存行 → fence → 更新统计\n                                                     ↓\n                                               处理下一事件",
+      "steps": [
+        {
+          "title": "取得事件",
+          "tone": "gray"
+        },
+        {
+          "title": "读取起点",
+          "body": [
+            "业务计时从这里开始"
+          ],
+          "tone": "blue"
+        },
+        {
+          "title": "业务计算",
+          "body": [
+            "等待并合并结果"
+          ],
+          "tone": "blue"
+        },
+        {
+          "title": "读取终点",
+          "body": [
+            "业务计时到这里结束"
+          ],
+          "tone": "blue"
+        },
+        {
+          "title": "结束打点后的收尾",
+          "body": [
+            "① 清除缓存行\n（CLFLUSHOPT）",
+            "② fence",
+            "③ 更新统计"
+          ],
+          "tone": "orange"
+        },
+        {
+          "title": "处理下一事件",
+          "tone": "gray"
+        }
+      ],
+      "note": "收尾位于业务计时区间之外，仍占用完整循环，并可能推迟下一事件。"
+    },
+    {
+      "id": "text-mirror-frame-layout",
+      "title": "镜像帧如何附加时间戳",
+      "type": "panels",
+      "description": "Cisco Nexus 3550-F Fusion 的 timestamp append 布局：原始帧由帧数据和 4 字节原 FCS 组成；镜像副本由帧数据、4 字节时间戳计数和 4 字节新 FCS 组成。时间戳替换原 FCS 位置，再追加重新计算的 FCS，总长增加 4 字节。",
+      "source_text": "原始帧：  [ 帧数据 ][ 原 FCS：4 B ]\n镜像副本：[ 帧数据 ][ 时间戳计数：4 B ][ 新 FCS：4 B ]",
+      "panels": [
+        {
+          "title": "原始帧",
+          "tone": "blue",
+          "arrows": false,
+          "steps": [
+            {
+              "rows": [
+                {
+                  "label": "字段从左到右",
+                  "cells": [
+                    "帧数据",
+                    "原 FCS\n4 B"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "镜像副本",
+          "tone": "teal",
+          "arrows": false,
+          "steps": [
+            {
+              "rows": [
+                {
+                  "label": "字段从左到右",
+                  "cells": [
+                    "帧数据",
+                    "时间戳计数\n4 B",
+                    "新 FCS\n4 B"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "note": "时间戳占据原 FCS 的位置，再计算新 FCS；镜像帧总长度增加 4 字节。"
+    },
+    {
+      "id": "text-passive-mirror-path",
+      "title": "业务转发与旁路测量",
+      "type": "panels",
+      "description": "同一个业务报文沿发送端、A 入口、网络路径、B 入口、接收端正常转发。A、B 在各自入口记录 tA、tB，各自的镜像副本和时间戳送入旁路采集机，配对同一报文并在共同时间基准上计算 tB−tA。采集机位于独立的镜像旁路，不是业务转发必经路径。",
+      "source_text": "业务路径：发送端 → A 的入口（记录 tA）→ 网络路径 → B 的入口（记录 tB）→ 接收端\n\n镜像路径：A 的副本及 tA ──┐\n                         ├→ 旁路采集机 → 配对同一报文 → 计算 tB − tA\n          B 的副本及 tB ──┘",
+      "panels": [
+        {
+          "title": "业务路径",
+          "tone": "blue",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "发送端"
+            },
+            {
+              "title": "A 的入口",
+              "body": [
+                "记录 tA",
+                "镜像副本携带 tA"
+              ]
+            },
+            {
+              "title": "网络路径"
+            },
+            {
+              "title": "B 的入口",
+              "body": [
+                "记录 tB",
+                "镜像副本携带 tB"
+              ]
+            },
+            {
+              "title": "接收端"
+            }
+          ]
+        },
+        {
+          "title": "镜像旁路：独立采集",
+          "tone": "teal",
+          "arrows": true,
+          "steps": [
+            {
+              "title": "两处镜像来源汇入",
+              "rows": [
+                {
+                  "label": "来自 A、B 两处入口",
+                  "cells": [
+                    "A 的副本\n及 tA",
+                    "B 的副本\n及 tB"
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "旁路采集机",
+              "body": [
+                "接收两处镜像副本"
+              ]
+            },
+            {
+              "title": "配对同一报文",
+              "body": [
+                "时间戳换算至共同时间基准"
+              ]
+            },
+            {
+              "title": "计算 tB − tA",
+              "body": [
+                "测量边界：A 入口到 B 入口"
+              ]
+            }
+          ]
+        }
+      ],
+      "note": "镜像副本的到达顺序可以变化；保留原始时间戳并正确配对，才能计算这段延迟。"
+    }
+  ]
+}

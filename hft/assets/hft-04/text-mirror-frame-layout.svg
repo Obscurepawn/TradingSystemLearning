@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="461" viewBox="0 0 1280 461" role="img" aria-labelledby="title description">
+<title id="title">镜像帧如何附加时间戳</title>
+<desc id="description">Cisco Nexus 3550-F Fusion 的 timestamp append 布局：原始帧由帧数据和 4 字节原 FCS 组成；镜像副本由帧数据、4 字节时间戳计数和 4 字节新 FCS 组成。时间戳替换原 FCS 位置，再追加重新计算的 FCS，总长增加 4 字节。</desc>
+<style>text { font-family: "Noto Sans CJK SC", sans-serif; }</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1,1 L9,5 L1,9 Z" fill="#64748b"/></marker></defs>
+<rect width="1280" height="461" fill="white"/>
+<text x="36" y="58" font-size="36" fill="#15243b" font-weight="700" text-anchor="start">镜像帧如何附加时间戳</text>
+<rect x="36.0" y="95" width="590.0" height="268" rx="16" fill="#eff6ff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="52.0" y="141" font-size="30" fill="#2563eb" font-weight="700" text-anchor="start">原始帧</text>
+<rect x="52.0" y="163.0" width="558.0" height="184" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="70.0" y="209.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">字段从左到右</text>
+<rect x="70.0" y="227.0" width="257.0" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="198.5" y="265.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">帧数据</text>
+<rect x="335.0" y="227.0" width="257.0" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="463.5" y="265.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">原 FCS</text>
+<text x="463.5" y="303.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">4 B</text>
+<rect x="654.0" y="95" width="590.0" height="268" rx="16" fill="#f0fdfa" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="670.0" y="141" font-size="30" fill="#0f766e" font-weight="700" text-anchor="start">镜像副本</text>
+<rect x="670.0" y="163.0" width="558.0" height="184" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="688.0" y="209.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="start">字段从左到右</text>
+<rect x="688.0" y="227.0" width="168.66666666666666" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="772.3333333333334" y="265.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">帧数据</text>
+<rect x="864.6666666666666" y="227.0" width="168.66666666666666" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="949.0" y="265.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">时间戳计数</text>
+<text x="949.0" y="303.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">4 B</text>
+<rect x="1041.3333333333333" y="227.0" width="168.66666666666666" height="96" rx="6" fill="white" stroke="#2563eb" stroke-width="1.6"/>
+<text x="1125.6666666666665" y="265.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">新 FCS</text>
+<text x="1125.6666666666665" y="303.0" font-size="28" fill="#15243b" font-weight="400" text-anchor="middle">4 B</text>
+<text x="36" y="415" font-size="28" fill="#475569" font-weight="400" text-anchor="start">时间戳占据原 FCS 的位置，再计算新 FCS；镜像帧总长度增加 4 字节。</text>
+</svg>
