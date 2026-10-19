@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "lifecycle",
+  "input": "/home/obscure/TradingSystemLearning/hft/assets/hft-06/kcp-state-machine.json",
+  "output": "/home/obscure/TradingSystemLearning/hft/assets/hft-06/kcp-state-machine.html",
+  "specification": {
+    "sha256": "6b08a4cd022e267db8a1b0324f731a93054595c8384976ec78a57fee3b30f94a",
+    "bytes": 3470
+  },
+  "artifact": {
+    "sha256": "6049d980e5355c4e451800d8a074fbe6bfec7e5ab58ee9ddce17835726ad6b3a",
+    "bytes": 802703
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

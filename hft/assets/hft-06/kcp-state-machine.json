@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "KCP 简化状态机：一条消息如何可靠送达",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1070,
+      640
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "发送端 · 跟踪每个数据段"
+    },
+    {
+      "id": "recovery",
+      "label": "重传 · 数据或确认丢失"
+    },
+    {
+      "id": "terminal",
+      "label": "接收端 · 缓存并按序交付"
+    }
+  ],
+  "states": [
+    {
+      "id": "send_queue",
+      "type": "start",
+      "label": "待发送",
+      "sublabel": "消息拆成数据段",
+      "lane": "main",
+      "col": 0
+    },
+    {
+      "id": "send_unacked",
+      "type": "active",
+      "label": "已发，等待确认",
+      "sublabel": "snd_buf · 保留副本",
+      "lane": "main",
+      "col": 2
+    },
+    {
+      "id": "send_confirmed",
+      "type": "success",
+      "label": "已确认并释放",
+      "sublabel": "删除对应发送副本",
+      "lane": "main",
+      "col": 4
+    },
+    {
+      "id": "retry_pending",
+      "type": "failure",
+      "label": "等待重传",
+      "sublabel": "沿用原序号与副本",
+      "lane": "recovery",
+      "col": 1
+    },
+    {
+      "id": "receive_buffer",
+      "type": "active",
+      "label": "收到并缓存",
+      "sublabel": "去重、登记确认",
+      "lane": "terminal",
+      "col": 0
+    },
+    {
+      "id": "app_delivered",
+      "type": "success",
+      "label": "按序交付消息",
+      "sublabel": "ikcp_recv() 读取",
+      "lane": "terminal",
+      "col": 2
+    }
+  ],
+  "transitions": [
+    {
+      "id": "window_permits_send",
+      "from": "send_queue",
+      "to": "send_unacked",
+      "label": "窗口允许，刷新发送"
+    },
+    {
+      "id": "ack_releases_copy",
+      "from": "send_unacked",
+      "to": "send_confirmed",
+      "label": "收到确认",
+      "route": "straight"
+    },
+    {
+      "id": "detect_missing",
+      "from": "send_unacked",
+      "to": "retry_pending",
+      "label": "超时或快速重传",
+      "variant": "security",
+      "labelAt": [
+        533,
+        225
+      ]
+    },
+    {
+      "id": "resend_segment",
+      "from": "retry_pending",
+      "to": "send_unacked",
+      "label": "刷新时补发",
+      "variant": "security",
+      "labelAt": [
+        440,
+        250
+      ]
+    },
+    {
+      "id": "udp_carries_data",
+      "from": "send_unacked",
+      "to": "receive_buffer",
+      "label": "UDP 传送数据",
+      "variant": "dashed",
+      "labelAt": [
+        360,
+        365
+      ]
+    },
+    {
+      "id": "udp_carries_ack",
+      "from": "receive_buffer",
+      "to": "send_confirmed",
+      "label": "刷新后返回确认",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          500,
+          479
+        ],
+        [
+          500,
+          420
+        ],
+        [
+          850,
+          420
+        ],
+        [
+          850,
+          157
+        ]
+      ]
+    },
+    {
+      "id": "deliver_whole_message",
+      "from": "receive_buffer",
+      "to": "app_delivered",
+      "label": "前序齐全，消息完整后读取",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          402,
+          560
+        ],
+        [
+          710,
+          560
+        ]
+      ]
+    }
+  ]
+}

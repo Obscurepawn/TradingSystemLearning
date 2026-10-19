@@ -1,0 +1,33 @@
+{
+  "diagram_type": "lifecycle",
+  "output": "/home/obscure/TradingSystemLearning/hft/assets/hft-06/kcp-state-machine.html",
+  "specification_sha256": "6b08a4cd022e267db8a1b0324f731a93054595c8384976ec78a57fee3b30f94a",
+  "artifact_sha256": "6049d980e5355c4e451800d8a074fbe6bfec7e5ab58ee9ddce17835726ad6b3a",
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  },
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "correction_rounds": 2,
+  "visual_review_scope": [
+    "2048x1320 light",
+    "1440x900 dark",
+    "canonical PNG export"
+  ],
+  "observations": [
+    "状态标签与箭头无可见遮挡。",
+    "确认返回与重传回路可区分。",
+    "导出图不包含查看器控件。"
+  ],
+  "document_links": [
+    "assets/hft-06/kcp-state-machine.png"
+  ],
+  "source_evidence": [
+    "https://github.com/skywind3000/kcp/blob/master/ikcp.c"
+  ]
+}

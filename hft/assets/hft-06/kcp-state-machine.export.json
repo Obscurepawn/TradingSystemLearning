@@ -1,0 +1,24 @@
+{
+  "artifact_sha256": "6049d980e5355c4e451800d8a074fbe6bfec7e5ab58ee9ddce17835726ad6b3a",
+  "exports": [
+    {
+      "format": "svg",
+      "bytes": 146544,
+      "sha256": "e4678631aeb0ccd284d349d30ba271dc0c4a865f2d746b6447c1f31add5a789b",
+      "data-last-export-format": "svg",
+      "data-last-export-bytes": "146566",
+      "data-last-export-canonical": "true",
+      "canonical_bytes": 146566,
+      "canonical_sha256": "a814f6a6f09a854fe344601229b1c351523465202f66b79a2f2a8d2d074f17e5",
+      "postprocess": "trim line-end whitespace; SVG geometry and text unchanged"
+    },
+    {
+      "format": "png",
+      "bytes": 458737,
+      "sha256": "079b3e2f1fb01efd478b428eb03726c9a6d94c82aa50a4f265a52dfb286ff5ab",
+      "data-last-export-format": "png",
+      "data-last-export-bytes": "458737",
+      "data-last-export-canonical": "true"
+    }
+  ]
+}
