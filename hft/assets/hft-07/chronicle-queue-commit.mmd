@@ -1,0 +1,12 @@
+---
+title: 一条记录怎样被提交和读到
+---
+sequenceDiagram
+    participant W as Appender 写者
+    participant F as .cq4 映射文件
+    participant R as Tailer 读者
+    W->>F: 预留记录<br/>头先写 0（未发布）
+    W->>F: 写完整消息体
+    W->>F: CAS 把头替换为最终长度
+    R->>F: 看到完整的头<br/>才读消息体
+    Note over W,R: 提交前崩溃：头仍为 0<br/>读者跳过，恢复后的写者清理

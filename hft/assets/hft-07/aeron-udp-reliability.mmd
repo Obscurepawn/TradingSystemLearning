@@ -1,0 +1,14 @@
+---
+title: Aeron 在 UDP 上补缺口与流控
+---
+flowchart TB
+    subgraph S["发送端"]
+        APP["应用 offer 写入"] --> LB1["发送端日志<br/>pub-pos"] --> SND["Sender"]
+    end
+    subgraph R["接收端"]
+        RCV["Receiver<br/>按 term offset 落位"] --> LB2["接收端日志<br/>rcv-hwm：最高位置<br/>rcv-pos：连续位置"] --> SUB2["应用 poll 顺序消费<br/>sub-pos"]
+    end
+    SND -->|"DATA 帧"| RCV
+    RCV -.->|"发现缺口，发 NAK<br/>termId + offset + length"| SND
+    SND -.->|"重传缺失帧"| RCV
+    SUB2 -.->|"Status Message<br/>消费位置 + 接收窗口"| SND

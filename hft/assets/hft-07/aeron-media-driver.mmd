@@ -1,0 +1,20 @@
+---
+title: Aeron 的进程与 Media Driver 分工
+---
+flowchart TB
+    PUB["接入进程<br/>Publication：offer / tryClaim"]
+    SUB["策略进程<br/>Subscription：poll"]
+    LOG[("log buffer<br/>/dev/shm 下的映射文件<br/>三个 term 轮转")]
+    subgraph DRV["Media Driver（独立进程或内嵌）"]
+        direction LR
+        COND["Conductor<br/>处理应用的注册命令"]
+        SND["Sender<br/>把已提交帧发上网络"]
+        RCV["Receiver<br/>把收到的帧写回日志"]
+    end
+    NET(["网络与对端主机"])
+    PUB -->|"① 追加写入"| LOG
+    LOG -->|"② 同机直接读"| SUB
+    LOG -->|"③ 跨机时读取"| SND
+    SND -->|"DATA 帧"| NET
+    NET -->|"DATA / NAK / SM"| RCV
+    RCV -->|"写入接收 image"| LOG

@@ -1,0 +1,15 @@
+---
+title: 回测里的三类延迟
+---
+sequenceDiagram
+    autonumber
+    participant E as 交易所
+    participant L as 本地策略
+    Note over E: 行情事件发生<br/>记 exch_ts
+    E->>L: 盘口 / 成交推送
+    Note over L: 经过 feed latency<br/>本地才看见
+    L->>E: 发出订单请求
+    Note over E: 经过 order entry latency<br/>请求进入撮合
+    Note over E: 撮合处理<br/>生成成交与回报
+    E->>L: 接受 / 成交 / 撤单回报
+    Note over L: 经过 order response latency<br/>本地才知道结果

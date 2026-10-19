@@ -1,0 +1,19 @@
+---
+title: Chronicle Queue 的读写与文件布局
+---
+flowchart TB
+    subgraph JVMS["同一台机器上的多个进程 / JVM"]
+        W["Appender 写者<br/>同一时刻只有一个持锁"]
+        T1["Tailer A<br/>实时处理"]
+        T2["Tailer B<br/>审计、研究、回放"]
+    end
+    LOCK[("metadata.cq4t<br/>写锁与队列元数据")]
+    F1["今日 cycle 文件 .cq4<br/>mmap 映射，只追加"]
+    F0["前一 cycle 文件<br/>已写 EOF 标记，只读"]
+    DISK[("磁盘 + 页缓存")]
+    W --> LOCK
+    W --> F1
+    T1 --> F1
+    T2 --> F1
+    T2 --> F0
+    F1 -.->|"默认 ASYNC<br/>内核择机写回"| DISK

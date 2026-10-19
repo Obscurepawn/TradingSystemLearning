@@ -1,0 +1,12 @@
+---
+title: 订单簿型 DEX 的报单与推送（以 Hyperliquid 为例）
+---
+sequenceDiagram
+    participant U as 客户端
+    participant X as DEX 网关 / 链
+    participant W as WebSocket
+    U->>X: action=order<br/>nonce + 签名
+    X-->>U: 同步响应<br/>accepted / rejected
+    U->>W: 订阅 l2Book、<br/>orderUpdates、userFills
+    W-->>U: 整簿快照式推送
+    W-->>U: 订单状态与成交<br/>私有推送

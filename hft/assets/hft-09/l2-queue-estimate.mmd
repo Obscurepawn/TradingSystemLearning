@@ -1,0 +1,12 @@
+---
+title: 只有 L2 时，我方入队后能看到什么
+---
+flowchart TB
+    subgraph Q["价位总量可见，订单身份不可见"]
+        direction LR
+        F["前方 Vf<br/>（未知）"] --> M["我方<br/>20 手"] --> B["后方 Vb<br/>（未知）"]
+    end
+    D(["一份匿名减量 d<br/>（撤单或改单）"])
+    D -.->|"概率 p"| F
+    D -.->|"概率 1 − p"| B
+    style M fill:#fff7ed,stroke:#c2410c,stroke-width:2px

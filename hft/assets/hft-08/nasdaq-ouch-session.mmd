@@ -1,0 +1,13 @@
+---
+title: OUCH 报单与断线续接
+---
+sequenceDiagram
+    participant C as 客户程序
+    participant S as SoupBinTCP / OUCH
+    C->>S: 新单<br/>client token, side, price, shares
+    S-->>C: Accepted<br/>带回同一 client token
+    Note over C,S: 网络断开<br/>Accepted 之后还没收到 Executed
+    C->>S: 重新登录<br/>会话名 + 期望续接序号
+    S-->>C: 从期望序号继续推送带序号包
+    S-->>C: 补到的 Executed<br/>成交量与成交价
+    Note over C: 不重发原单<br/>按 token 等回报或查询核对

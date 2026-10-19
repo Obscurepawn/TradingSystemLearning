@@ -1,0 +1,14 @@
+---
+title: 一笔 AMM 兑换从签名到上链
+---
+flowchart TD
+    A["计算兑换额与滑点下限"] --> B["签名交易<br/>设置 gas 与 deadline"]
+    B --> C{"广播通道"}
+    C -- 公开 mempool --> D["等待打包<br/>交易内容所有人可见"]
+    C -- 私有 relay --> E["不进公开 mempool<br/>直送 builder"]
+    D --> F["区块打包<br/>合约按池子状态定价执行"]
+    E --> F
+    F --> G{"实际输出是否<br/>达到滑点下限"}
+    G -- 否 --> H["交易 revert，不成交"]
+    G -- 是 --> I["Swap 与 Sync 事件上链"]
+    I --> J["eth_subscribe 收到日志<br/>本地更新储备与价格"]
