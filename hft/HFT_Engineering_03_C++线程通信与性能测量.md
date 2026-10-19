@@ -97,7 +97,7 @@ struct CountersGood {
 
 SPSC（single producer, single consumer）环形队列适用于只有一个生产者和一个消费者的线程间通信，在低延迟系统之外也很常见。生产者写入槽位并公布写指针；消费者读完槽位，再公布读指针，通知生产者这个位置可以复用。
 
-![SPSC 环形队列中的数据发布和槽位复用](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/spsc-memory-order.svg)
+![SPSC 环形队列中的数据发布和槽位复用](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/spsc-memory-order.png)
 
 *图 1：两个方向都通过同步操作交接数据。先写事件再发布；先读完事件再归还槽位。*
 
@@ -213,7 +213,7 @@ Disruptor 的核心是预分配的环形数组，加上生产者和每个消费�
 
 当数组绕回旧槽位时，新事件 `s` 将覆盖上一轮的事件 `s - N`。生产者等待 `done[C] >= s - N`，确认 C 已处理完旧事件后才覆盖它。生产者读取 C 的进度自行判断，无须单独的协调线程。
 
-![Disruptor 的消费依赖、变量含义，以及事件 6 复用事件 2 所在槽位的过程](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/disruptor-diamond-explained.svg)
+![Disruptor 的消费依赖、变量含义，以及事件 6 复用事件 2 所在槽位的过程](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/disruptor-diamond-explained.png)
 
 *图 2：A、B 并行处理，C 等两者完成。容量为 4 时，事件 6 和事件 2 使用同一个槽位；C 完成事件 2 后，生产者才能写入事件 6。*
 
@@ -337,7 +337,7 @@ for dependency in dependencies[name]:
 
 消费者只检查当前待处理的序号，因此会停在第一个尚未发布的事件上。申请序号的生产者若一直未发布，这个空洞就会阻塞后续按序消费。实际实现也可以保存槽位的轮次标记。
 
-![多生产者下，后面的事件先发布，不能越过前面的空洞](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/disruptor-publication-gap.svg)
+![多生产者下，后面的事件先发布，不能越过前面的空洞](assets/hft-02/disruptor-publication-gap.png)
 
 *图 3：生产者申请序号后还要写入、发布事件；消费者按序处理，在前面的发布空洞处等待。*
 

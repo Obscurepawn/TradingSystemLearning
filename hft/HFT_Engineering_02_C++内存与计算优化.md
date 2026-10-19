@@ -214,7 +214,7 @@ public:
 
 订单、订单簿节点和内部消息常常有已知的数量上限。可以预先创建一组对象，再用空闲链表管理槽位，省去每次使用时 `new`、结束时 `delete` 的操作。
 
-![固定槽位池：申请从空闲链表摘下一个槽位，归还时放回链表头](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/02-slot-pool.svg)
+![固定槽位池：申请从空闲链表摘下一个槽位，归还时放回链表头](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/02-slot-pool.png)
 
 *图 1：空闲链表只保存索引。申请和归还都修改少量元数据，不扫描全部槽位。*
 
@@ -464,7 +464,7 @@ struct OrderGood {
 
 如果订单对象还包含几十字节的备注、字符串和历史统计，仅调整顺序不够。可以把经常一起访问的字段放在一起，把很少访问的字段移到独立结构中。
 
-![AoS、冷热分离与 SoA：不同访问方式对应不同布局](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/01-data-layout.svg)
+![AoS、冷热分离与 SoA：不同访问方式对应不同布局](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/b6a9497e7492436dc88c323e45b126c82b47dcc9/hft/assets/hft-02/01-data-layout.png)
 
 *图 2：按订单处理时可以保留紧凑结构体；只扫描数量时，连续的数量数组能避免带入无关字段。图中格子仅表示布局关系。*
 
