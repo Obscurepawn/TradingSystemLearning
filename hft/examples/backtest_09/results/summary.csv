@@ -1,0 +1,14 @@
+scenario,filled,canceled,first_fill_us,cancel_effect_us
+baseline,15,5,90,140
+touch,20,0,70,140
+zero_network_delay,5,15,90,90
+late_entry_95,10,10,130,140
+cancel_at_125,5,15,90,125
+tie_market_first,15,5,90,130
+tie_cancel_first,5,15,90,130
+uniform_external,15,5,115,155
+base_mbp_back,15,5,90,140
+tail_exact,15,5,90,140
+tail_mbp_back,0,20,-1,140
+tail_mbp_random,1,19,130,140
+reactive_B_stays,0,20,-1,140

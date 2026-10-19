@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="820" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">一次成交发生后，策略何时知道</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">合成案例：买价 100、委托 20 手。时间单位为 µs；每行连接同一事件的发生与可见时刻。</text>
+<rect x="48" y="128" width="480" height="105" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="288.0" y="163" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">交易所侧</text>
+<text x="288.0" y="193" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">真实订单簿 + 交易所订单状态</text>
+<rect x="752" y="128" width="480" height="105" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="992.0" y="163" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">本地策略侧</text>
+<text x="992.0" y="193" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">已收到的行情簿 + 已收到的订单回报</text>
+<rect x="48" y="270" width="480" height="52" rx="6" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<rect x="752" y="270" width="480" height="52" rx="6" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="68" y="304" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">0：产生初始行情</text>
+<text x="772" y="304" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">30：策略收到行情</text>
+<path d="M 528,296 L 752,296" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="600.0" y="261" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="640" y="279" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">行情延迟</text>
+<rect x="48" y="346" width="480" height="52" rx="6" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<rect x="752" y="346" width="480" height="52" rx="6" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="68" y="380" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">60：买单挂入队尾</text>
+<text x="772" y="380" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">80：收到订单接受回报</text>
+<path d="M 528,372 L 752,372" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="600.0" y="337" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="640" y="355" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">回报延迟</text>
+<rect x="48" y="422" width="480" height="52" rx="6" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<rect x="752" y="422" width="480" height="52" rx="6" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="68" y="456" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">90：成交 5，剩余 15</text>
+<text x="772" y="456" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">110：本地得知成交 5</text>
+<path d="M 528,448 L 752,448" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="600.0" y="413" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="640" y="431" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">回报延迟</text>
+<rect x="48" y="498" width="480" height="52" rx="6" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<rect x="752" y="498" width="480" height="52" rx="6" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="68" y="532" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">130：再成交 10，剩余 5</text>
+<text x="772" y="532" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">150：本地累计得知成交 15</text>
+<path d="M 528,524 L 752,524" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="600.0" y="489" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="640" y="507" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">回报延迟</text>
+<rect x="48" y="574" width="480" height="52" rx="6" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<rect x="752" y="574" width="480" height="52" rx="6" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="68" y="608" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">140：撤掉剩余 5</text>
+<text x="772" y="608" font-size="21" font-weight="400" text-anchor="start" style="fill:#111827">160：本地确认撤单完成</text>
+<path d="M 528,600 L 752,600" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="600.0" y="565" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="640" y="583" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">回报延迟</text>
+<rect x="48" y="690" width="1184" height="120" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="720" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">本地下单：40 发出 → 60 到达；本地撤单：120 发出 → 140 生效。</text>
+<text x="66" y="750" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">120—140 期间，原单仍参与撮合；130 的额外成交先发生，150 才被策略观察到。</text>
+<text x="66" y="780" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">模拟器保留两侧各两份状态，按事件交付时间更新，策略只访问本地已知状态。</text>
+</svg>

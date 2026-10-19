@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1020" viewBox="0 0 1280 1020">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="1020" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">新增订单之后，后续市场事件从哪里来</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">固定历史保留已记录的背景事件；交互模拟让背景参与者根据收到的信息产生新动作。</text>
+<text x="48" y="135" font-size="23" font-weight="600" text-anchor="start" style="fill:#111827">固定历史回放</text>
+<rect x="48" y="170" width="300" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="198.0" y="205" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">历史事件文件</text>
+<text x="198.0" y="235" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">既有挂单、撤单、成交</text>
+<text x="198.0" y="262" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">时间和内容已经确定</text>
+<rect x="490" y="170" width="300" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="205" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">模拟订单簿</text>
+<text x="640.0" y="235" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">应用历史事件</text>
+<text x="640.0" y="262" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">加入我方委托与撮合状态</text>
+<rect x="932" y="170" width="300" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1082.0" y="205" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">我方策略</text>
+<text x="1082.0" y="235" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">收到行情与回报</text>
+<text x="1082.0" y="262" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">产生新的委托请求</text>
+<path d="M 348,232 L 490,232" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="379.0" y="196" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="419" y="214" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">顺序回放</text>
+<path d="M 790,232 L 932,232" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="821.0" y="196" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="861" y="214" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">延迟交付</text>
+<path d="M 1092,295 L 1092,350 L 640,350 L 640,295" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="826.0" y="322" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="866" y="340" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">订单到达</text>
+<text x="48" y="397" font-size="18" font-weight="400" text-anchor="start" style="fill:#6b7280">新增订单会改变模拟簿；历史文件中其他参与者的后续动作仍按原记录到达。</text>
+<text x="48" y="465" font-size="23" font-weight="600" text-anchor="start" style="fill:#111827">有背景参与者响应的交互模拟</text>
+<rect x="48" y="510" width="300" height="135" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="198.0" y="545" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">我方策略</text>
+<text x="198.0" y="575" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">新增挂单或主动吃单</text>
+<text x="198.0" y="602" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">按真实发送延迟到达</text>
+<rect x="490" y="510" width="300" height="135" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="545" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">模拟交易所</text>
+<text x="640.0" y="575" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">更新可见深度与成交</text>
+<text x="640.0" y="602" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">向参与者发布新状态</text>
+<rect x="932" y="510" width="300" height="135" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1082.0" y="545" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">背景参与者</text>
+<text x="1082.0" y="575" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">收到行情后计算</text>
+<text x="1082.0" y="602" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">根据模型决定新动作</text>
+<path d="M 348,577 L 490,577" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="379.0" y="540" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="419" y="558" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">委托请求</text>
+<path d="M 790,577 L 932,577" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="821.0" y="540" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="861" y="558" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">行情延迟</text>
+<path d="M 1092,645 L 1092,730 L 640,730 L 640,645" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#orange)"/>
+<rect x="777.0" y="700" width="176" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="865" y="718" font-size="16" font-weight="400" text-anchor="middle" style="fill:#ea580c">新的挂单、撤单或吃单</text>
+<path d="M 490,610 L 422,610 L 422,780 L 198,780 L 198,645" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#green)"/>
+<rect x="250.0" y="750" width="112" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="306" y="768" font-size="16" font-weight="400" text-anchor="middle" style="fill:#059669">新行情与回报</text>
+<rect x="48" y="855" width="1184" height="120" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="885" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">响应从背景参与者收到信息之后发生，其网络与计算延迟也进入虚拟事件队列。</text>
+<text x="66" y="915" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">行为模型决定响应方向和强度，仍需用市场数据校准；交互本身不保证响应真实。</text>
+<text x="66" y="945" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">Queue-Reactive 等状态相关模型直接由簿状态生成订单流；多参与者模型还能表示不同观察与行为。</text>
+</svg>

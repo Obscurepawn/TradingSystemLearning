@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="875" viewBox="0 0 1280 875">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="875" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">断线恢复：订单台账与行情簿分别恢复</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">订单请求发出后连接断开，先保留“结果未知”；它仍可能已被接受或成交。</text>
+<rect x="420" y="135" width="440" height="110" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="170" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">订单请求结果未知</text>
+<text x="640.0" y="200" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">保留客户端标识、原始请求与在途风险</text>
+<rect x="80" y="350" width="440" height="130" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="300.0" y="385" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">恢复私有订单与成交</text>
+<text x="300.0" y="415" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">续接会话 / 补回报 / 查询核对</text>
+<text x="300.0" y="442" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">按订单和成交标识去重、更新累计成交</text>
+<rect x="760" y="350" width="440" height="130" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="980.0" y="385" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">恢复公开行情</text>
+<text x="980.0" y="415" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">补缺口或重新衔接快照与增量</text>
+<text x="980.0" y="442" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">重建到协议允许发布的完整状态</text>
+<path d="M 530,245 L 530,296 L 300,296 L 300,350" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="244.0" y="295" width="112" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="300" y="313" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">核对请求结果</text>
+<path d="M 750,245 L 750,296 L 980,296 L 980,350" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="916.0" y="295" width="128" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="980" y="313" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">核对行情连续性</text>
+<rect x="420" y="605" width="440" height="110" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="640" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">两项检查同时通过</text>
+<text x="640.0" y="670" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">订单台账一致，且行情可用于决策</text>
+<text x="640.0" y="697" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">重新开放相应策略的发单能力</text>
+<path d="M 300,480 L 300,550 L 530,550 L 530,605" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="252.0" y="507" width="96" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="300" y="525" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">订单已核对</text>
+<path d="M 980,480 L 980,550 L 750,550 L 750,605" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="932.0" y="507" width="96" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="980" y="525" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">行情已恢复</text>
+<rect x="48" y="760" width="1184" height="90" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="790" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">恢复期间继续接收新成交；查询结果与实时回报按标识、版本或累计成交关系合并。</text>
+<text x="66" y="820" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">无法确认的原请求保留风险占用；按该接口的幂等和查询规则决定是否重发。</text>
+</svg>

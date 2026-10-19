@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="900" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">一条事件的编码、传输与记录</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">上方展示 Aeron IPC 的同机共享内存数据路径；下方两种记录方案按用途选择。</text>
+<rect x="48" y="145" width="280" height="145" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="188.0" y="180" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">C++ 行情接入</text>
+<text x="188.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">规范化事件 → SBE 编码</text>
+<text x="188.0" y="237" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">Aeron C++ Wrapper → C API</text>
+<rect x="500" y="145" width="280" height="145" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="180" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">Aeron log buffer</text>
+<text x="640.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">发布位置 / 订阅位置</text>
+<text x="640.0" y="237" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">共享内存中的 term</text>
+<rect x="952" y="145" width="280" height="145" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1092.0" y="180" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">C++ 策略 / 网关</text>
+<text x="1092.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">Aeron C++ Wrapper → C API</text>
+<text x="1092.0" y="237" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">poll → 解码 → 业务处理</text>
+<path d="M 328,210 L 500,210" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="346.5" y="175" width="135.0" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="414" y="193" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">offer / commit</text>
+<path d="M 780,210 L 952,210" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="841.0" y="175" width="50.0" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="866" y="193" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">poll</text>
+<rect x="48" y="370" width="280" height="120" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="188.0" y="405" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">Media Driver</text>
+<text x="188.0" y="435" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">创建、管理 log 与连接</text>
+<text x="188.0" y="462" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">IPC 载荷由客户端读写</text>
+<path d="M 328,425 L 416,425 L 416,320 L 580,320 L 580,290" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#orange)" stroke-dasharray="6 5"/>
+<rect x="392.0" y="335" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="416" y="353" font-size="16" font-weight="400" text-anchor="middle" style="fill:#ea580c">管理</text>
+<rect x="500" y="530" width="280" height="140" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="565" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">Aeron Archive</text>
+<text x="640.0" y="595" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">JVM 记录服务</text>
+<text x="640.0" y="622" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">订阅事件并写 recording</text>
+<text x="640.0" y="649" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">按 position 重放</text>
+<path d="M 640,290 L 640,530" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="592.0" y="425" width="96" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="640" y="443" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">订阅记录流</text>
+<rect x="952" y="530" width="280" height="140" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1092.0" y="565" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">Chronicle 记录服务</text>
+<text x="1092.0" y="595" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">JVM 进程接收选定事件</text>
+<text x="1092.0" y="622" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">appender → queue 文件</text>
+<text x="1092.0" y="649" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">tailer 按 index 读取</text>
+<path d="M 1092,290 L 1092,530" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="1052.0" y="425" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="1092" y="443" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">业务事件</text>
+<rect x="48" y="714" width="1184" height="120" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="744" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">跨机 UDP：发送客户端 → 本地 log → Driver Sender → UDP → 对端 Driver Receiver → 接收 log。</text>
+<text x="66" y="774" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">Archive 与 Chronicle Queue 各自保留记录位置；业务检查点还要保存状态与已处理事件。</text>
+<text x="66" y="804" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">诊断日志从业务线程进入异步日志队列，独立消费；它不承担交易状态恢复。</text>
+<path d="M 56,855 L 100,855" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<text x="112" y="862" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280">事件数据</text>
+<path d="M 276,855 L 320,855" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#orange)" stroke-dasharray="6 5"/>
+<text x="332" y="862" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280">管理控制</text>
+</svg>

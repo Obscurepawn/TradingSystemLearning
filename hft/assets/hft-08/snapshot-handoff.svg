@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="860" viewBox="0 0 1280 860">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="860" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">快照和增量怎样接成同一本订单簿</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">以 Binance Spot diff-depth 为例：L 是快照水位；U、u 是一条增量覆盖的首末更新编号。</text>
+<rect x="48" y="150" width="300" height="140" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="198.0" y="185" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">先订阅并缓存</text>
+<text x="198.0" y="215" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">持续接收增量区间</text>
+<text x="198.0" y="242" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">[100,102]、[103,104]…</text>
+<rect x="490" y="150" width="300" height="140" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="185" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">取得快照</text>
+<text x="640.0" y="215" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">安装快照中的价位数量</text>
+<text x="640.0" y="242" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">lastUpdateId：L = 100</text>
+<rect x="932" y="150" width="300" height="140" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1082.0" y="185" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">寻找衔接事件</text>
+<text x="1082.0" y="215" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">丢弃 u ≤ L 的旧事件</text>
+<text x="1082.0" y="242" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">第一条覆盖 L + 1 = 101</text>
+<path d="M 348,220 L 490,220" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="379.0" y="185" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="419" y="203" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">同时请求</text>
+<path d="M 790,220 L 932,220" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="821.0" y="185" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="861" y="203" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">对齐水位</text>
+<text x="48" y="359" font-size="23" font-weight="600" text-anchor="start" style="fill:#111827">从快照水位向前推进</text>
+<text x="48" y="408" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827">输入</text>
+<text x="365" y="408" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827">检查</text>
+<text x="770" y="408" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827">本地簿与可发布状态</text>
+<rect x="48" y="430" width="1184" height="58" rx="4" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="64" y="466" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">[100,102]</text>
+<text x="365" y="466" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">100 ≤ 101 ≤ 102，覆盖缺少的起点</text>
+<text x="770" y="466" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">应用绝对数量；本地 u = 102</text>
+<rect x="48" y="500" width="1184" height="58" rx="4" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="64" y="536" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">[103,104]</text>
+<text x="365" y="536" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">U = 103，接上本地 102</text>
+<text x="770" y="536" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">继续应用；本地 u = 104</text>
+<rect x="48" y="570" width="1184" height="58" rx="4" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="64" y="606" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">[100,102] 再次到达</text>
+<text x="365" y="606" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">末尾 u ≤ 本地 104，已处理</text>
+<text x="770" y="606" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">丢弃重复，簿保持不变</text>
+<rect x="48" y="640" width="1184" height="58" rx="4" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="64" y="676" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">[107,108]</text>
+<text x="365" y="676" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">U &gt; 104 + 1，缺少 105、106</text>
+<text x="770" y="676" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">停止发布；重新获取快照并衔接</text>
+<rect x="48" y="741" width="1184" height="90" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="771" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">每档数量是更新后的绝对值；数量为 0 表示删除该价位。</text>
+<text x="66" y="801" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">图中编号用于验算衔接。CME 的事件边界和 ITCH 的订单级更新按各自协议处理。</text>
+</svg>

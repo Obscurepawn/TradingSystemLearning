@@ -1,0 +1,9 @@
+schedule,arrival,start,finish,wait
+burst,100,100,110,0
+burst,101,110,120,9
+burst,102,120,130,18
+burst,130,130,140,0
+uniform,100,100,110,0
+uniform,110,110,120,0
+uniform,120,120,130,0
+uniform,130,130,140,0

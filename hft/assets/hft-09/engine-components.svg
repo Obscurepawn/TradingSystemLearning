@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="890" viewBox="0 0 1280 890">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="890" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">回测引擎：同一份策略，替换事件来源与执行环境</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">虚拟调度器推进时间；公开行情、请求到达、成交回报和计算完成都是带交付时间的事件。</text>
+<rect x="48" y="140" width="280" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="188.0" y="175" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">事件源</text>
+<text x="188.0" y="205" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">历史报文 / 规范化事件</text>
+<text x="188.0" y="232" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">共用实盘解码器</text>
+<rect x="500" y="140" width="280" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="175" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">虚拟事件调度器</text>
+<text x="640.0" y="205" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">按交付时间与顺序取事件</text>
+<text x="640.0" y="232" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">计算忙碌时继续排队</text>
+<rect x="952" y="140" width="280" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1092.0" y="175" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">同一份策略代码</text>
+<text x="1092.0" y="205" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">行情 / 回报 / 定时器输入</text>
+<text x="1092.0" y="232" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">下单 / 撤单 / 改单输出</text>
+<path d="M 328,202 L 500,202" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="358.0" y="166" width="112" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="414" y="184" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">带时间的事件</text>
+<path d="M 780,202 L 952,202" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="826.0" y="166" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="866" y="184" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">可见事件</text>
+<rect x="500" y="470" width="280" height="145" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="505" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">模拟交易所</text>
+<text x="640.0" y="535" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">撮合规则 + 队列模型</text>
+<text x="640.0" y="562" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">真实簿与交易所订单状态</text>
+<text x="640.0" y="589" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">产生订单与成交回报</text>
+<rect x="952" y="470" width="280" height="145" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1092.0" y="505" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">延迟与计算模型</text>
+<text x="1092.0" y="535" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">请求何时到达</text>
+<text x="1092.0" y="562" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">回报何时可见</text>
+<text x="1092.0" y="589" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">策略何时完成计算</text>
+<path d="M 1092,265 L 1092,470" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="1052.0" y="352" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="1092" y="370" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">委托请求</text>
+<path d="M 952,540 L 780,540" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="826.0" y="505" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="866" y="523" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">请求到达</text>
+<path d="M 560,265 L 560,470" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="504.0" y="317" width="112" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="560" y="335" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">背景市场事件</text>
+<path d="M 720,470 L 720,265" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="664.0" y="387" width="112" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="720" y="405" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">安排延迟回报</text>
+<rect x="48" y="470" width="280" height="145" rx="10" fill="#faf5ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="188.0" y="505" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">订单与成交账本</text>
+<text x="188.0" y="535" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">成交、手续费、持仓</text>
+<text x="188.0" y="562" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">冻结参数与随机种子</text>
+<text x="188.0" y="589" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">输出可比较的事件记录</text>
+<path d="M 500,540 L 328,540" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="374.0" y="505" width="80" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="414" y="523" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">状态变化</text>
+<rect x="48" y="695" width="1184" height="120" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="725" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">实盘适配器用真实行情和网关代替模拟环境；策略接口保持相同。</text>
+<text x="66" y="755" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">按日或按标的并行前，先确认没有跨日持仓、跨标的对冲或共享资金依赖。</text>
+<text x="66" y="785" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">固定输入、事件排序与随机种子，再比较逐笔账本；参数搜索复用这些确定的边界。</text>
+</svg>

@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="800" viewBox="0 0 1360 800">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1360" height="800" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">普通 socket：报文经过哪里，谁来处理</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">常规 DMA 网卡、复制式收发；蓝色箭头表示处理顺序，并不表示每一段都复制载荷。</text>
+<text x="48" y="133" font-size="22" font-weight="600" text-anchor="start" style="fill:#111827">接收：UDP 行情 → 应用</text>
+<rect x="48" y="160" width="192" height="130" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="144.0" y="195" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">网卡接收</text>
+<text x="144.0" y="225" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">帧进入 RX 队列</text>
+<text x="144.0" y="252" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">使用接收描述符</text>
+<rect x="316" y="160" width="192" height="130" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="412.0" y="195" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">主机接收缓冲</text>
+<text x="412.0" y="225" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">DMA 写入载荷</text>
+<text x="412.0" y="252" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">描述符记录地址</text>
+<rect x="584" y="160" width="192" height="130" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="680.0" y="195" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">驱动 / NAPI</text>
+<text x="680.0" y="225" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">CPU 按预算收包</text>
+<text x="680.0" y="252" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">建立报文元数据</text>
+<rect x="852" y="160" width="192" height="130" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="948.0" y="195" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">IP / UDP</text>
+<text x="948.0" y="225" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">协议检查与分流</text>
+<text x="948.0" y="252" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">排入 socket 队列</text>
+<rect x="1120" y="160" width="192" height="130" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1216.0" y="195" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">应用 recvmsg</text>
+<text x="1216.0" y="225" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">复制到用户缓冲</text>
+<text x="1216.0" y="252" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">解析业务消息</text>
+<path d="M 240,225 L 316,225" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="257.25" y="192" width="41.5" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="278.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">DMA</text>
+<path d="M 508,225 L 584,225" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="522.0" y="192" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="546.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">取包</text>
+<path d="M 776,225 L 852,225" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="790.0" y="192" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="814.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">协议</text>
+<path d="M 1044,225 L 1120,225" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="1058.0" y="192" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="1082.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">读取</text>
+<text x="48" y="325" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">中断通知 → 调度 NAPI；应用已在运行时，也可以直接读取已有数据。</text>
+<text x="48" y="393" font-size="22" font-weight="600" text-anchor="start" style="fill:#111827">发送：应用订单 → TCP → 网卡</text>
+<rect x="48" y="420" width="192" height="130" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="144.0" y="455" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">应用 sendmsg</text>
+<text x="144.0" y="485" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">用户缓冲区</text>
+<text x="144.0" y="512" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">处理部分接受 / 重试</text>
+<rect x="316" y="420" width="192" height="130" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="412.0" y="455" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">TCP 内核缓冲</text>
+<text x="412.0" y="485" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">复制已接受字节</text>
+<text x="412.0" y="512" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">保留重传能力</text>
+<rect x="584" y="420" width="192" height="130" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="680.0" y="455" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">IP / qdisc</text>
+<text x="680.0" y="485" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">路由与邻居解析</text>
+<text x="680.0" y="512" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">调度发送或排队</text>
+<rect x="852" y="420" width="192" height="130" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="948.0" y="455" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">驱动 TX 队列</text>
+<text x="948.0" y="485" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">提交 DMA 描述符</text>
+<text x="948.0" y="512" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">等待完成后回收</text>
+<rect x="1120" y="420" width="192" height="130" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1216.0" y="455" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">网卡发送</text>
+<text x="1216.0" y="485" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">DMA 读取载荷</text>
+<text x="1216.0" y="512" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">报文进入线路</text>
+<path d="M 240,485 L 316,485" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="254.0" y="452" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="278.0" y="470" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">复制</text>
+<path d="M 508,485 L 584,485" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="522.0" y="452" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="546.0" y="470" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">发送</text>
+<path d="M 776,485 L 852,485" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="790.0" y="452" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="814.0" y="470" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">提交</text>
+<path d="M 1044,485 L 1120,485" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="1061.25" y="452" width="41.5" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="1082.0" y="470" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">DMA</text>
+<rect x="48" y="606" width="1264" height="120" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="636" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">描述符环存放地址、长度与状态；报文载荷放在描述符引用的缓冲区。</text>
+<text x="66" y="666" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">send 返回：应用可复用已接受部分的原缓冲区；TCP 确认与交易所订单回报随后发生。</text>
+<text x="66" y="696" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">阻塞读取或 epoll 等待结束后，线程还要获得 CPU；队列积压与调度会改变延迟。</text>
+</svg>

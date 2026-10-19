@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="780" viewBox="0 0 1280 780">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="780" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">Archive：从业务检查点追到实时流</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">position 是原始流中的字节位置；选择兼容的 session、term 参数与衔接位置。</text>
+<rect x="48" y="145" width="300" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="198.0" y="180" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">恢复起点</text>
+<text x="198.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">载入业务状态 S(P₀)</text>
+<text x="198.0" y="237" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">从已处理位置 P₀ 继续读取</text>
+<rect x="490" y="145" width="300" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="180" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">历史重放</text>
+<text x="640.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">Archive 读取 recording</text>
+<text x="640.0" y="237" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">业务按顺序应用事件</text>
+<rect x="932" y="145" width="300" height="125" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1082.0" y="180" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">实时订阅</text>
+<text x="1082.0" y="210" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">跟上同一原始流的位置</text>
+<text x="1082.0" y="237" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">衔接后停止重放订阅</text>
+<path d="M 348,207 L 490,207" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="398.75" y="174" width="40.5" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="419" y="192" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">P₀</text>
+<path d="M 790,207 L 932,207" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="808.25" y="174" width="105.5" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="861" y="192" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">追赶 / 合并</text>
+<text x="48" y="335" font-size="22" font-weight="600" text-anchor="start" style="fill:#111827">同一条流的三个进度</text>
+<text x="48" y="405" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">业务已应用的位置 P_app</text>
+<rect x="398" y="383" width="322" height="28" rx="5" fill="#dbeafe" stroke="none" stroke-width="1.5"/>
+<text x="48" y="475" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">Archive 已记录的位置 P_rec</text>
+<rect x="398" y="453" width="527" height="28" rx="5" fill="#dcfce7" stroke="none" stroke-width="1.5"/>
+<text x="48" y="545" font-size="18" font-weight="400" text-anchor="start" style="fill:#111827">实时发布位置 P_live</text>
+<rect x="398" y="523" width="782" height="28" rx="5" fill="#ede9fe" stroke="none" stroke-width="1.5"/>
+<path d="M 398,590 L 1200,590" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="709.5" y="595" width="181.0" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="800" y="613" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">原始流 position 增长</text>
+<rect x="48" y="650" width="1184" height="90" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="680" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">记录位置前进表示 Archive 完成相应记录写入；存储同步行为由 fileSyncLevel 配置决定。</text>
+<text x="66" y="710" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">合并时保持原始流连续并处理重叠；重放字节到达后，业务仍要按自己的恢复游标应用。</text>
+</svg>

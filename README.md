@@ -7,6 +7,10 @@
 3. [C++线程通信与性能测量](hft/HFT_Engineering_03_C++线程通信与性能测量.md)
 4. [高频交易系统的部署](hft/HFT_Engineering_04_高频交易系统的部署.md)
 5. [高频交易系统中的时钟](hft/HFT_Engineering_05_高频交易系统中的时钟.md)
+6. [网络通信：从行情进入主机到订单发出](hft/HFT_Engineering_06_网络通信.md)
+7. [开源项目解析：编码、通信、记录与日志](hft/HFT_Engineering_07_开源项目解析.md)
+8. [交易所协议：报文、订单簿与断线恢复](hft/HFT_Engineering_08_交易所协议.md)
+9. [高频回测：时间、队列与市场反应](hft/HFT_Engineering_09_高频回测.md)
 
 ## 文献与演讲精读
 

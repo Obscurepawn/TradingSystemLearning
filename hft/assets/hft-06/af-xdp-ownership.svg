@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="850" viewBox="0 0 1280 850">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="850" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">AF_XDP：四类环交接的是缓冲区所有权</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">单个 socket / 队列的基本流程。UMEM 存放载荷，环中的描述符引用 UMEM 内的 frame。</text>
+<text x="180" y="127" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">应用</text>
+<text x="640" y="127" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">共享环</text>
+<text x="1100" y="127" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">内核 / 驱动</text>
+<rect x="48" y="160" width="264" height="92" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="180.0" y="195" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">交出空闲 frame</text>
+<rect x="496" y="160" width="288" height="92" rx="10" fill="#faf5ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="195" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">FILL</text>
+<text x="640.0" y="225" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">addr</text>
+<rect x="968" y="160" width="264" height="92" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1100.0" y="195" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">接收侧取得 frame</text>
+<path d="M 312,206 L 496,206" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="380.0" y="172" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="404" y="190" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">发布</text>
+<path d="M 784,206 L 968,206" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="852.0" y="172" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="876" y="190" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">消费</text>
+<rect x="48" y="285" width="264" height="92" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="180.0" y="320" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">取得已收报文</text>
+<rect x="496" y="285" width="288" height="92" rx="10" fill="#faf5ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="320" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">RX</text>
+<text x="640.0" y="350" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">addr + len</text>
+<rect x="968" y="285" width="264" height="92" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1100.0" y="320" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">写完接收数据</text>
+<path d="M 968,331 L 784,331" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="852.0" y="297" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="876" y="315" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">发布</text>
+<path d="M 496,331 L 312,331" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="380.0" y="297" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="404" y="315" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">消费</text>
+<rect x="48" y="410" width="264" height="92" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="180.0" y="445" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">填好待发 frame</text>
+<rect x="496" y="410" width="288" height="92" rx="10" fill="#faf5ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="445" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">TX</text>
+<text x="640.0" y="475" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">addr + len</text>
+<rect x="968" y="410" width="264" height="92" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1100.0" y="445" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">取得待发数据</text>
+<path d="M 312,456 L 496,456" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="380.0" y="422" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="404" y="440" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">发布</text>
+<path d="M 784,456 L 968,456" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="852.0" y="422" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="876" y="440" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">消费</text>
+<rect x="48" y="535" width="264" height="92" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="180.0" y="570" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">收回 frame，可复用</text>
+<rect x="496" y="535" width="288" height="92" rx="10" fill="#faf5ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="570" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">COMPLETION</text>
+<text x="640.0" y="600" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280">addr</text>
+<rect x="968" y="535" width="264" height="92" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1100.0" y="570" font-size="21" font-weight="600" text-anchor="middle" style="fill:#111827">处理完 TX 描述符</text>
+<path d="M 968,581 L 784,581" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="852.0" y="547" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="876" y="565" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">发布</text>
+<path d="M 496,581 L 312,581" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="380.0" y="547" width="48" height="26" rx="3" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="404" y="565" font-size="16" font-weight="400" text-anchor="middle" style="fill:#2563eb">消费</text>
+<rect x="48" y="671" width="1184" height="150" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="701" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">应用消费 RX 后，可将 frame 重新交给 FILL，或填入 TX；同一 frame 同时只由一方持有。</text>
+<text x="66" y="731" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">消费 TX 描述符不等于交还 frame；应用读取 COMPLETION 后才可复用。</text>
+<text x="66" y="761" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">COMPLETION 也会回收被拒绝的无效描述符，因此只据它判断所有权归还。</text>
+<text x="66" y="791" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">零拷贝模式由网卡直接访问 UMEM；复制模式仍遵循上述交接规则。</text>
+</svg>

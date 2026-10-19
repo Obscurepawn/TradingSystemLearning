@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+<style>text {font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="800" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827">FIFO 队列：前方数量怎样消耗</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">同价位按到达顺序成交；A、B 是先到订单，我方原始委托为 20 手。</text>
+<text x="48" y="130" font-size="19" font-weight="600" text-anchor="start" style="fill:#111827">事件</text>
+<text x="450" y="130" font-size="19" font-weight="600" text-anchor="start" style="fill:#111827">从队首到队尾</text>
+<text x="1040" y="130" font-size="19" font-weight="600" text-anchor="start" style="fill:#111827">我方累计成交</text>
+<text x="48" y="192" font-size="20" font-weight="400" text-anchor="start" style="fill:#111827">60：我方入队</text>
+<rect x="450" y="160" width="200" height="48" rx="5" fill="#dbeafe" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="550.0" y="191" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">A 40</text>
+<rect x="658" y="160" width="100" height="48" rx="5" fill="#ede9fe" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="708.0" y="191" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">B 20</text>
+<rect x="766" y="160" width="100" height="48" rx="5" fill="#dcfce7" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="816.0" y="191" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">我方 20</text>
+<text x="1100" y="192" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">0</text>
+<text x="48" y="275" font-size="20" font-weight="400" text-anchor="start" style="fill:#111827">70：主动卖出 30</text>
+<rect x="450" y="243" width="95" height="48" rx="5" fill="#dbeafe" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="497.5" y="274" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">A 10</text>
+<rect x="553" y="243" width="100" height="48" rx="5" fill="#ede9fe" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="603.0" y="274" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">B 20</text>
+<rect x="661" y="243" width="100" height="48" rx="5" fill="#dcfce7" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="711.0" y="274" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">我方 20</text>
+<text x="1100" y="275" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">0</text>
+<text x="48" y="358" font-size="20" font-weight="400" text-anchor="start" style="fill:#111827">75：B 撤掉 20</text>
+<rect x="450" y="326" width="95" height="48" rx="5" fill="#dbeafe" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="497.5" y="357" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">A 10</text>
+<rect x="553" y="326" width="100" height="48" rx="5" fill="#dcfce7" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="603.0" y="357" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">我方 20</text>
+<text x="1100" y="358" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">0</text>
+<text x="48" y="441" font-size="20" font-weight="400" text-anchor="start" style="fill:#111827">90：主动卖出 15</text>
+<rect x="450" y="409" width="95" height="48" rx="5" fill="#dcfce7" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="497.5" y="440" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">我方 15</text>
+<text x="1100" y="441" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">5</text>
+<text x="48" y="524" font-size="20" font-weight="400" text-anchor="start" style="fill:#111827">130：主动卖出 10</text>
+<rect x="450" y="492" width="95" height="48" rx="5" fill="#dcfce7" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="497.5" y="523" font-size="18" font-weight="400" text-anchor="middle" style="fill:#111827">我方 5</text>
+<text x="1100" y="524" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">15</text>
+<text x="48" y="607" font-size="20" font-weight="400" text-anchor="start" style="fill:#111827">140：撤掉剩余 5</text>
+<text x="450" y="607" font-size="19" font-weight="400" text-anchor="start" style="fill:#6b7280">订单退出队列</text>
+<text x="1100" y="607" font-size="23" font-weight="600" text-anchor="middle" style="fill:#111827">15</text>
+<rect x="48" y="690" width="1184" height="90" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="720" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">按订单数据可识别 B 位于我方前面；按价位汇总的数据只显示总量减少，撤单位置由模型估计。</text>
+<text x="66" y="750" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280">图中块宽只辅助比较数量；每次撮合先消耗队首，剩余主动数量才轮到我方。</text>
+</svg>
