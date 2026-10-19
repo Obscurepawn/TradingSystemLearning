@@ -1,4 +1,4 @@
-# HFT Engineering 06：网络通信——从内核网络栈到ByPass Kernel
+# HFT Engineering 06：网络通信——从典型内核网络栈到ByPass Kernel
 
 行情从网卡到达策略，订单从程序发往交易所，中间会经过协议处理、缓冲区复制和队列等待。降低网络延迟，就是减少这条链路中不必要的工作与等待，让关键消息尽早进入业务处理。
 
@@ -11,13 +11,13 @@
 这个章节我们从传统网络栈的流程、优化点探讨到bypass kernel网络栈。全章分四部分：
 
 1. **传统网络栈的收发流程**：一条消息从网卡到策略（或反向）到底经过了什么，时间花在哪；
-2. **保留内核网络栈时的 14 个优化点**：不换架构，用普通 socket 就能做的调优；
+2. **保留内核网络栈时的 15 个优化点**：不换架构，用普通 socket 就能做的调优；
 3. **用户态收发与硬件旁路**：ExaNIC、DPDK、RDMA、Solarflare 四条绕开内核的路线；
 4. **Crypto 行情中的 WebSocket 与 JSON**：当入口是加密长连接 + 文本协议时，额外的延迟来自哪里、怎么优化。
 
 ## 1. 传统网络栈的收发流程
 
-普通 Linux 程序通过 socket 调用 `send()`、`recv()`。传输控制协议（Transmission Control Protocol，TCP）提供可靠、有序的字节流，用户数据报协议（User Datagram Protocol，UDP）提供数据报传输，两者都可以通过 socket 使用。下面这张图左侧是发送，从应用向下读到网卡；右侧是接收，从网卡向上读到应用。
+普通 Linux 程序通过 socket 调用 `send()`、`recv()`。TCP 提供可靠、有序的字节流，UDP 提供数据报传输，两者都可以通过 socket 使用。下面这张图左侧是发送，从应用向下读到网卡；右侧是接收，从网卡向上读到应用。
 
 ![Linux 网络栈：TCP/UDP 收发流程概览（左发送右接收，含队列与阻塞/丢包点）](assets/hft-06/network_stack_overview.png)
 
@@ -37,13 +37,14 @@
 
 内核旁路之前，普通 socket 还有不少优化空间。低延迟的重点是让关键消息及时进入处理器、减少核间通信，并避免为了吞吐而长时间等待。
 
-下面 14 个手段可以先按"解决什么问题"分成六组，建议按这个顺序理解，而不是孤立地记参数：
+下面 15 个手段可以先按"解决什么问题"分成七组：
 
 | 分组 | 小节 | 解决的核心问题 |
 | --- | --- | --- |
 | 让数据更早被 CPU 看到 | 2.1 中断合并、2.2 忙轮询、2.3 RSS 与中断亲和性 | 缩短"包到了网卡"到"CPU 开始处理"之间的等待和绕路 |
 | 让小消息按预期时机发出 | 2.4 TCP_NODELAY、2.5 MSG_MORE / TCP_CORK | 控制内核要不要替你"攒小包" |
 | 减少系统调用与内存操作 | 2.6 sendmsg、2.7 recvmmsg、2.8 复用接收缓冲区 | 同样的活少进几次内核、少申请几次内存 |
+| 把系统调用批量化 | 2.15 io_uring | 共享环形队列批量提交收发，热路径甚至不进内核 |
 | 缓冲与队列的取舍 | 2.9 SO_RCVBUF、2.10 有界待发队列 | 抗短时突发，但不让过时消息无限堆积 |
 | 把活交给网卡 | 2.11 校验和卸载、2.12 TSO、2.13 GRO | CPU 不做的，就不消耗 CPU 时间 |
 | 彻底去掉一次复制 | 2.14 MSG_ZEROCOPY | 发送时网卡直接读用户内存 |
@@ -351,6 +352,44 @@ wait_zerocopy_0(fd);
 memset(buf, 'X', sizeof(buf));  // 收到完成通知后才允许复用
 ```
 
+### 第七组：把系统调用批量化
+
+### 2.15 io_uring：共享环形队列，批量提交收发
+
+**问题是什么**：前面的 `sendmsg`、`recvmmsg` 已经在减少系统调用，但它们仍是"每次调用进一次内核"；而传统的 `epoll_wait()` 还有一个额外的往返——先被唤醒、拿到"哪些 fd 就绪"的列表，再分别调用 `recv()` 取数据。一轮事件循环里通常是 `epoll_wait` + N 次 `recv` + N 次 `send`，高频小消息下，陷入内核和睡眠/唤醒的固定开销占比会很明显。
+
+**io_uring 怎么做**：它在应用和内核之间建立两块**共享内存环形队列**——应用往**提交环（SQ）**填请求（SQE），内核执行后把结果写入**完成环（CQ）**。一批请求可以一次性提交；完成结果直接写在共享内存里，应用轮询即可看到，不必为了"取结果"再进内核。网络场景下对低延迟最有用的几个能力是：
+
+- **一次提交多个操作**：accept、recv、send、超时、取消等不同操作混在一批里，还可以链接成流水线（先收、再发、带超时）。
+- **multishot 接收**：提交一次"持续接收"请求（6.0 及以上内核），之后每条到达的消息都会自动产生一个完成项，不用反复提交 recv。
+- **固定文件与注册缓冲**：fd 和缓冲区预先登记，内核执行时免去每次查找和准备。
+- **SQPOLL 模式**：一个内核线程主动轮询提交环，应用连提交操作都不用陷入内核；本质也是拿一个核的空转换延迟。
+- **零拷贝发送**：`SEND_ZC` 操作的完成通知统一从完成环返回，和 MSG_ZEROCOPY 解决同一个复制问题，但通知机制更统一。
+
+![io_uring 与传统 epoll+socket 对比：共享 SQ/CQ 环批量提交、直接读完成，但下半段内核协议栈相同](assets/hft-06/io-uring-vs-socket.png)
+
+**必须先澄清的边界：io_uring 不是内核旁路。** 从 NAPI 软中断、IP/防火墙到 TCP/UDP 协议处理，下半段与传统 socket **完全一样**，接收方向的 payload 拷贝也依然存在。它省掉的是系统调用边界、fd/缓冲的重复准备和睡眠唤醒；因此它与中断合并、忙轮询、RSS 绑核是**叠加**关系，与 DPDK、Onload 这类用户态旁路是不同层次的技术。[io_uring 接口](https://man7.org/linux/man-pages/man7/io_uring.7.html)
+
+下面是用 liburing 做 multishot 接收的极简骨架（示意，具体 API 随 liburing 版本略有差异）：
+
+```c
+// 初始化 ring；注册 fd 与接收缓冲区数组（固定文件 + 提供缓冲）后：
+struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
+io_uring_prep_recv_multishot(sqe, fd, NULL, 0, 0);  // 一次提交，持续接收
+io_uring_sqe_set_flags(sqe, IOSQE_BUFFER_SELECT);   // 命中注册缓冲区
+io_uring_submit(&ring);                              // 一批 SQE 只需一次 submit
+
+while (running) {
+    struct io_uring_cqe *cqe;
+    io_uring_wait_cqe(&ring, &cqe);                  // 也可直接轮询 CQ，不睡眠
+    // cqe->res = 收到的字节数；cqe->flags 给出命中的缓冲区编号
+    io_uring_cqe_seen(&ring, cqe);
+    // multishot 结束时（如连接关闭）需要重新提交
+}
+```
+
+**代价与适用场景**：SQE/CQE 的生命周期、完成环溢出、multishot 终止后重新提交等正确性问题需要自己管；SQPOLL 要常驻一个核空转且通常需要系统权限；不少网络操作要求较新内核（multishot、`SEND_ZC` 需 6.0+）。当消息又小又快、一个线程混合处理多种操作、且机器内核够新时，它能显著压低系统调用开销；消息速率很低时，普通阻塞 socket 反而更简单。
+
 > **第二部分小结**：这些手段的共同点是"把吞吐导向的默认值改成延迟导向"。它们不是越多越好——中断合并、GRO、TSO、缓冲区大小都要在自己的工作负载下实测开关前后的延迟分布（尤其关注尾延迟），再决定取舍。
 
 ## 3. 用户态收发与硬件旁路
@@ -365,17 +404,23 @@ memset(buf, 'X', sizeof(buf));  // 收到完成通知后才允许复用
 
 ExaNIC 是 Cisco Nexus SmartNIC 的原名。它的设计哲学是**卡上尽量不缓存**，把到达的数据分块 DMA 到主机接收环；应用通过 `libexanic` 轮询并直接读取这些内存。支持的接口还允许在整帧到齐前先处理已经到达的部分，重叠线路接收与解析工作（网卡还在收后半帧，CPU 已经开始解析前半帧）。发送则可以由应用写入映射的卡上发送缓冲区，再触发网卡发送。[Cisco ExaNIC Internals](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/smartnic/sw/user-guide/cisco-nexus-smartnic-user-guide/internals.html)
 
+![ExaNIC/libexanic：分块 DMA 进接收环，应用用户态轮询直读、边收边解析](assets/hft-06/bypass-exanic.png)
+
 它的关键在于减少缓存等待和搬运核间通信。代价也要清楚：应用接管帧解析，也要跟上接收环的推进速度，否则旧数据会被新数据覆盖（环形缓冲没有人为你排队）；提前解析时，还要等完整帧的有效性结果（比如校验和），再决定是否采用这条消息，不能只解析了一半就下单。`libexanic` 的原始帧接口适合直接处理行情包，完整的 TCP 连接仍由额外的协议栈维护。
 
 ### 3.2 DPDK
 
 数据平面开发套件（Data Plane Development Kit，DPDK）通过轮询模式驱动（Poll Mode Driver，PMD）在用户态收发包——没有中断，线程永远在轮询队列。网卡把数据 DMA 到预先准备的内存池，应用取得描述报文的 `mbuf`，完成处理后回收，或者转交发送队列。它把轮询、批量收发、内存池和核心分工组织在一起，减少逐包中断、临时分配和通用内核处理成本。[DPDK PMD](https://doc.dpdk.org/guides/prog_guide/ethdev/ethdev.html)
 
+![DPDK/PMD：专用核心上死循环轮询收发环，mbuf 取自预分配内存池，热路径无中断无内核](assets/hft-06/bypass-dpdk.png)
+
 DPDK 适合可分配专用核心、需要高包速率的行情接收和分发。要注意边界：它提供的是**包处理框架**（拿到的是原始以太网帧），TCP 的建连、重传和流控仍要由附加协议栈完成；它也要求独占 CPU 核心和网卡，不能和内核网络栈混用同一张卡。批量取包时，一次取走当前队列里的多个包可以减少开销；但主动等队列凑满才处理，会增加低流量时的等待——低延迟场景应当"有多少处理多少"，而不是"凑一批再动"。
 
 ### 3.3 RDMA
 
 远程直接内存访问（Remote Direct Memory Access，RDMA）把通信区域预先注册给网卡，应用提交发送、读取或写入请求，由网卡执行传输，再通过完成队列报告结果。在硬件 RDMA 路径中，数据可以直接从一端的应用内存到另一端的应用内存，减少内核缓冲区复制，并由网卡承担相应传输协议工作。[NVIDIA RDMA 编程指南](https://networking-docs.nvidia.com/doca/archive/3-5-0/rdma-aware-networks-programming-guide)
+
+![RDMA：内存注册后由 RNIC 搬运，单边读写数据直达远端应用内存，远端 CPU 不执行接收调用](assets/hft-06/bypass-rdma.png)
 
 单边读写尤其直观：远端应用先注册内存并授予访问权限，之后一次远程读/写可以由网卡完成，无须远端业务线程逐次执行接收调用——数据像被"隔空放"进了对方内存。但要区分两个时间点：**本地传输完成 ≠ 远端业务处理完成**，业务线程仍负责消费数据和维护状态。RDMA 更适合双方可控、硬件与网络匹配的内部集群（例如机房内各服务之间）；交易所只提供 TCP/WebSocket 入口时，客户端无法单方面把连接改成 RDMA。
 
@@ -388,6 +433,8 @@ Solarflare 的软件接口可以按应用愿意承担多少工作来理解：
 | Onload | 在用户态实现 TCP/UDP，尽量兼容现有 socket 编程方式 | 延续 `send()`、`recv()` 等调用方式，对受支持的连接进行加速 |
 | TCPDirect | 用更精简的功能和专用接口实现用户态 TCP/UDP | 改造事件循环，由应用主动推进协议处理，并使用直接访问缓冲区等能力 |
 | `ef_vi` | 暴露更接近网卡的帧与事件接口 | 应用取得原始帧，自行安排上层协议和业务处理 |
+
+![Solarflare 三档接口对比：Onload / TCPDirect / ef_vi，及 TCPDirect reactor 热路径与 CTPIO](assets/hft-06/bypass-solarflare.png)
 
 Solarflare TCPDirect 是其中面向低延迟应用的用户态 TCP/UDP 协议栈。关键收发操作绕过内核，线上仍然使用标准 TCP/UDP 报文，对端可以继续使用普通网络接口（旁路是本机的事，交换机和对端无感知）。应用在同一线程中推进网络、解析行情和计算策略，可以减少系统调用、线程唤醒及缓冲区复制。[TCPDirect 项目说明](https://github.com/Xilinx-CNS/tcpdirect)
 
@@ -426,7 +473,7 @@ Solarflare TCPDirect 是其中面向低延迟应用的用户态 TCP/UDP 协议�
 3. 客户端发送订阅消息（订阅哪个品种、什么深度）；
 4. 服务器持续主动推送更新，无须客户端为每条行情再发起一次 HTTP 请求。
 
-`wss://` 还使用传输层安全协议（Transport Layer Security，TLS）加密连接。JavaScript 对象表示法（JavaScript Object Notation，JSON）则负责表达行情里的品种、价格、数量等业务字段。下面把建连过程和一条行情的接收过程放在同一张图中。
+`wss://` 还使用传输层安全协议（Transport Layer Security，TLS）加密连接。JSON 则负责表达行情里的品种、价格、数量等业务字段。下面把建连过程和一条行情的接收过程放在同一张图中。
 
 ![WebSocket 原理：建立连接、升级协议、订阅与持续推送，以及接收端的逐层解析](assets/hft-06/websocket-message-flow.png)
 
