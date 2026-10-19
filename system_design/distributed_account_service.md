@@ -6,19 +6,40 @@
 | 项目 | 内容 |
 |---|---|
 | 文档类型 | System Design（架构设计） |
+| 版本 | v2（2026-10-16）：按评审意见补齐输出提交、写者隔离、订单与预扣、订阅衔接、跨日更正、数据世代等协议 |
 | 覆盖范围 | 服务职责与边界、需求与容量、总体架构、写路径、存储、**客户端访问方式**、一致性、容错、性能、对账审计、可观测性、安全、运维、取舍 |
 | 运行环境 | AWS，主 Region 3 个 AZ，另有 1 个 DR Region |
 | 数字口径 | 文中的规模、延迟、容量数字都是**设计假设或估算**（见 §3），实际落地前需要和业务方确认并压测 |
 
 ---
 
+## 修订说明（v2）
+
+v1 的总体架构保留：日志作为唯一事实来源、按分区单写者、确定性计算、读写分离。评审指出的问题集中在几条协议没有闭合，v2 逐条补齐，并删除了不带前提的正确性结论（例如“任何重放都是安全的”）。
+
+| # | 评审问题 | 级别 | v2 的处理 | 位置 |
+|---|---|---|---|---|
+| 1 | 快照进度与输出持久化没有绑定，恢复时可能永久漏发 | P1 | 输出记录、水位记录和输入 offset 在同一个 Kafka 事务中提交；快照只在提交后的边界生成；恢复时先读已提交 offset，静默重放到该位置再开始输出 | §7.7、§7.8 |
+| 2 | 只靠 epoch 无法隔离旧写者，compacted topic 可能被污染 | P1 | 每个分区固定 `transactional.id`，接管者调用 `initTransactions` 隔离旧 producer；下游统一 `read_committed`；只保留一条权威输出流；强一致读以一次成功提交证明领导权 | §7.7、§9.4、§11.2 |
+| 3 | 风控看到第一条相关更新就释放整笔预扣 | P1 | 预扣按“已被权威状态覆盖的数量”逐步释放；预扣先持久化再放行；同一账户的检查与预扣串行执行 | §9.8 |
+| 4 | 订单状态机无法覆盖乱序改单、拒绝和成交撤销 | P1 | 区分请求与交易所确认、订单身份与修订号、新单拒绝与改单/撤单拒绝；订单累计成交和持仓从同一份成交记录推导；撤销成交不自动恢复订单 | §6.3、§7.4 |
+| 5 | 日切清理后，跨日重发和更正没有安全路径 | P1 | 定义更正窗口；窗口内保留成交索引和每日基线，跨日更正从受影响日期的基线向后重算；更正原位替换；窗口外进入历史修正流程 | §7.9 |
+| 6 | 先订阅再读快照仍有漏更新窗口 | P1 | 推送改为基于 Kafka 位置：快照和增量由同一个有序消费循环产生，快照带流位置，可续传；风控初始化同样基于这条流，不再回看固定时间窗 | §9.7、§9.8 |
+| 7 | 标的映射失败的事件补回时被“最大序号去重”丢弃 | P1 | 事件身份去重移到 Normalizer，用“连续水位 + 暂存集合”，暂存事件补回时只放行一次；会话状态与转发在同一事务提交 | §7.2 |
+| 8 | Region 切换或全量重算后，同一 version 对应不同内容 | P1 | 引入数据世代 `generation`，比较 `(generation, version)`；世代变化时客户端必须重建；旧 Region 通过路由控制和世代检查停止服务 | §7.12、§11.3、§16.3 |
+| 9 | 账户聚合遗漏 book，账户级一致性承诺过强 | P2 | 聚合键改为 `(instrument, book)`；同一输入事件产生的多条记录在汇总中原子可见；明确汇总是收敛一致而不是时点快照，严格账户风控由风控服务负责 | §7.11、§10 |
+| — | 陈旧度定义、热点复杂度、日切伪代码、对账不等于证明 | P2 | 陈旧度由沿日志流动的水位决定；在途敞口增量维护；日切作用于分区内全部 key；对账增加全字段比对和独立实现差分 | §7.4、§7.9、§9.4、§12.2、§13 |
+
+---
+
 ## 目录
 
+- [修订说明（v2）](#修订说明v2)
 - [0. 摘要](#0-摘要)
 - [1. 背景与问题定义](#1-背景与问题定义)
 - [2. 服务职责与边界](#2-服务职责与边界)
 - [3. 需求与容量估算](#3-需求与容量估算)
-- [4. 核心设计原则](#4-核心设计原则)
+- [4. 核心设计原则与正确性前提](#4-核心设计原则与正确性前提)
 - [5. 总体架构](#5-总体架构)
 - [6. 领域模型与事件模型](#6-领域模型与事件模型)
 - [7. 写路径详细设计](#7-写路径详细设计)
@@ -40,15 +61,15 @@
 
 ## 0. 摘要
 
-**一句话方案**：持仓是成交日志计算出来的状态。以 **MSK（Kafka）事件日志作为唯一事实来源**，按 `(account, instrument)` 分区，每个分区由**唯一写者**的确定性内存引擎计算持仓。所有输出都带 `version` 和 `epoch`，下游**按版本号幂等写入**，所以任何重放都是安全的。
+**一句话方案**：持仓是成交日志计算出来的状态。以 **MSK（Kafka）事件日志作为唯一事实来源**，按 `(account, instrument)` 分区，每个分区由唯一写者的确定性内存引擎计算持仓。**每批输出和输入进度在同一个 Kafka 事务中提交**，旧写者由事务机制隔离。所有输出带 `(generation, version)`，下游只消费已提交的数据，并按版本幂等写入。
 
 核心要点：
 
-1. **正确性**：至少一次投递 + 两层去重（Kafka offset + 业务键 `exec_id` / 订单版本号）+ 确定性计算 = 效果上的恰好一次。
-2. **容错**：MSK 3 AZ 复制（RF=3、min ISR=2）；引擎主节点和 Hot Standby 分属不同 AZ，靠 lease + epoch 在秒级切换；也可以用“快照 + 重放”恢复。Region 级做主备（Pilot Light / Warm Standby），切换后由上游补发和对账补齐缺口。
-3. **低延迟**：热路径全在内存，端到端 p99 约 10~20ms（估算）；事前风控直接读引擎，或者在本地维护持仓副本。
-4. **客户端访问**：提供四种访问方式，即同步查询（gRPC/REST）、实时订阅（gRPC Stream/WebSocket）、事件流消费（Kafka topic）、历史与批量（S3/Athena）。读取时可以选三档一致性：`EVENTUAL`、`AT_LEAST_VERSION / CAUSAL`、`STRONG`。
-5. **可证明的正确**：Drop Copy 日内对账、清算/托管日终对账、每天用日志做一次影子重算并比对 checksum。
+1. **正确性（有前提）**：在 §4.2 列出的前提成立时，每个进入 `trading-events` 的事件，其效果**恰好一次**地提交到权威输出流。依靠三件事：Normalizer 和引擎都以事务方式“消费、处理、输出”；引擎内用业务键（`(venue, exec_id)`、订单修订号）去重，覆盖整个更正窗口；计算是确定性的。
+2. **容错**：MSK 跨 3 AZ（RF=3、min ISR=2）。主备切换时，租约只决定由谁接管，影响的是恢复时间；**写入隔离由 Kafka 事务的 producer fencing 保证，不依赖时钟**。Region 级做主备；跨 Region 复制不能保证日志逐条一致，所以切换时提升 `generation`，客户端重建。
+3. **低延迟**：热路径在内存。计入事务提交后，从 Normalizer 收到事件到可查询 p99 < 25ms，到推送和风控事件流 p99 < 30ms（目标值，按估算拆分，见 §12.1）。风控本地检查 < 1ms，含预扣持久化的放行 < 5ms。
+4. **客户端访问**：同步查询（gRPC/REST）、实时订阅（快照带流位置，可续传）、Kafka 事件流、历史与批量（S3/Athena）。读取有四档一致性：`EVENTUAL`、`AT_LEAST_VERSION`、`CAUSAL`、`STRONG`。
+5. **正确性检测（不是证明）**：Drop Copy 全字段日内对账、清算/托管日终对账、独立实现差分重算、主备状态 checksum 持续比对。
 
 ---
 
@@ -89,6 +110,7 @@
 | R9 | **审计追溯** | 任何持仓版本都能追溯到产生它的事件链（lineage） |
 | R10 | **数据质量自检** | 发现序列缺口、未知标的、无法处理的事件时，隔离受影响的 key，并**明确标记为 `STALE`**，绝不静默给出错误数字 |
 
+
 ### 2.2 不负责的内容
 
 | 不负责 | 归属系统 | 与持仓服务的关系 |
@@ -103,6 +125,7 @@
 | 监管报送 | Regulatory Reporting | 消费日终快照和审计数据 |
 
 > 边界原则：**持仓服务只保存可以从事件日志确定性推导出来的状态。** 行情这类高频、非确定性输入不进入持仓状态机，这样“重放结果完全一致”的保证才成立。
+
 
 ### 2.3 上下游关系（Context）
 
@@ -127,15 +150,19 @@ flowchart LR
 
 ### 2.4 对客户端的服务承诺（Service Contract）
 
+以下承诺都以 §4.2 的前提成立为条件。
+
 | 承诺 | 内容 |
 |---|---|
-| 单 key 有序 | 同一 `(account, instrument, book)` 的变更严格按日志顺序生效，`version` 单调递增，不会回退 |
-| 不丢更新 | 每个被接受的事件最终一定会反映到持仓里；如果做不到（例如事件格式坏了），该 key 会被标为 `STALE` 并告警 |
-| 不重复计算 | 同一 `exec_id` 只计入一次，与重试或重放次数无关 |
-| 陈旧度可见 | 每个响应都带 `version`、`as_of`（数据截至时间）和 `staleness_ms`，客户端可以自己判断是否可用 |
-| 时效 | 交易时段内，事件写入后 p99 < 20ms 可以在 `EVENTUAL` 读和订阅中看到（目标值） |
-| 可用性 | 查询和订阅 99.99%；`STRONG` 读在分区切换期间（约 2~3 秒）可能短暂返回 `UNAVAILABLE` |
-| 可追溯 | 任意版本都能查询其事件链；原始事件按监管要求保留（例如 7 年，WORM） |
+| 单 key 有序 | 同一 `(account, instrument, book)` 的变更按日志顺序生效；同一世代内 `version` 单调递增，跨世代按 `(generation, version)` 比较 |
+| 不丢更新 | 每个进入 `trading-events` 的事件，其效果最终会提交到权威输出流。做不到时（事件无法处理、标的映射失败、来源有缺口），相关 key 或账户标为 `STALE` 并告警，不静默给出数字 |
+| 不重复计算 | 同一 `(venue, exec_id)` 在更正窗口内只计入一次；窗口外的重发进入历史修正流程，不进入实时持仓 |
+| 只暴露已提交数据 | 所有读模型、推送和事件流只包含已提交事务的输出 |
+| 陈旧度可见 | 每个响应带 `generation`、`version`、`complete_through` 和 `staleness_ms`，陈旧度由沿日志流动的水位决定（§9.4） |
+| 世代变化可感知 | 世代变化时，查询返回新世代数据，订阅收到 `resync_required`，SDK 自动清空本地缓存 |
+| 时效 | 交易时段内，从 Normalizer 收到事件起：p99 < 25ms 可查询（`EVENTUAL`），p99 < 30ms 进入推送和风控事件流（目标值，待压测） |
+| 可用性 | 查询和订阅 99.99%；`STRONG` 读在分区切换期间（约 2~3 秒）可能返回 `UNAVAILABLE` |
+| 可追溯 | 任意 `(generation, version)` 都能查到事件链；原始事件按监管要求保留（例如 7 年，WORM） |
 
 ---
 
@@ -143,10 +170,10 @@ flowchart LR
 
 ### 3.1 功能需求
 
-1. 消费订单事件：`NEW / ACK / AMEND（含 Replace）/ CANCEL / REJECT / EXPIRE`。
-2. 消费成交事件：`FILL / PARTIAL_FILL / BUST / CORRECT`。
-3. 消费控制事件：`SOD_POSITION`（日初基线）、`CORP_ACTION`（公司行动）、`DAY_ROLL`（日切）、`MANUAL_ADJUSTMENT`（人工调账，需要审批）。
-4. 计算并维护持仓、在途挂单敞口、账户汇总。
+1. 订单事件：OMS 侧的请求 `NEW_REQ / AMEND_REQ / CANCEL_REQ`；交易所侧的确认 `NEW_ACK / NEW_REJECT / AMEND_ACK / AMEND_REJECT / CANCEL_REJECT / CANCELED / EXPIRED`（与 FIX 的映射见 §6.3）。
+2. 成交事件：`FILL / BUST / CORRECT`。
+3. 控制事件：`DAY_ROLL`（日切）、`CORP_ACTION`（公司行动）、`SOURCE_WATERMARK`（来源水位）、`RESTATEMENT`（审批后的历史修正）、`RELEASE_KEY`（解除隔离）、`SOD_POSITION`（只用于初始迁移）、`MANUAL_ADJUSTMENT`（人工调账，需审批）。
+4. 计算持仓、在途挂单敞口、账户汇总；处理更正窗口内的跨日重发和更正。
 5. 低延迟查询、实时推送、按时间点查询、事件链查询。
 6. 日内对账、日终对账、日终快照。
 
@@ -156,9 +183,10 @@ flowchart LR
 |---|---|
 | 规模 | 500 万账户、约 2,000 万活跃持仓、高峰时约 1,000 万在途订单 |
 | 吞吐 | 高峰 20 万事件/秒；日均约 10 亿事件（订单事件约 7 亿 + 成交约 3 亿） |
-| 写入到可读延迟 | p99 < 20ms（`EVENTUAL` 读和推送）；引擎内处理单事件 < 0.1ms |
-| 事前风控读延迟 | p99 < 1ms（本地副本）或 < 5ms（同步 `STRONG` 读） |
-| 正确性 | 效果上恰好一次；重放结果按位一致 |
+| 写入到可读延迟 | 从 Normalizer 收到事件起：查询 p99 < 25ms，推送和风控事件流 p99 < 30ms；引擎内处理单事件 < 0.1ms（不含事务提交） |
+| 事前风控 | 本地检查 p99 < 1ms；含预扣持久化的放行 p99 < 5ms；兜底的同步 `STRONG` 读 p99 < 10ms |
+| 正确性 | 在 §4.2 的前提下，事件效果恰好一次提交；同一世代内重放结果按位一致 |
+| 更正窗口 | 当日加前 N 个交易日（默认 N=2，待业务确认）内的重发和更正进入实时持仓 |
 | 可用性 | 99.99%；单 AZ 故障时 RPO=0、RTO 约 2~3 秒；Region 故障时 RTO 在分钟级，RPO 由上游补发补齐 |
 | 审计 | 事件不可篡改、可完整重放、长期保留 |
 
@@ -172,24 +200,49 @@ flowchart LR
 | 每日数据量 | 10 亿 × 1KB | ≈ 1 TB/天（原始），冷数据下沉到 S3 |
 | 持仓状态内存 | 2,000 万 × 约 300B | ≈ 6 GB |
 | 订单状态内存 | 1,000 万 × 约 300B | ≈ 3 GB |
-| 当日成交日志（用于更正时重算） | 3 亿 × 约 48B | ≈ 14.4 GB |
-| 引擎总内存 / 每个 Pod | (6 + 3 + 14.4) GB ÷ 32 个主 Pod | ≈ 0.73 GB/Pod（另有同样数量的 Standby） |
+| 更正窗口内成交（3 个交易日，兼作业务去重索引） | 3 亿/天 × 约 48B × 3 天 | ≈ 43.2 GB |
+| 引擎总内存 / 每个 Pod | (6 + 3 + 43.2) GB ÷ 32 个主 Pod | ≈ 1.63 GB/Pod（另有同样数量的 Standby） |
 | Redis 读模型 | 2,000 万 × 约 500B | ≈ 10 GB（Cluster 模式多分片） |
+| Fan-out 内存中的最新状态 | 2,000 万 × 约 500B | ≈ 10 GB（分布在 Fan-out 节点上） |
+| 来源水位 / 引擎水位记录 | 各 512 分区 × 每 100ms 一条 | 各 ≈ 5,120 条/秒 |
 | WebSocket 连接 | 假设 50 万并发 ÷ 每节点 5 万 | ≈ 10 个网关节点（按 2 倍冗余部署） |
 
 ---
 
-## 4. 核心设计原则
+## 4. 核心设计原则与正确性前提
+
+### 4.1 设计原则
 
 | # | 原则 | 带来的好处 |
 |---|---|---|
 | P1 | **以日志为唯一事实来源**：所有状态变化先进入 MSK，持仓只是对日志的计算结果 | 任何派生数据都能重建；审计天然完整 |
-| P2 | **按分区单写者**：每个分区同一时刻只有一个线程写 | 不需要分布式锁和事务，延迟可预测 |
-| P3 | **确定性计算**：不读墙钟、不读外部可变数据；时间相关逻辑通过控制事件（如 `DAY_ROLL`）进入日志；全部使用定点数 | 快照 + 重放 = 精确恢复；主备计算结果按位一致 |
-| P4 | **至少一次投递 + 幂等处理**：两层去重，输出带版本号，下游条件写 | 不依赖昂贵的分布式事务，也能达到效果上的恰好一次 |
-| P5 | **防止多个写者**：lease + 单调递增 epoch，下游拒收旧 epoch | 防止僵尸实例和脑裂造成数据分叉 |
-| P6 | **读写分离（CQRS）**：写路径只关心正确性，读路径按访问方式各自优化 | 写路径保持最简；读模型挂了也能从日志重建 |
-| P7 | **宁可明确说不知道，也不给错误数字**：异常 key 隔离并标记 `STALE` | 风控可以按 fail-closed 原则处理 |
+| P2 | **按分区单写者**：每个分区同一时刻只有一个引擎实例能提交输出 | 不需要锁，延迟可预测 |
+| P3 | **确定性计算**：事件处理中不读墙钟、不访问外部可变数据；时间相关逻辑通过控制事件进入日志；全部使用定点数 | 快照加重放能精确恢复；主备结果按位一致，可以用 checksum 持续比对 |
+| P4 | **事务提交**：输入进度、输出记录和快照边界绑定在同一个提交点 | 崩溃恢复既不重复输出，也不遗漏输出 |
+| P5 | **在存储层隔离写者**：Kafka 事务的 producer fencing 拒绝旧写者提交，下游只读已提交数据；租约只负责选主 | 隔离不依赖时钟、进程调度和网络时延 |
+| P6 | **业务幂等**：`(venue, exec_id)` 和订单修订号去重，覆盖整个更正窗口 | 上游重发、Drop Copy 重复不会重复计入 |
+| P7 | **世代化版本**：所有输出带 `(generation, version)` | 不能保证逐条一致的重建（Region 切换、全量重算）能被客户端识别 |
+| P8 | **读写分离（CQRS）**：写路径只关心正确性，读路径按访问方式优化 | 读模型挂了也能从权威输出流重建 |
+| P9 | **宁可说不知道，也不给错误数字**：异常 key 或来源缺口标为 `STALE` | 风控可以按 fail-closed 处理 |
+
+### 4.2 正确性前提与保证边界
+
+本文所有“不丢、不重”的结论都以下列前提为条件。任何一条不成立时，系统靠对账发现差异并进入修正流程，而不是保证结果正确。
+
+| # | 前提 | 不成立时的后果与处理 |
+|---|---|---|
+| A1 | 上游能在补发窗口内按序列号补发（FIX ResendRequest、OMS outbox 重放） | 缺口无法自动补齐：来源标为不完整，靠 Drop Copy 补入 |
+| A2 | `(venue, exec_id)` 唯一，撤销和更正事件引用原成交 | 业务去重失效：由对账发现 |
+| A3 | 交易所的订单状态语义可以无歧义地映射为 §6.3 的内部事件 | 映射表按交易所维护，并有回归测试 |
+| A4 | 单个 MSK 集群内 Kafka 事务的语义成立（原子提交、producer fencing、`read_committed`） | 依赖 Kafka 本身的正确性，用混沌演练验证（§16.4） |
+| A5 | 主备运行同一版本的计算代码 | 版本不同时由 checksum 比对发现，发布流程负责保证（§16.2） |
+| A6 | 重发和更正发生在更正窗口内 | 超出窗口的进入历史修正流程，实时持仓标为 `RECONCILING` |
+| A7 | 跨 Region 复制不保证逐条一致，也不保证事务原子性 | 因此 Region 切换必然提升 `generation`（§11.3） |
+
+保证边界：
+
+- “恰好一次”指的是**从 `trading-events` 到权威输出流 `position-updates`** 这一段。上游到 `trading-events` 这一段由 Normalizer 的事务和会话序号保证；读模型（Redis、DynamoDB）是至少一次投影加版本幂等写入。
+- 和外部系统（交易所、清算所）之间的一致性，只能通过对账检测，本服务无法单方面保证。
 
 ---
 
@@ -197,66 +250,74 @@ flowchart LR
 
 ### 5.1 架构图
 
+图中 `g7` 表示当前数据世代（§7.12）。
+
 ```mermaid
 flowchart TB
     subgraph SRC["① 事件源"]
         OMS["OMS<br/>Transactional Outbox"]
-        FIX["交易所 / 券商网关<br/>FIX, 带 exec_id 和源序列号"]
+        FIX["交易所 / 券商网关<br/>FIX, exec_id, 源序列号"]
         DCP["Drop Copy"]
-        SODL["SOD / 公司行动加载器"]
+        CTRL["控制事件<br/>日切 / 公司行动 / 历史修正"]
     end
 
-    subgraph ING["② 接入层（EKS，3 AZ，无状态）"]
+    subgraph ING["② 接入层（EKS，3 AZ）"]
         RAW[("MSK raw topics<br/>按源会话分区")]
-        NORM["Normalizer<br/>序列缺口检测, 标的映射, 统一 schema, 生成 event_id"]
+        NORM["Normalizer<br/>事务: 会话去重, 缺口暂存, 标的映射, 转发"]
+        NSS[("normalizer-session-state<br/>会话序号状态, compacted")]
     end
 
     subgraph LOG["③ 事件日志（唯一事实来源）"]
-        TE[("MSK: trading-events<br/>512 分区, RF=3, min ISR=2<br/>key = account + instrument")]
+        TE[("MSK: trading-events<br/>512 分区, RF=3, min ISR=2")]
         ARC[("S3 归档<br/>Object Lock / WORM")]
     end
 
     subgraph CMP["④ 计算层（EKS StatefulSet）"]
-        ENG["Position Engine 主节点<br/>每分区单写者, 内存状态"]
-        STB["Hot Standby（另一 AZ）<br/>同样计算, 不输出"]
-        AGG["Account Aggregator<br/>账户级汇总"]
-        SNAP[("快照 S3<br/>+ DynamoDB 租约 / 快照指针")]
+        ENG["Position Engine 主节点<br/>每分区单写者<br/>输出与输入 offset 同事务提交"]
+        STB["Hot Standby（另一 AZ）<br/>只追到已提交 offset, 不输出"]
+        SNAP[("快照 S3<br/>只在提交边界生成")]
     end
 
-    subgraph DIST["⑤ 分发"]
-        PU[("MSK: position-updates<br/>变更流, 带 version / epoch / cause")]
-        PL[("MSK: positions-latest<br/>compacted, 用于初始化")]
-        AU[("MSK: account-updates")]
-        PROJ["Projector<br/>按版本号条件写"]
-        FAN["Push Fan-out<br/>按 key 合并"]
+    subgraph DIST["⑤ 权威输出与派生流（消费者全部 read_committed）"]
+        PU[("position-updates.g7<br/>唯一权威输出, compacted<br/>变更记录 + 水位记录")]
+        REP["Account Repartitioner<br/>事务复制"]
+        PBA[("position-updates-by-account.g7<br/>按账户分区, compacted")]
+        AGG["Account Aggregator"]
+        AU[("account-updates.g7")]
     end
 
     subgraph SERVE["⑥ 读模型与服务"]
-        REDIS[("ElastiCache Redis<br/>热读模型")]
-        DDB[("DynamoDB<br/>持久读模型, PITR")]
-        LAKE[("S3 Parquet + Athena / Redshift<br/>历史, 按时间点, 日终")]
+        PROJ["Projector<br/>按 generation + version 条件写"]
+        REDIS[("ElastiCache Redis")]
+        DDB[("DynamoDB")]
+        FAN["Fan-out<br/>按分区持有最新状态<br/>快照与增量同源"]
+        LAKE[("S3 Parquet + Athena")]
         QAPI["Query API<br/>gRPC / REST"]
-        WSG["Stream Gateway<br/>gRPC Stream / WebSocket"]
+        WSG["Stream Gateway"]
     end
 
-    RECON["对账服务<br/>Drop Copy / 清算 / 影子重算"]
+    RISK["事前风控<br/>本地副本 + 持久预扣"]
+    RECON["对账<br/>Drop Copy / 清算 / 独立实现差分"]
 
     OMS --> RAW
     FIX --> RAW
-    SODL --> RAW
+    CTRL --> RAW
     RAW --> NORM --> TE
+    NORM <--> NSS
     TE --> ARC
     TE --> ENG
     TE --> STB
     ENG --> SNAP
     ENG --> PU
-    ENG --> PL
-    PU --> AGG --> AU
+    PU -. "水位记录" .-> STB
     PU --> PROJ
+    PU --> REP --> PBA
+    PBA --> AGG --> AU
     AU --> PROJ
     PROJ --> REDIS
     PROJ --> DDB
-    PU --> FAN --> WSG
+    PBA --> FAN --> WSG
+    PBA --> RISK
     ARC --> LAKE
     REDIS --> QAPI
     DDB --> QAPI
@@ -264,32 +325,34 @@ flowchart TB
     ENG -. "STRONG / CAUSAL 读" .-> QAPI
     DCP --> RECON
     TE --> RECON
-    RECON -. "差异告警" .-> QAPI
 ```
 
 ### 5.2 组件清单
 
-| 组件 | AWS 实现 | 作用 | 有无状态 | 部署 |
+| 组件 | AWS 实现 | 作用 | 状态 | 部署 |
 |---|---|---|---|---|
-| Gateway Adapter | EKS | 接收 FIX 回报，写入 raw topic | 有会话状态（FIX 序列号） | 主备，跨 AZ |
-| Normalizer | EKS Deployment | 缺口检测、标的映射、统一 schema、重新分区 | 无状态 | 3 AZ，水平扩展 |
+| Gateway Adapter | EKS | FIX 会话、ResendRequest、写入 raw topic | FIX 会话状态 | 主备，跨 AZ |
+| Normalizer | EKS StatefulSet | 会话去重、缺口暂存、标的映射、按持仓键转发 | 会话序号状态，存于 compacted topic，与转发同事务提交 | 按 raw 分区分片，3 AZ |
+| 水位聚合器 | EKS Deployment（单活加备） | 汇总各会话的连续水位，写入 `SOURCE_WATERMARK` | 无（可从会话状态重建） | 主备，跨 AZ |
 | 事件日志 | Amazon MSK（Provisioned，Tiered Storage） | 唯一事实来源 | 有状态 | 3 AZ，RF=3 |
-| Position Engine | EKS StatefulSet | 持仓计算、强一致读 | 内存状态 + 快照 | 32 主 + 32 备，跨 AZ |
-| Account Aggregator | EKS StatefulSet | 账户汇总 | 内存状态（可重建） | 同上 |
-| Projector | EKS Deployment | 写 Redis / DynamoDB | 无状态 | 3 AZ |
-| Push Fan-out | EKS Deployment | 合并后推给 Stream Gateway | 无状态 | 3 AZ |
-| Query API | EKS + NLB / ALB | 查询入口、路由、鉴权 | 无状态 | 3 AZ |
-| Stream Gateway | EKS + NLB | 长连接推送 | 连接状态 | 3 AZ |
-| 热读模型 | ElastiCache Redis（Cluster 模式） | 亚毫秒读 | 可重建 | 每分片 1 主 2 从跨 AZ |
-| 持久读模型 | DynamoDB | 持久化当前持仓、日终快照 | 有状态 | 区域级，PITR |
-| 租约 / 快照指针 | DynamoDB | 分区 leader 选举、快照位置 | 有状态 | 区域级 |
-| 归档与数据湖 | S3（Object Lock）+ Glue + Athena / Redshift | 审计、历史查询、全量重放 | 有状态 | 跨区复制 |
-| 对账服务 | EKS CronJob / 流式任务 | 差异检测 | — | — |
+| Position Engine | EKS StatefulSet | 持仓计算、事务输出、强一致读 | 内存状态 + 快照 | 32 主 + 32 备，跨 AZ |
+| Account Repartitioner | EKS Deployment | 把权威输出按账户重新分区（事务复制） | 无（进度随事务提交） | 3 AZ |
+| Account Aggregator | EKS StatefulSet | 账户汇总 | 内存状态，可从 compacted topic 重建 | 跨 AZ |
+| Projector | EKS Deployment | 写 Redis / DynamoDB | 无 | 3 AZ |
+| Fan-out | EKS StatefulSet | 按 by-account 分区持有最新状态，服务订阅 | 内存状态（可重建）+ 约 60 秒增量缓冲 | 按分区分片，带租约 |
+| Query API | EKS + NLB / ALB | 查询入口、路由、鉴权 | 无 | 3 AZ |
+| Stream Gateway | EKS + NLB | 长连接、鉴权、按账户路由到 Fan-out | 连接状态 | 3 AZ |
+| 热读模型 | ElastiCache Redis（Cluster 模式） | 亚毫秒读 | 可重建 | 每分片 1 主 2 从，跨 AZ |
+| 持久读模型 | DynamoDB | 当前持仓、日终快照 | 有状态 | 区域级，PITR |
+| 租约 / 快照指针 / 世代记录 | DynamoDB + Route 53 ARC | 选主、快照位置、当前世代和活跃 Region | 有状态 | 区域级；活跃 Region 由 ARC 决定 |
+| 归档与数据湖 | S3（Object Lock）+ Glue + Athena / Redshift | 审计、历史查询、全量重算 | 有状态 | 跨区复制 |
+| 对账服务 | EKS CronJob / 流式任务 | 差异检测、独立实现差分 | — | — |
+| 风控预扣台账（归风控服务所有） | MSK `risk-reservations` | 持久化预扣 | 有状态 | 随风控分片 |
 
 ### 5.3 两条主路径
 
-- **写路径**：事件源 → raw topic → Normalizer → `trading-events` → Position Engine → `position-updates` → Projector / Fan-out → Redis / DynamoDB / 推送。
-- **读路径**：客户端 → Query API → 按一致性等级读 Redis / DynamoDB / 引擎；或者客户端 → Stream Gateway 订阅；或者直接消费 Kafka topic；或者查 Athena。
+- **写路径**：事件源 → raw topic → Normalizer（事务）→ `trading-events` → Position Engine（事务）→ `position-updates.g{n}` → Projector 写 Redis / DynamoDB；Repartitioner 写 by-account 流 → Fan-out、风控、账户聚合。
+- **读路径**：客户端 → Query API → 按一致性等级读 Redis / DynamoDB / 引擎；或者客户端 → Stream Gateway → Fan-out 订阅；或者直接消费 Kafka topic；或者查 Athena。
 
 ---
 
@@ -299,29 +362,31 @@ flowchart TB
 
 ```protobuf
 syntax = "proto3";
-package positions.events.v1;
+package positions.events.v2;
 
 message TradingEvent {
-  string   event_id        = 1;   // 确定性 ID：hash(source, source_session, source_seq) 或业务键
-  string   source          = 2;   // OMS / GW-NYSE-01 / DROPCOPY / SOD / OPS
-  string   source_session  = 3;
-  uint64   source_seq      = 4;   // 源内单调序列号，用于缺口检测
-  EventType type           = 5;
-  string   account_id      = 6;
-  string   instrument_id   = 7;   // 内部标的 ID（Normalizer 映射后）
-  string   book_id         = 8;   // 子账户 / 策略簿，默认 "default"
-  string   order_id        = 9;
-  uint32   order_version   = 10;  // 改单递增
-  string   exec_id         = 11;  // 成交唯一 ID（交易所提供）
-  string   ref_exec_id     = 12;  // BUST / CORRECT 指向的原成交
-  Side     side            = 13;
-  Fixed    qty             = 14;  // 定点数
-  Fixed    price           = 15;
-  Fixed    order_qty       = 16;  // 订单事件：订单总量
-  string   trade_date      = 17;  // YYYY-MM-DD
-  int64    ts_exchange_ns  = 18;
-  int64    ts_ingest_ns    = 19;
-  map<string,string> attrs = 20;  // 扩展字段（费用、流动性标记等）
+  string    event_id        = 1;   // 确定性 ID：hash(source, source_session, source_seq)，用于追踪和审计
+  string    source          = 2;   // OMS / GW-NYSE-01 / DROPCOPY / CTRL / OPS
+  string    source_session  = 3;   // 会话 ID（包含交易日）
+  uint64    source_seq      = 4;   // 会话内单调连续序号
+  EventType type            = 5;
+  string    account_id      = 6;
+  string    instrument_id   = 7;   // 内部标的 ID（Normalizer 映射后）
+  string    book_id         = 8;   // 子账户 / 策略簿，默认 "default"
+  string    venue           = 9;   // 交易所 / 券商；exec_id 只在同一 venue 内唯一
+  string    order_id        = 10;  // 订单身份（OMS 分配，跨修订不变）
+  uint32    order_rev       = 11;  // 修订号：NEW 为 1，每次改单请求加 1
+  string    exec_id         = 12;  // 成交唯一 ID（BUST / CORRECT 事件自身也有唯一 exec_id）
+  string    ref_exec_id     = 13;  // BUST / CORRECT 指向的原成交
+  Side      side            = 14;
+  Fixed     qty             = 15;  // FILL / CORRECT：成交量
+  Fixed     price           = 16;  // FILL / CORRECT：成交价；订单事件：限价
+  Fixed     order_qty       = 17;  // 订单事件：该修订的订单总量
+  Fixed     venue_cum_qty   = 18;  // 交易所回报的累计成交量（可选，用于交叉校验）
+  string    trade_date      = 19;  // 成交所属交易日 YYYY-MM-DD
+  int64     ts_exchange_ns  = 20;
+  int64     ts_ingest_ns    = 21;
+  map<string,string> attrs  = 22;  // 扩展字段（费用、流动性标记等）
 }
 
 message Fixed { int64 hi = 1; uint64 lo = 2; int32 scale = 3; } // int128 定点数
@@ -330,10 +395,18 @@ enum Side { SIDE_UNSPECIFIED = 0; BUY = 1; SELL = 2; SELL_SHORT = 3; }
 
 enum EventType {
   EVENT_TYPE_UNSPECIFIED = 0;
-  ORDER_NEW = 1; ORDER_ACK = 2; ORDER_AMEND = 3; ORDER_CANCEL = 4;
-  ORDER_REJECT = 5; ORDER_EXPIRE = 6;
-  EXEC_FILL = 10; EXEC_BUST = 11; EXEC_CORRECT = 12;
-  SOD_POSITION = 20; CORP_ACTION = 21; DAY_ROLL = 22; MANUAL_ADJUSTMENT = 23;
+  // OMS 侧请求
+  ORDER_NEW_REQ = 1; ORDER_AMEND_REQ = 2; ORDER_CANCEL_REQ = 3;
+  // 交易所侧确认
+  ORDER_NEW_ACK = 10; ORDER_NEW_REJECT = 11;
+  ORDER_AMEND_ACK = 12; ORDER_AMEND_REJECT = 13;
+  ORDER_CANCEL_REJECT = 14; ORDER_CANCELED = 15; ORDER_EXPIRED = 16;
+  ORDER_RESTATED = 17;             // 交易所主动重述订单量或状态（例如撤销成交后重新可交易）
+  // 成交
+  EXEC_FILL = 20; EXEC_BUST = 21; EXEC_CORRECT = 22;
+  // 控制
+  DAY_ROLL = 30; CORP_ACTION = 31; SOURCE_WATERMARK = 32;
+  RESTATEMENT = 33; RELEASE_KEY = 34; SOD_POSITION = 35; MANUAL_ADJUSTMENT = 36;
 }
 ```
 
@@ -343,48 +416,81 @@ enum EventType {
 |---|---|---|
 | `account_id / instrument_id / book_id` | string | 持仓键 |
 | `trade_date` | date | 当前交易日 |
-| `sod_qty` | Fixed | 日初数量 |
+| `sod_qty / sod_cost_basis` | Fixed | 日初数量和日初成本（由上一交易日收盘状态滚动得到） |
 | `net_qty` | Fixed | 当前净持仓（正为多，负为空） |
-| `cost_basis` | Fixed | 当前持仓的总成本（精确值）；均价 = `cost_basis / |net_qty|`，读取时计算 |
+| `cost_basis` | Fixed | 当前持仓的总成本；均价 = `cost_basis / |net_qty|`，读取时计算 |
 | `realized_pnl` | Fixed | 当日已实现盈亏（毛额） |
 | `fees` | Fixed | 当日费用（来自回报，可选） |
 | `bought_qty / sold_qty` | Fixed | 当日累计买入 / 卖出量 |
-| `open_buy_qty / open_sell_qty` | Fixed | 在途挂单剩余量（由订单状态推导） |
+| `open_buy_qty / open_sell_qty` | Fixed | 在途挂单剩余量（由订单状态增量维护，§7.4） |
 | `open_buy_notional / open_sell_notional` | Fixed | 在途挂单名义金额（限价单按限价，市价单按参考价） |
-| `version` | uint64 | 该 key 的状态版本，从日志确定性推导，单调递增 |
-| `epoch` | uint64 | 产生该版本的写者 epoch |
+| `generation` | uint32 | 数据世代（§7.12） |
+| `version` | uint64 | 该 key 在本世代内的状态版本，单调递增 |
+| `epoch` | uint64 | 产生该版本的写者任期（只用于诊断，隔离由事务保证） |
 | `src_offset` | uint64 | 产生该版本的 `trading-events` offset |
-| `cause` | struct | 触发该版本的事件身份：`{type, order_id, order_version, exec_id, event_id}` |
+| `cause` | struct | 触发事件：`{type, order_id, order_rev, exec_id, event_id}` |
+| `order_effects` | list | 本次变更涉及的订单状态：`[{order_id, order_rev_acked, leaves, cum_qty, is_terminal}]`，供风控释放预扣（§9.8） |
 | `status` | enum | `OK / STALE / RECONCILING` |
 | `last_event_ts / updated_at` | timestamp | 最后事件的交易所时间 / 处理时间 |
 
-### 6.3 订单状态机（只用于计算在途敞口）
+### 6.3 订单模型与状态机（只用于计算在途敞口）
+
+**模型**：订单身份 `order_id` 跨修订不变；修订号 `order_rev` 由 OMS 分配，NEW 为 1，每次改单请求加 1。
+
+```text
+Order {
+  order_id, account, instrument, book, side, venue
+  acked_rev, acked_qty, acked_px              # 交易所已确认的最新修订（在途敞口按它计算）
+  max_req_rev, pending_amend: {rev, qty, px}  # 尚未确认的改单（风控侧仍按预扣覆盖）
+  status: PENDING_NEW | LIVE | DONE | REJECTED
+  done_reason: FILLED | CANCELED | EXPIRED | null
+  fills: 引用该 key 有效成交表中属于本订单的记录
+}
+cum_qty = Σ 本订单有效成交的数量          # 和持仓使用同一份成交表，不单独计数
+leaves  = 0                               当 status ∈ {PENDING_NEW, DONE, REJECTED}
+        = max(0, acked_qty − cum_qty)     当 status = LIVE
+```
+
+**转移规则**（每条都带修订号检查）：
+
+| 事件 | 条件 | 效果 |
+|---|---|---|
+| `NEW_REQ(rev=1)` | 订单不存在 | 建立订单，`status = PENDING_NEW`，`leaves = 0`（风控仍由预扣覆盖） |
+| `NEW_ACK(rev=1)` | 订单不是 `REJECTED` | `acked_rev = 1`，记下 `acked_qty`；如果尚未结束，`status = LIVE` |
+| `NEW_REJECT(rev=1)` | 订单为 `PENDING_NEW` | `status = REJECTED`。**只有新单被拒才会结束订单** |
+| `AMEND_REQ(rev=k)` | `k > max_req_rev` | 记为 `pending_amend`，不改变 `acked_qty` |
+| `AMEND_ACK(rev=k)` | `k > acked_rev` | `acked_rev = k`，`acked_qty`、`acked_px` 更新为该修订；`leaves` 重新计算 |
+| `AMEND_REJECT(rev=k)` | 有对应的 `pending_amend` | 清掉 `pending_amend`；**原订单保持有效，状态不变** |
+| `CANCEL_REQ` | — | 只记录，不改变状态 |
+| `CANCEL_REJECT` | — | 只记录，订单保持有效，状态不变 |
+| `CANCELED / EXPIRED` | 订单尚未结束 | `status = DONE`，`done_reason` 记下原因，`leaves = 0` |
+| `FILL` | `(venue, exec_id)` 未见过 | 写入有效成交表；如果 `cum_qty ≥ acked_qty` 且订单为 `LIVE`，`status = DONE(FILLED)`。订单已经结束或尚未建立时，**成交照样计入持仓**（订单不存在就建占位订单） |
+| `BUST` | 原成交存在且有效 | 原成交标记为无效，`cum_qty` 自动变小。如果订单是因为全部成交而结束的，**状态保持 `DONE`**，是否重新可交易以交易所后续的 `RESTATED` 为准 |
+| `CORRECT` | 原成交存在 | 原位替换原成交的数量或价格（§7.9） |
+| `RESTATED` | 版本较新 | 按交易所给出的订单量和状态重述 |
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING_NEW : ORDER_NEW
-    [*] --> PLACEHOLDER : 成交先于订单到达
-    PLACEHOLDER --> WORKING : 补到 ORDER_NEW 或 ACK
-    PENDING_NEW --> WORKING : ORDER_ACK
-    PENDING_NEW --> REJECTED : ORDER_REJECT
-    WORKING --> WORKING : ORDER_AMEND（版本更新）
-    WORKING --> PARTIALLY_FILLED : EXEC_FILL（cum 小于 qty）
-    PARTIALLY_FILLED --> PARTIALLY_FILLED : EXEC_FILL / AMEND
-    WORKING --> FILLED : EXEC_FILL（cum 等于 qty）
-    PARTIALLY_FILLED --> FILLED : EXEC_FILL（cum 等于 qty）
-    WORKING --> CANCELED : ORDER_CANCEL / EXPIRE
-    PARTIALLY_FILLED --> CANCELED : ORDER_CANCEL / EXPIRE
-    FILLED --> PARTIALLY_FILLED : EXEC_BUST（撤销成交）
-    CANCELED --> CANCELED : 迟到的 FILL 仍计入持仓
+    [*] --> PENDING_NEW : NEW_REQ
+    [*] --> LIVE : NEW_ACK 先于 NEW_REQ 到达
+    [*] --> PLACEHOLDER : FILL 先于订单事件到达
+    PLACEHOLDER --> LIVE : 补到 NEW_ACK
+    PLACEHOLDER --> PENDING_NEW : 补到 NEW_REQ
+    PENDING_NEW --> LIVE : NEW_ACK
+    PENDING_NEW --> REJECTED : NEW_REJECT
+    LIVE --> LIVE : AMEND_ACK 更新已确认修订
+    LIVE --> LIVE : AMEND_REJECT 或 CANCEL_REJECT 状态不变
+    LIVE --> DONE : 成交满额 或 CANCELED 或 EXPIRED
+    DONE --> DONE : 迟到成交照样计入持仓
+    DONE --> DONE : BUST 不自动恢复
+    DONE --> LIVE : RESTATED 交易所确认重新可交易
     REJECTED --> [*]
-    FILLED --> [*] : T+1 清理
-    CANCELED --> [*] : T+1 清理
+    DONE --> [*] : 更正窗口结束后归档
 ```
 
-关键规则：
-- **在途剩余量由状态推导**：`leaves = max(0, order_qty - cum_qty)`，终态订单 `leaves = 0`。持仓上的 `open_buy_qty` 是同 key 下所有活跃买单 `leaves` 之和。这样即使事件乱序（成交先于确认、撤单和成交同时发生），最终结果也是对的。
-- **迟到成交照样计入持仓**：订单已撤销后又到达的成交（撤单和成交同时发生）必须计入持仓。
-- **过期的改单丢弃**：`order_version` 不大于当前版本的 AMEND 直接忽略。
+**交易所消息映射（以 FIX 4.4 为例，按 venue 维护）**：`ExecType=0(New)` 映射为 `NEW_ACK`；`8(Rejected)` 映射为 `NEW_REJECT`；`5(Replaced)` 映射为 `AMEND_ACK`；`OrderCancelReject(35=9)` 根据 `CxlRejResponseTo(434)` 是 1（撤单）还是 2（改单），映射为 `CANCEL_REJECT` 或 `AMEND_REJECT`；`4(Canceled)` 映射为 `CANCELED`；`C(Expired)` 映射为 `EXPIRED`；`F(Trade)` 映射为 `FILL`；`H(Trade Cancel)` 映射为 `BUST`；`G(Trade Correct)` 映射为 `CORRECT`；`D(Restated)` 映射为 `RESTATED`。修订号通过 `ClOrdID → (order_id, order_rev)` 的映射得到，这张映射由 OMS 在每个请求事件中带上。
+
+**交叉校验**：交易所回报带 `venue_cum_qty` 时，和引擎内的 `cum_qty` 比对，不一致就把该 key 标为 `STALE` 并告警，不静默修正。
 
 ### 6.4 持仓计算规则（加权平均成本法）
 
@@ -411,6 +517,8 @@ apply_fill(pos, side, q, px):            # q > 0；买为 +q，卖为 -q
 
 期货、期权需要乘合约乘数（`notional = qty × px × multiplier`）。如果业务需要 FIFO / 税批次（tax lot），就把 `cost_basis` 扩展成批次队列，内存会相应增加（见 §18）。
 
+**有效成交表（每个 key 一份，按 `trade_date` 分组）**：每条记录包含 `{venue, exec_id, trade_date, src_offset, side, qty, px, valid}`。持仓按 `src_offset` 顺序依次 apply 有效记录得到；订单的 `cum_qty` 也从这张表求和。持仓和订单使用同一份数据，所以不会出现“持仓已撤销、订单累计没回滚”的情况。
+
 **示例**（只演示成交事件，单位：股、美元）：
 
 | 版本 | 事件 | 净数量 | 均价 | 本笔已实现 | 累计已实现 |
@@ -420,11 +528,11 @@ apply_fill(pos, side, q, px):            # q > 0；买为 +q，卖为 -q
 | v3 | E3 卖 600 @190 | 900 | 187.00 | +1,800 | 1,800 |
 | v4 | E4 卖 1200 @186（平 900，翻空 300） | -300 | 186.00 | -900 | 900 |
 | v5 | E5 买 300 @184（平空） | 0 | — | +600 | 1,500 |
-| v6 | **E3 被 BUST** → 按 SOD + E1、E2、E4、E5 重算 | 600 | 185.50 | — | -1,200 |
+| v6 | **E3 被 BUST** → 从日初基线按 E1、E2、E4、E5 重算 | 600 | 185.50 | — | -1,200 |
 
 v6 的重算过程：E1、E2 之后为 1500 股、均价 187；E4 卖 1200 股，已实现 (186-187)×1200 = -1,200，剩 300 股、均价 187；E5 买 300 @184，变成 600 股，均价 (300×187 + 300×184)/600 = 185.5。
 
-> 在加权平均成本法下，撤销一笔历史成交**不能简单反向抵消**，因为后续成交的均价路径已经变了。所以引擎为每个 key 保留当日成交序列，发生 BUST / CORRECT 时**按日志顺序确定性重算该 key**。版本号继续递增，不回退。
+> 在加权平均成本法下，撤销或更正一笔历史成交**不能简单反向抵消**，因为后续成交的均价路径已经变了。所以引擎从受影响交易日的日初基线开始，按原 `src_offset` 顺序重算有效成交（跨日情况见 §7.9）。重算产生的是新的版本，版本号继续递增，不回退。
 
 ---
 
@@ -441,33 +549,66 @@ sequenceDiagram
     participant NM as Normalizer
     participant TE as MSK trading-events
     participant EN as Position Engine 主节点
-    participant PU as MSK position-updates
-    participant PJ as Projector
-    participant RD as Redis / DynamoDB
-    participant FO as Fan-out 与 Stream Gateway
+    participant PU as position-updates.g7
+    participant RP as Repartitioner
+    participant DS as Projector / Fan-out / 风控
 
     EX->>GA: ExecutionReport（exec_id, seq=1001）
-    GA->>GA: 检查 FIX 序列号, 发现缺口则发 ResendRequest
+    GA->>GA: 检查 FIX 序列号, 有缺口则发 ResendRequest
     GA->>RAW: 幂等写入, acks=all
-    RAW->>NM: 拉取
-    NM->>NM: 标的映射, 统一 schema, 生成 event_id
-    NM->>TE: 写入 partition = hash(account, instrument) mod 512
-    TE->>EN: 拉取（standby 同时拉取）
-    EN->>EN: offset 去重, exec_id 去重, 更新持仓, version 加 1
-    EN->>PU: PositionUpdated(key, version, epoch, src_offset, cause)
-    PU->>PJ: 拉取
-    PJ->>RD: 条件写（只有 version 更大才写入）
-    PU->>FO: 拉取, 按 key 合并
-    FO-->>FO: 推送给已订阅的客户端
+    RAW->>NM: 拉取（read_committed）
+    NM->>NM: 会话去重, 标的映射, 生成 event_id
+    NM->>TE: 事务: 转发事件 + 会话状态 + raw offset
+    TE->>EN: 拉取已提交事件（standby 同时拉取）
+    EN->>EN: 业务去重, 更新持仓, version 加 1
+    EN->>PU: 事务: 变更记录 + 水位记录 + trading-events offset
+    PU->>RP: 拉取已提交记录
+    RP->>DS: 事务复制到 by-account 流
+    PU->>DS: Projector 条件写 Redis / DynamoDB
 ```
 
-### 7.2 接入与规范化
+### 7.2 接入与规范化（Normalizer）
 
-- **上游可靠发出**：OMS 用 **Transactional Outbox** 模式：订单写库和出站事件在同一个数据库事务里提交，由 relay 进程投递到 MSK，保证订单事件一定发出（可能重复，下游去重）。
-- **序列缺口检测**：每个源会话都有单调递增的 `source_seq`。Gateway Adapter 按 FIX 协议发 `ResendRequest` 补发；Normalizer 再按 `(source, session)` 检查一遍。**每个会话严格按序转发，不越过缺口**：有缺口时，该会话后面的事件先暂存，等缺口补齐再转发（这也是 FIX 引擎的标准行为），因为引擎的事件身份去重依赖会话内序号单调（§7.4）。缺口超过阈值（例如 500ms）未补齐时，告警并把受影响账户标记为可能不完整。如果确认缺口永久丢失（例如上游 SequenceReset），就写入一条缺口标记事件后继续转发；丢失的成交由 Drop Copy 对账发现，以 `DROPCOPY` 来源（另一个会话）补入，最终仍靠 `exec_id` 去重。
-- **raw topic 按源会话分区**：这样同一会话的事件严格有序，便于缺口检测。Normalizer 再按持仓键重新分区写入 `trading-events`。
-- **确定性 event_id**：`event_id = hash(source, session, source_seq)`。Normalizer 崩溃重启后，重复写入的事件 event_id 相同，引擎可以识别。
-- **标的映射失败**：交易所代码映射不到内部 `instrument_id` 时，事件进入 `pending-refdata` 队列并告警，对应账户标记 `STALE`，**不能丢弃**。
+**上游可靠发出**：OMS 用 **Transactional Outbox**：订单写库和出站事件在同一个数据库事务里提交，由 relay 进程投递到 raw topic。可能产生重复，由 Normalizer 去重。
+
+**会话状态**：每个 `(source, session)` 维护一份状态：
+
+```text
+SessionState {
+  contiguous_seq   # 连续水位：≤ 该序号的事件都已转发（或已登记为永久缺口）
+  parked: map seq → event          # 被暂存、尚未转发的事件（数量有上限）
+  forwarded_above: set of seq      # 高于连续水位、已经转发的序号（只在有暂存时存在，数量有上限）
+}
+```
+
+**处理规则**（一次只处理一个 raw 分区内的事件，因此同一会话的事件按顺序到达）：
+
+```text
+on_raw(e):
+  st = state[(e.source, e.session)]
+  if e.seq <= st.contiguous_seq or e.seq in st.forwarded_above or e.seq in st.parked:
+      return                                         # 重复：outbox 重发、Gateway 重发、Normalizer 重启
+  if e.seq > st.contiguous_seq + 1 + |st.forwarded_above| + |st.parked|:
+      gap_detected(e)                                # 来源缺口：触发补发，见下文
+  if map_instrument(e) fails:
+      st.parked[e.seq] = e; mark_account_stale(e.account, PENDING_REFDATA); return
+  forward(e)                                         # 写入 trading-events
+  st.forwarded_above.add(e.seq); advance(st)         # 把连续的序号并入 contiguous_seq
+
+on_refdata_fixed(instrument):                        # 参考数据修复后，补转发暂存事件
+  for each parked e of this instrument (按 seq 顺序):
+      forward(e); st.parked.remove(e.seq); st.forwarded_above.add(e.seq); advance(st)
+```
+
+关键点：
+
+1. **同一个序号只转发一次**：被暂存的事件有确切记录，补回时放行；已转发的序号也有确切记录，重发时丢弃。v1 中“最大序号去重”和“旁路暂存”互相冲突的问题由此消除。
+2. **标的映射失败不阻塞整个会话**：只暂存相关事件，后续事件继续转发。暂存数量超过上限（例如 1 万条）或者超过 30 秒还没修复，就把整个会话标为不完整，后续事件改为全部暂存，避免状态无限增长。
+3. **来源缺口**：Gateway Adapter 按 FIX 协议 `ResendRequest`。超过阈值（例如 500ms）仍未补齐，给受影响账户发 `STALE(SOURCE_GAP)`。如果确认缺口永久无法补齐（例如上游 `SequenceReset`），在会话状态中把这一段登记为永久缺口，并写一条审计事件；丢失的成交由 Drop Copy 对账发现，以 `DROPCOPY` 来源补入，最后靠 `(venue, exec_id)` 去重。
+4. **事务提交**：每个 raw 分区对应一个固定的 `transactional.id = normalizer-{raw_partition}`。每批的转发记录、会话状态更新（写入 compacted topic `normalizer-session-state`）、raw topic 的消费 offset，在**同一个 Kafka 事务**里提交。Normalizer 崩溃重启或分片迁移后，新实例调用 `initTransactions` 隔离旧实例，状态和转发结果始终一致，不会出现“已转发但状态没记下”或者相反的情况。
+5. **来源水位**：Normalizer 在会话状态中记录每个会话的 `contiguous_seq`、对应的交易所时间（FIX 心跳也会推进这个时间），以及是否有未补齐的缺口。一个单独的水位聚合器以 `read_committed` 读取 `normalizer-session-state`，每 100ms 向每个 `trading-events` 分区写一条 `SOURCE_WATERMARK` 控制事件（512 × 10 ≈ 5,120 条/秒）。正确性在于：会话状态和转发在同一事务提交，所以聚合器读到 `contiguous_seq = X` 时，序号不超过 X 的事件都已经提交到 `trading-events`；聚合器之后才写水位，水位在每个分区日志中一定位于这些事件之后。引擎据此计算数据完整到哪个时间点（§9.4）。
+
+**确定性 event_id**：`event_id = hash(source, session, source_seq)`，用于追踪、审计和链路追踪，不再承担去重。
 
 ### 7.3 分区策略
 
@@ -479,106 +620,176 @@ sequenceDiagram
 
 - 分区函数由共享库实现：`partition = murmur3_64(account_id + "|" + instrument_id) mod 512`。producer 显式指定分区，不依赖各语言 Kafka 客户端默认分区器的差异。
 - **一开始就预留 512 个分区**。Kafka 扩分区会改变 key 到分区的映射，破坏单 key 有序；扩容时迁移的是分区和引擎的对应关系，不是分区数量。
-- 同一 `(account, instrument)` 下的多个 `book_id` 落在同一个分区。
+- 同一 `(account, instrument)` 下的多个 `book_id` 落在同一个分区。`position-updates.g{n}` 和 `trading-events` 使用相同的分区数和分区函数，分区一一对应。
 
 ### 7.4 Position Engine
 
-**线程模型**：一个 Pod 负责若干分区，**每个分区一个单线程事件循环**。状态全部在内存。
+**线程模型**：一个 Pod 负责若干分区，每个分区一个单线程事件循环，状态全部在内存。
 
 ```text
-on_event(e, offset):
-  if offset <= applied_offset[p]: return                       # 第一层去重：offset（重放 / 重复拉取）
-  sk = (e.source, e.source_session)                            # session 含交易日，序号每日重置也不冲突
-  if e.source_seq <= max_seq[p][sk]:                           # 事件身份去重：Normalizer 重启 / outbox 重发
-      applied_offset[p] = offset; return
-  max_seq[p][sk] = e.source_seq
-  key = (e.account, e.instrument, e.book)
-  ord = orders.get_or_create(e.order_id)                       # 成交先到时建占位订单
-  pos = positions.get_or_create(key)
-  changed = false
-
+on_event(e, offset):                       # 只处理已提交的事件，按 offset 顺序
+  if offset <= applied_offset[p]: return   # 重放保护
+  outs = []
   switch e.type:
-    ORDER_NEW / ORDER_ACK / ORDER_AMEND:
-        if e.order_version < ord.version: break                # 过期改单
-        ord.order_qty, ord.limit_px, ord.version = e.order_qty, e.price, e.order_version
-        ord.status = transition(ord.status, e.type); changed = true
-    ORDER_CANCEL / ORDER_REJECT / ORDER_EXPIRE:
-        if ord.status != TERMINAL: ord.status = TERMINAL; changed = true
-    EXEC_FILL:
-        if e.exec_id in ord.exec_ids: break                    # 第二层去重：业务键
-        ord.exec_ids.add(e.exec_id); ord.cum_qty += e.qty
-        fills[key].append(e); apply_fill(pos, e.side, e.qty, e.price); changed = true
-    EXEC_BUST / EXEC_CORRECT:
-        if e.exec_id in ord.exec_ids: break                    # 更正事件本身也要去重
-        ord.exec_ids.add(e.exec_id)
-        mark_busted(fills[key], e.ref_exec_id); maybe_append_corrected(e)
-        recompute(pos, sod[key], fills[key]); changed = true   # 按日志顺序确定性重算
-    SOD_POSITION:   reset_baseline(pos, e); changed = true
-    CORP_ACTION:    apply_ratio(pos, e);    changed = true     # 例如 2:1 拆股：数量 ×2，成本不变
-    DAY_ROLL:       roll(pos, e.trade_date); changed = true    # 已实现盈亏归档，sod = net
-
-  if changed:                                                  # 重复事件不递增版本、不输出
-      pos.open_buy_qty, pos.open_sell_qty = sum_leaves(orders_of(key))   # 由状态推导
-      pos.version += 1; pos.cause = identity(e); pos.src_offset = offset
-      emit(PositionUpdated(pos, epoch))
+    SOURCE_WATERMARK: update_completeness(e)                  # 不改变持仓，只更新水位
+    DAY_ROLL:         outs = day_roll(p, e)                   # 作用于分区内全部 key，§7.9
+    RELEASE_KEY:      outs = release_quarantine(e.key)        # §7.10
+    RESTATEMENT:      outs = apply_restatement(e)             # 审批后的历史修正，§7.9
+    default:
+      key = (e.account, e.instrument, e.book)
+      if quarantined(key): park(key, e); break                # 隔离中的 key 只排队不处理
+      if not trade_date_in_window(e): to_restatement_queue(e); outs = [mark(key, RECONCILING)]; break
+      outs = process_business_event(key, e)                   # 订单状态机 + 成交表，§6.3 / §6.4
+  for out in outs:                                            # 每个受影响的 key 一条变更记录
+      out.generation = G; out.version = ++version[out.key]
+      out.cause = identity(e); out.src_offset = offset
+      batch.append(out)
   applied_offset[p] = offset
+  # 提交由批循环负责：§7.7
 ```
 
-**事件身份去重为什么能用“最大序号”**：raw topic 按源会话分区，FIX 引擎补齐缺口后才按序交付，所以每个会话写进 raw topic 时有序且连续。Normalizer 对单个会话按序转发，幂等 producer 保证同一分区内的顺序不变。因此在 `trading-events` 的任一分区里，同一会话的事件序号单调递增；Normalizer 重启或 OMS outbox 重发产生的重复，序号一定不大于已见过的最大值。这一层的内存只和会话数有关，不随事件量增长。业务层面的最终保证仍然是 `exec_id` 和 `order_version`。
+`process_business_event` 的要点：
 
-**输出批量发送**：`linger.ms = 0~1`，一次 poll 的结果批量发送；不需要 Kafka 事务（可选，见 §17）。
+- **业务去重**：成交按 `(venue, exec_id)` 查有效成交表；BUST / CORRECT 按自身的 `exec_id` 去重，并通过 `ref_exec_id` 找到原成交。订单事件按 `(order_id, order_rev, type)` 去重。重复事件不产生输出，也不递增版本。
+- **在途敞口增量维护**：每个 key 维护 `open_buy_qty` 等汇总值。订单的 `leaves` 变化时，只把差值加到汇总上（`agg += new_leaves − old_leaves`），每个事件是 O(1)，不再像 v1 那样每次扫描该 key 的全部订单。
+- **记录订单效果**：如果事件改变了某个订单的 `acked_rev`、`leaves`、`cum_qty` 或是否结束，把 `{order_id, acked_rev, leaves, cum_qty, is_terminal}` 写进本次变更记录的 `order_effects`，供风控释放预扣。
+- **成交撤销或更正的重算**：只重算受影响的 key，从受影响交易日的基线开始（§7.9）。重算在该分区的事件循环里同步完成，单个 key 最多涉及几千笔成交，耗时在毫秒级；超过阈值（例如一个 key 单日成交超过 10 万笔）就切换为增量批次重算，期间该 key 标为 `RECONCILING`，不阻塞分区内其他 key。
 
-**内存上限**：`exec_ids` 和终态订单在 T+1 日切后清理；当日成交序列在日切时归档到 S3；`max_seq` 中已结束的会话在日切时清理。
+### 7.5 去重与幂等（分层）
 
-### 7.5 去重与幂等
+| 层次 | 机制 | 防的是什么 | 覆盖范围 |
+|---|---|---|---|
+| Producer | Kafka 幂等 producer（PID + 序列号） | 网络重试导致同一批消息重复写入 | 单个 producer 会话 |
+| Normalizer | 会话状态：连续水位 + 暂存集合 + 已转发集合，与转发在同一事务提交 | outbox 重发、Gateway 重发、Normalizer 重启 | 会话生命周期 |
+| 引擎输入 | 消费 offset 与输出在同一事务提交 | 引擎重启、主备切换后的重复处理 | 永久 |
+| 引擎业务 | `(venue, exec_id)` 有效成交表；`(order_id, order_rev, type)` | 交易所重发、Drop Copy 与主回报重复、跨来源的同一成交 | **整个更正窗口**（默认 3 个交易日）；窗口外见 §7.9 |
+| 下游投影 | `(generation, version)` 条件写 | Projector 重启后的重复写入 | 永久 |
 
-| 层次 | 去重键 | 防的是什么 |
-|---|---|---|
-| Producer | Kafka 幂等 producer（PID + 序列号） | 网络重试导致同一批消息重复写入 |
-| 日志位置 | `applied_offset` | 引擎重启后重复拉取、从快照重放 |
-| 事件身份 | 每个分区内 `(source, session)` 的最大 `source_seq`（`event_id` 用于追踪和审计） | Normalizer 重启、OMS outbox 重发 |
-| 业务身份 | `exec_id`；`(order_id, order_version)` | 交易所重发、Drop Copy 和主回报重复、多来源同一成交 |
-| 下游 | `version`（条件写）+ `epoch` | 引擎重放后重复输出、主备切换期间的重叠输出 |
+### 7.6 输出模型：一条权威输出流
 
-### 7.6 隔离无法处理的事件
+v1 中引擎同时写 `position-updates` 和 `positions-latest` 两个 topic，可能出现只写成功一个的情况。v2 只保留**一条权威输出流** `position-updates.g{n}`：
 
-某个事件无法处理（schema 错误、违反不变量、例如 `cum_qty > order_qty`）时：
+- **compacted，并设置 `min.compaction.lag.ms = 7 天`**：每个 key 的最新记录永久保留，可以直接用于初始化（替代 `positions-latest`）；7 天内写入的记录不会被压缩，历史版本完整保留，用于增量消费和续传。
+- **两类记录**：
+  - 变更记录：key 为持仓键，value 为完整的持仓状态，加上 `generation`、`version`、`cause`、`order_effects`、`src_offset`。
+  - 水位记录：key 为 `__wm__/{partition}`，value 为 `{generation, input_offset, source_completeness, epoch, ts}`。引擎每次提交时都附带一条（至少每 100ms 一条，空闲时作为心跳）。它记录该分区已经处理到 `trading-events` 的哪个位置、数据完整到哪个时间点。
+- **只能由引擎事务写入**：除引擎的事务 producer 外，任何主体都没有写权限（ACL）。
+- **compaction 不会把旧状态留到最后**：所有写入都来自同一个分区写者，并在已提交的事务中按版本顺序追加。旧写者被隔离后，它未提交的记录对 `read_committed` 消费者不可见，也不会成为“最后一条”。所以每个 key 日志中位置最靠后的已提交记录，就是版本最大的那条。
 
-1. **只隔离该 key**：把事件写入 `position-quarantine` topic，该 key 标记 `STALE`，后续该 key 的事件先缓冲（同样写入隔离队列，保持顺序）。
-2. **同分区其他 key 继续处理**，不阻塞整个分区。
-3. 立即告警并通知风控（风控对 `STALE` 的 key 按 fail-closed 处理）。
-4. 修复后（修代码或补数据），引擎按顺序重放该 key 的隔离事件，恢复 `OK`。
+### 7.7 事务提交、快照与恢复
 
-### 7.7 快照与恢复
+**批循环**（每个分区一个事务 producer，`transactional.id = pos-engine-{partition}`，在所有引擎实例之间固定不变）：
 
-- **触发时机**：每 60 秒或每 100 万事件（先到为准），每个分区独立做。
-- **内容**：分区内全部持仓、订单、去重集合、当日成交序列，加上 `applied_offset`、`epoch`、代码版本、状态 checksum。
-- **方法**：用写时复制或分段版本化的数据结构，在后台线程序列化，事件循环只停顿微秒级；压缩后写 S3，并在 DynamoDB 里用条件写更新快照指针。
-- **恢复**：加载最新快照，从 `applied_offset + 1` 开始重放。高峰时每分区约 390 事件/秒，60 秒内大约积累 2.3 万事件，**重放不到 1 秒**。
-- **全量重建**：一天约 10 亿事件，每分区约 195 万。按单线程每秒 10~20 万事件重放，约 10~20 秒，加上读取 S3 / Tiered Storage 的 I/O，总体在分钟级以内。
+```text
+loop:
+  events = poll(trading-events[p], read_committed, max = 500 条或 1ms)
+  for e in events: on_event(e, e.offset)              # 输出进入 batch
+  batch.append(watermark_record(p, applied_offset[p], completeness))
+  producer.beginTransaction()
+  producer.send(batch)                                 # 写 position-updates.g{n}[p]
+  producer.sendOffsetsToTransaction({trading-events[p]: applied_offset[p] + 1}, group = "pos-engine")
+  producer.commitTransaction()                         # 原子：输出可见 + 输入进度推进
+  committed_offset[p] = applied_offset[p]
+  if 需要快照: snapshot_async(p, at = committed_offset[p])
+```
 
-### 7.8 Projector 与条件写
+- 事务内的输出和输入进度一起提交，或者一起作废。崩溃发生在提交前，这批输出对 `read_committed` 消费者不可见，输入进度也没有推进，恢复后会重新处理并输出；崩溃发生在提交后，这批数据已经完整可见。**不存在“进度已推进、输出却丢失”的情况。**
+- **快照只在提交边界生成**：快照记录的是 `committed_offset`，以及该位置对应的全部状态（持仓、订单、更正窗口内的成交表、版本计数器、隔离队列）。快照在提交之后异步序列化，事件循环只需要做一次写时复制标记。
+- **恢复流程**：
 
-- **DynamoDB**：`ConditionExpression: attribute_not_exists(pk) OR #v < :v`。条件不满足说明已有更新的版本，直接跳过（这是正常情况，会计数但不告警）。
-- **Redis**：用 Lua 脚本做“比较后写入”：
+```text
+recover(p):
+  producer.initTransactions()                       # 隔离旧 producer，作废它尚未提交的事务
+  C = committed_offset_from_kafka(group = "pos-engine", partition = p)
+  S = latest_snapshot(p) with S.offset <= C          # 快照不会超前于已提交位置
+  load(S)
+  replay(trading-events[p], from = S.offset + 1, to = C, emit = false)   # 静默重放：这些输出已经提交过
+  verify(version[k] == last committed record of k in position-updates)   # 抽查校验，不一致就告警并停止
+  resume normal loop from C + 1
+```
+
+  静默重放之所以安全，是因为计算是确定性的：`S.offset + 1` 到 `C` 之间的输出已经提交过，重放只用来恢复内存状态，不再输出。
+
+- **频率和耗时**：快照每 60 秒或每 100 万事件生成一次（先到为准）。高峰时每分区约 390 事件/秒，60 秒约 2.3 万事件，静默重放不到 1 秒。
+- **每批的提交开销**：事务提交会带来几毫秒延迟（取决于跨 AZ 往返）。批大小按时间和条数限制，延迟预算见 §12.1。
+
+### 7.8 下游消费与投影
+
+**所有下游统一使用 `isolation.level = read_committed`**：Projector、Repartitioner、Fan-out、风控、Account Aggregator，以及外部的流式消费者。
+
+- **Projector（Redis / DynamoDB）**：按 `(generation, version)` 条件写；读模型不需要事务，至少一次写入加版本幂等即可。
 
 ```lua
--- KEYS[1] = pos:{ACC-1001}:AAPL:default    ARGV[1] = version    ARGV[2] = 序列化后的持仓
-local cur = tonumber(redis.call('HGET', KEYS[1], 'v') or '0')
-if cur >= tonumber(ARGV[1]) then return 0 end
-redis.call('HSET', KEYS[1], 'v', ARGV[1], 'p', ARGV[2])
+-- KEYS[1] = pos:{ACC-1001}:AAPL:default    ARGV[1] = generation    ARGV[2] = version    ARGV[3] = 持仓
+local g = tonumber(redis.call('HGET', KEYS[1], 'g') or '0')
+local v = tonumber(redis.call('HGET', KEYS[1], 'v') or '0')
+local ng, nv = tonumber(ARGV[1]), tonumber(ARGV[2])
+if ng < g or (ng == g and nv <= v) then return 0 end
+redis.call('HSET', KEYS[1], 'g', ng, 'v', nv, 'p', ARGV[3])
 return 1
 ```
 
-- **按 key 合并**：高峰期 Projector 对 DynamoDB 每个 key 每 50ms 只写最新版本，减少写入成本；Redis 和 `position-updates` 仍然收到每一个版本。
-- **epoch 检查**：Projector 记录每个分区见过的最大 epoch，丢弃来自更小 epoch 的输出。
+  DynamoDB 的条件为：`attribute_not_exists(pk) OR #g < :g OR (#g = :g AND #v < :v)`。
 
-### 7.9 账户聚合（第二阶段）
+- **Projector 的水位**：Projector 处理完一条引擎水位记录后，在 Redis 中记下 `proj_wm:{partition} = {generation, input_offset, completeness}`，Query API 用它计算陈旧度（§9.4）。
+- **按 key 合并**：高峰期 Projector 对 DynamoDB 每个 key 每 50ms 只写最新版本；Redis 每个版本都写。
+- **v1 中 Projector 的 epoch 检查删除**：写者隔离已经由事务完成，下游不再需要判断 epoch。`epoch` 字段只保留用于诊断。
 
-- 一个 repartitioner 把 `position-updates` 按 `account_id` 重新分区写到 `position-updates-by-account`。
-- Account Aggregator 为每个账户维护“instrument → 最新版本持仓”的映射，只接受更大的版本，然后重新计算汇总。**因为取的是每个 key 的最大版本，跨 key 的到达顺序不影响结果**，汇总同样是确定性的。
-- 输出 `AccountSummary{account, gross_long_qty_notional, gross_short_notional, open_order_notional, realized_pnl, position_count, version}` 到 `account-updates`。
-- 代价：账户汇总比单个持仓晚几毫秒。需要严格账户级风控的场景，见 §9.8 的风控本地副本加预扣方案。
+### 7.9 日切、跨日重发与更正
+
+**日切（`DAY_ROLL`）**：调度器向每个 `trading-events` 分区写一条 `DAY_ROLL(new_date)`。引擎在日志中的这个确定位置，对**分区内全部 key** 执行：
+
+1. 把旧交易日的收盘状态存为该 key 的日基线：`baseline[old_date] = {net_qty, cost_basis}`，作为新交易日的 `sod`。
+2. 已实现盈亏按交易日归档，当日计数器清零。
+3. 交易日早于更正窗口的成交表分组、基线和已结束订单，归档到 S3，并从内存中删除。
+4. 每个 key 产生一条新版本记录（key 很多时分批输出，每批一个事务，`DAY_ROLL` 处理完成后才处理下一个事件）。
+5. **迟到事件**：`DAY_ROLL` 之后到达、但 `trade_date` 属于前一个交易日的成交，按下面的跨日更正处理，不当作新交易日的成交。
+
+**更正窗口**：默认为当日加前 2 个交易日。窗口内的成交表和每日基线都保留在内存（容量见 §3.3），因此：
+
+| 情况 | 处理 |
+|---|---|
+| 窗口内的重复投递（例如 Drop Copy 重发昨天的成交） | 有效成交表中查得到，直接丢弃 |
+| 窗口内的跨日撤销或更正（撤销或更正 D−1 的成交） | 从 D−1 的日基线开始，重算 D−1 的有效成交，得到新的 D−1 收盘；用它作为 D 的新基线，继续重算 D，直到今天。中间每一天的已实现盈亏都会变化，单独输出一条 `restated_day` 记录，通知会计和清算系统 |
+| 窗口外的事件（重发、撤销或更正） | **不进入实时持仓**。事件进入 `restatement-queue`，相关 key 标为 `RECONCILING`，告警并生成工单。运营在数据湖中离线重算后，审批生成一条 `RESTATEMENT` 控制事件，内容是该 key 新的当日基线和差异说明。引擎在日志中的确定位置应用它，然后恢复为 `OK` |
+
+**更正是原位替换**：`CORRECT` 事件替换有效成交表中原成交的数量或价格，**位置（原 `src_offset`）不变**，然后从受影响交易日的基线开始，按原顺序重算。v1 中 `maybe_append_corrected` 把更正后的成交追加到序列末尾，会改变加权平均成本的计算路径，v2 删除了这种做法。
+
+**`SOD_POSITION` 的用途收窄**：日初持仓由上一交易日的收盘状态滚动得到。`SOD_POSITION` 只用于系统初次上线迁移；日常的外部日初文件只用于对账（§13）。差异需要调整时，走 `MANUAL_ADJUSTMENT` 审批流程。
+
+### 7.10 隔离无法处理的事件
+
+某个事件无法处理（schema 错误、违反不变量，例如交叉校验时 `cum_qty` 和 `venue_cum_qty` 不一致）时：
+
+1. **只隔离该 key**：该 key 标为 `STALE` 并输出一条状态记录；该事件和这个 key 后续的事件，按日志顺序写入引擎状态中的隔离队列（随快照保存，并在 `position-quarantine` topic 留副本供排查）。
+2. **同分区的其他 key 继续处理**，不阻塞整个分区。
+3. 立即告警并通知风控：风控对 `STALE` 的 key 按 fail-closed 处理。
+4. **解除隔离要在日志里有确定位置**：修复后（修代码并按 §16.2 发布，或者补齐数据），运营写一条 `RELEASE_KEY(key)` 控制事件到 `trading-events`。引擎处理到这条事件时，按顺序处理隔离队列，然后恢复为 `OK`。因为解除动作本身就在日志里，所以主备和重放的结果一致。
+
+### 7.11 账户聚合（第二阶段）
+
+- **Repartitioner**：以事务方式（读已提交、写入并提交 offset）把 `position-updates.g{n}` 的变更记录，按 `account_id` 重新分区写到 `position-updates-by-account.g{n}`（compacted）。同一个输入事件产生的多条记录（例如跨 book 调拨同时改变两个 key），**在同一个事务里提交**，下游要么全看到，要么全看不到。
+- **Account Aggregator** 为每个账户维护 `(instrument, book) → 最新持仓` 的映射（v1 漏掉了 book 维度），只接受 `(generation, version)` 更大的记录，然后重新计算汇总。
+- 输出 `AccountSummary{account, generation, gross_long_notional, gross_short_notional, open_order_notional, realized_pnl, position_count, components_through}` 到 `account-updates.g{n}`。`components_through` 记录汇总已经包含 by-account 流的哪个 offset。
+- **一致性说明**：汇总是**收敛一致**的，不是某一时刻的快照。跨分区的不同 key 的变更没有全局顺序，汇总可能短暂反映“一部分已更新、另一部分还没更新”的状态（例如分属两个分区的组合交易）。同一个输入事件产生的多条变更是原子可见的。
+- **严格的账户级风控不依赖这个汇总**：它由风控服务按账户串行执行检查与预扣（§9.8），持仓服务提供的是每个 key 的权威状态和订单效果。
+
+### 7.12 数据世代（generation）
+
+`generation` 是一个单调递增的整数，记录在 DynamoDB 的世代表和每条输出记录中，标识“这一份派生历史”：
+
+| 触发 | 原因 |
+|---|---|
+| Region 切换 | 异步复制会丢失末尾的一段日志，上游补发后跨来源的交错顺序可能改变，同一个 version 在两个 Region 可能对应不同内容 |
+| 全量重算（修复 bug 或修改计算口径） | 新代码对同样的输入产生不同的结果 |
+| 不可逐条复原的人工修复 | 同上 |
+
+规则：
+
+- 每个世代有自己的输出 topic（`position-updates.g8` 等）、读模型命名空间和版本计数器（版本从 1 开始重新计数）。
+- 比较顺序为先 `generation` 后 `version`。读模型条件写、客户端缓存、风控副本都按这个顺序比较。
+- 世代切换是**原子的路由动作**：新世代验证通过后，更新世代表中的 `current_generation`，Query API、Stream Gateway 和 SDK 切换到新世代。连接中的订阅收到 `resync_required(GENERATION_CHANGED)`，风控按新世代重新初始化（§9.8）。
+- 旧世代 topic 保留一段时间（例如 7 天），供审计和回滚。
 
 ---
 
@@ -586,50 +797,53 @@ return 1
 
 ### 8.1 Kafka Topic
 
-| Topic | Key | 分区 | 保留 | 用途 |
-|---|---|---|---|---|
-| `oms-order-events-raw` | 源会话 | 64 | 7 天 | OMS 原始订单事件 |
-| `exec-reports-raw` | 网关会话 | 64 | 7 天 | 交易所原始回报 |
-| `trading-events` | account + instrument | 512 | 本地 1 天 + Tiered 90 天；S3 归档 7 年 | **唯一事实来源** |
-| `position-updates` | account + instrument | 512 | 7 天 | 持仓变更流（每个版本都有） |
-| `positions-latest` | account + instrument + book | 512 | compacted | 最新持仓，新消费者用它初始化 |
-| `position-updates-by-account` | account | 128 | 1 天 | 聚合用的重分区 topic |
-| `account-updates` | account | 128 | compact + 7 天 | 账户汇总 |
-| `position-quarantine` | account + instrument | 32 | 30 天 | 隔离事件 |
-| `pending-refdata` | 源会话 | 16 | 30 天 | 标的映射失败的事件 |
+| Topic | Key | 分区 | 保留 | 写入方 | 用途 |
+|---|---|---|---|---|---|
+| `oms-order-events-raw` | 源会话 | 64 | 7 天 | OMS relay | OMS 原始订单事件 |
+| `exec-reports-raw` | 网关会话 | 64 | 7 天 | Gateway Adapter | 交易所原始回报 |
+| `normalizer-session-state` | 源会话 | 64 | compacted | Normalizer（事务） | 会话序号状态 |
+| `trading-events` | account + instrument | 512 | 本地 1 天 + Tiered 90 天；S3 归档 7 年 | Normalizer（事务） | **唯一事实来源** |
+| `position-updates.g{n}` | 持仓键；水位记录的 key 为 `__wm__/{p}` | 512 | compacted，`min.compaction.lag.ms` = 7 天 | **只有**引擎（事务） | **唯一权威输出**：变更记录和水位记录 |
+| `position-updates-by-account.g{n}` | account | 128 | compacted，`min.compaction.lag.ms` = 7 天 | Repartitioner（事务） | 按账户分区的变更流，供 Fan-out、风控、聚合使用 |
+| `account-updates.g{n}` | account | 128 | compacted | Aggregator（事务） | 账户汇总 |
+| `position-quarantine` | 持仓键 | 32 | 30 天 | 引擎 | 隔离事件副本，供排查 |
+| `restatement-queue` | 持仓键 | 32 | 90 天 | 引擎 | 超出更正窗口的事件 |
+| `risk-reservations` | account | 128 | compacted | **风控服务**（事务） | 风控预扣台账（归风控服务所有） |
 
-MSK 关键配置：`replication.factor=3`、`min.insync.replicas=2`、`unclean.leader.election.enable=false`、producer `acks=all` 和 `enable.idempotence=true`，使用 IAM 认证和 topic 级 ACL。
+MSK 关键配置：`replication.factor=3`、`min.insync.replicas=2`、`unclean.leader.election.enable=false`；producer 设 `acks=all` 和 `enable.idempotence=true`；消费者统一 `isolation.level=read_committed`；`transaction.state.log.replication.factor=3`、`transaction.state.log.min.isr=2`。使用 IAM 认证和 topic 级 ACL：每个 topic 只有表中的写入方有写权限。
 
 ### 8.2 DynamoDB
 
 | 表 | PK | SK | 主要属性 | 用途 |
 |---|---|---|---|---|
-| `positions_current` | `ACC#{account_id}` | `INS#{instrument_id}#BOOK#{book_id}` | 持仓字段、`v`、`epoch`、`status`、`updated_at` | 当前持仓持久读模型；按账户列出持仓 = 一次 Query |
-| `account_summary` | `ACC#{account_id}` | `SUMMARY` | 汇总字段、`v` | 账户汇总 |
-| `positions_eod` | `ACC#{account_id}#D#{trade_date}` | `INS#{instrument_id}#BOOK#{book_id}` | 日终持仓 | 近 90 天日终快照，更早的查 S3 |
-| `engine_leases` | `P#{partition}` | — | `owner`、`epoch`、`lease_expiry`、`snapshot_ptr` | leader 选举和快照指针（条件写） |
+| `positions_current` | `G#{generation}#ACC#{account_id}` | `INS#{instrument_id}#BOOK#{book_id}` | 持仓字段、`g`、`v`、`status`、`updated_at` | 当前持仓持久读模型；按账户列出持仓 = 一次 Query |
+| `account_summary` | `G#{generation}#ACC#{account_id}` | `SUMMARY` | 汇总字段、`g`、`v` | 账户汇总 |
+| `positions_eod` | `ACC#{account_id}#D#{trade_date}` | `INS#{instrument_id}#BOOK#{book_id}` | 日终持仓、`g` | 近 90 天日终快照，更早的查 S3 |
+| `engine_leases` | `P#{partition}` | — | `owner`、`epoch`、`renew_counter`、`snapshot_ptr` | 选主和快照指针（条件写）。**只决定由谁接管，不承担写入隔离** |
+| `generations` | `CURRENT` | — | `generation`、`region`、`activated_at` | 当前世代和活跃 Region |
 
 - 区域级表（**不使用 Global Tables 作为持仓读模型**，原因见 §11.3），开启 PITR 和 KMS 加密。
+- 读模型按世代分命名空间，世代切换后旧命名空间保留 7 天，然后通过 TTL 清理。
 - 开盘前预置容量，或者使用 on-demand 并提前预热。
 
 ### 8.3 ElastiCache Redis
 
 | Key | 类型 | 说明 |
 |---|---|---|
-| `pos:{ACC-1001}:AAPL:default` | Hash（`v`、`p`） | 单个持仓；`{account}` 作为 hash tag，保证同一账户的 key 在同一个 slot |
-| `acct:{ACC-1001}:keys` | Set | 账户下的全部持仓 key，用于列出持仓 |
-| `acctsum:{ACC-1001}` | Hash | 账户汇总 |
-| `upd:{ACC-1001}` | Sharded Pub/Sub 频道 | Fan-out 向 Stream Gateway 推送增量 |
+| `g{n}:pos:{ACC-1001}:AAPL:default` | Hash（`g`、`v`、`p`） | 单个持仓；`{account}` 作为 hash tag，保证同一账户的 key 在同一个 slot |
+| `g{n}:acct:{ACC-1001}:keys` | Set | 账户下的全部持仓 key，用于列出持仓 |
+| `g{n}:acctsum:{ACC-1001}` | Hash | 账户汇总 |
+| `g{n}:proj_wm:{partition}` | Hash | Projector 已投影到的引擎水位（`input_offset`、`completeness`） |
 
-Redis 只做缓存，**丢失后可以通过 `positions-latest` 全量重建**，不承担正确性。
+Redis 只做查询缓存，**不再用 Pub/Sub 推送**（推送改为基于 Kafka 位置，§9.7）。Redis 丢失后，可以从 `position-updates.g{n}` 的 compacted 数据全量重建，不影响正确性。
 
 ### 8.4 S3 布局
 
 ```text
 s3://positions-archive/trading-events/date=2026-10-15/partition=017/00000001234000-00000001240000.avro   # Object Lock
-s3://positions-snapshots/engine/partition=017/epoch=8/offset=1239876/state.bin.zst + manifest.json        # 含 checksum
+s3://positions-snapshots/engine/g=7/partition=017/offset=1239876/state.bin.zst + manifest.json           # 只在提交边界生成，含 checksum
 s3://positions-eod/trade_date=2026-10-15/account_bucket=042/part-0000.parquet                              # Athena / Redshift Spectrum
-s3://positions-lineage/trade_date=2026-10-15/partition=017/part-0000.parquet                               # 版本 → 事件映射
+s3://positions-lineage/g=7/trade_date=2026-10-15/partition=017/part-0000.parquet                          # (generation, version) → 事件映射
 ```
 
 ---
@@ -640,10 +854,10 @@ s3://positions-lineage/trade_date=2026-10-15/partition=017/part-0000.parquet    
 
 | 客户端 | 典型需求 | 访问方式 | 默认一致性 | 延迟目标 |
 |---|---|---|---|---|
-| **事前风控（P0）** | 每个订单前检查持仓和敞口 | 订阅 Kafka 维护本地副本；必要时同步 `STRONG` / `CAUSAL` 读 | 本地副本 + 读屏障 | < 1ms / < 5ms |
-| **OMS（P0）** | 下单、改单后确认持仓已反映 | gRPC `CAUSAL` 读 | 读己之写 | < 10ms |
-| **交易前端（P1）** | 实时展示持仓和盈亏 | 先拿快照，再通过 WebSocket 订阅增量 | `EVENTUAL` | 推送 < 100ms（含合并） |
-| **保证金 / PnL（P1）** | 持续计算 | 消费 `position-updates` / `account-updates` | 单 key 有序的事件流 | 毫秒级 |
+| **事前风控（P0）** | 每个订单前检查持仓和敞口 | 消费 by-account 流维护本地副本，预扣持久化；必要时同步 `STRONG` 读 | 本地副本 + 持久预扣 + 读屏障 | 检查 < 1ms，放行 < 5ms |
+| **OMS（P0）** | 下单、改单后确认持仓已反映 | gRPC `CAUSAL` 读 | 读己之写 | < 10ms（加上事件到达的时间） |
+| **交易前端（P1）** | 实时展示持仓和盈亏 | 订阅：快照带流位置，可续传 | `EVENTUAL`，不漏更新 | 推送 < 100ms（含合并） |
+| **保证金 / PnL（P1）** | 持续计算 | 消费 `position-updates-by-account.g{n}` / `account-updates.g{n}`，`read_committed` | 单 key 有序的事件流 | 毫秒级 |
 | **内部服务（P1）** | 偶尔查询 | gRPC / REST `EVENTUAL` | `EVENTUAL` | < 5ms |
 | **运营 / 客服（P2）** | 查历史、看事件链 | REST + Lineage API | 按快照 | 秒级 |
 | **报表 / 监管（P2）** | 日终、按时间点、批量 | S3 Parquet / Athena / Redshift | 日终快照 | 分钟级 |
@@ -657,7 +871,7 @@ flowchart LR
         WEB["Web / Mobile / 桌面交易端"]
     end
     subgraph INT["内部服务（同 VPC 或跨账号）"]
-        RISK["事前风控 SDK"]
+        RISK["事前风控"]
         OMSC["OMS SDK"]
         SVC["其他内部服务"]
         STREAMC["Margin / PnL 等流式消费者"]
@@ -666,27 +880,28 @@ flowchart LR
 
     WEB -->|"HTTPS / WSS + OAuth2 JWT"| EDGE["CloudFront + AWS WAF"]
     EDGE --> NLB1["NLB / ALB"]
-    NLB1 --> WSG["Stream Gateway<br/>WebSocket"]
+    NLB1 --> WSG["Stream Gateway"]
     NLB1 --> QAPI["Query API<br/>REST / gRPC"]
+    WSG --> FAN["Fan-out<br/>按账户分区"]
 
-    SVC -->|"gRPC + mTLS（服务网格）<br/>跨账号走 PrivateLink"| QAPI
+    SVC -->|"gRPC + mTLS<br/>跨账号走 PrivateLink"| QAPI
     OMSC -->|"gRPC CAUSAL 读"| QAPI
-    RISK -->|"gRPC STRONG 读<br/>（白名单直连模式）"| ENG["Position Engine<br/>分区 leader"]
-    RISK -->|"Kafka IAM 认证"| MSK[("position-updates<br/>positions-latest")]
-    STREAMC -->|"Kafka IAM 认证"| MSK
+    RISK -->|"gRPC STRONG 读<br/>白名单直连"| ENG["Position Engine<br/>分区 leader"]
+    RISK -->|"Kafka read_committed"| MSK[("position-updates-by-account.g7")]
+    STREAMC -->|"Kafka read_committed"| MSK
     BI -->|"IAM + Lake Formation"| ATH["Athena / Redshift"]
 
     QAPI --> REDIS[("Redis")]
     QAPI --> DDB[("DynamoDB")]
     QAPI -->|"STRONG / CAUSAL 路由"| ENG
     QAPI --> ATH
-    WSG --> REDIS
+    MSK --> FAN
 ```
 
 服务发现：
 - 内部域名走 Route 53 私有托管区，例如 `positions-query.prod.internal`、`positions-stream.prod.internal`。
 - gRPC 使用客户端负载均衡（xDS / 服务网格）。跨 VPC 或跨账号通过 **PrivateLink Endpoint Service**（NLB 前置）访问。
-- `STRONG` 直连模式下，SDK 通过 `GetRoutingTable` 拿到 `partition → leader endpoint + epoch` 路由表并缓存；收到 `NOT_LEADER` 时刷新。
+- `STRONG` 直连模式下，SDK 通过 `GetRoutingTable` 拿到 `partition → leader endpoint` 路由表并缓存；收到 `NOT_LEADER` 时刷新。
 
 ### 9.3 认证与鉴权
 
@@ -694,38 +909,62 @@ flowchart LR
 |---|---|---|
 | 外部用户 | OIDC / OAuth2（Cognito 或企业 IdP），短期 JWT（如 15 分钟）；WebSocket 在连接时认证，过期前通过消息刷新 token | **ABAC**：从 Entitlement Service 获取“用户 → 可访问账户”映射（缓存 30 秒，变更事件主动失效），每个请求和每次订阅都要检查 |
 | 内部服务 | 服务网格 mTLS（SPIFFE 身份）；跨账号用 IAM SigV4 | 服务级授权策略：哪些服务能读哪些账户范围、能否用 `STRONG` 直连 |
-| Kafka 消费者 | MSK IAM 认证 | topic 级 ACL，只读 |
+| Kafka 消费者 | MSK IAM 认证 | topic 级 ACL，只读；强制 `read_committed`（SDK 默认值，并由审计检查） |
 | 数据湖 | IAM | Lake Formation 行列级权限 |
 
 所有读取都记录审计日志：谁在什么时候看了哪个账户（满足合规要求）。
 
-### 9.4 一致性等级（客户端可选择）
+### 9.4 一致性等级与陈旧度
 
 | 等级 | 读哪里 | 保证 | 典型延迟 | 适用 |
 |---|---|---|---|---|
-| `EVENTUAL`（默认） | Redis，未命中查 DynamoDB | 单 key 版本单调；陈旧度通常为毫秒级，响应里带 `staleness_ms`；可设置 `max_staleness_ms`，超过时回源到引擎 | < 1ms（服务端） | UI、普通查询 |
-| `AT_LEAST_VERSION` | Redis；版本不够则等待 `max_wait_ms` 或回源引擎 | 读到的版本不低于 `min_version`；SDK 自动带上见过的最大版本，实现**单调读 / 会话一致** | 1~5ms | 防止切换节点后数据回退 |
-| `CAUSAL` | 引擎 leader | 等到指定事件（`exec_id` 或 `order_id + order_version` 或 `event_id`）已经生效再返回，实现**读己之写** | 事件到达引擎的时间 + 1ms | OMS 下单后确认 |
-| `STRONG` | 引擎 leader，带读屏障 | 请求到达时，已经写入 `trading-events` 的所有事件都会反映在结果里（单 key 线性一致） | 2~5ms | 风控兜底、关键决策 |
+| `EVENTUAL`（默认） | Redis，未命中查 DynamoDB | 只返回已提交数据；同一世代内单 key 版本单调；响应带 `complete_through` 和 `staleness_ms`；可设 `max_staleness_ms`，超过时回源引擎 | < 1ms（服务端） | UI、普通查询 |
+| `AT_LEAST_VERSION` | Redis；版本不够则等待 `max_wait_ms` 或回源引擎 | 返回的 `(generation, version)` 不低于请求值；SDK 自动带上见过的最大值，实现**单调读 / 会话一致** | 1~5ms | 防止切换节点后数据回退 |
+| `CAUSAL` | 引擎 leader | 等到指定事件（`(venue, exec_id)`、`(order_id, order_rev)` 或 `event_id`）的输出**已提交**才返回，实现**读己之写** | 事件到达引擎的时间 + 一次提交 | OMS 下单后确认 |
+| `STRONG` | 引擎 leader，带读屏障 | 请求到达时已经写入 `trading-events` 的事件，都已反映在结果中，并且结果已提交（单 key 线性一致） | 5~10ms | 风控兜底、关键决策 |
 
-`STRONG` 读屏障的实现：leader 收到请求时，调用 ListOffsets 取该分区当前的 high watermark `H`，等 `applied_offset ≥ H - 1` 再返回。注意它只覆盖已经进入 `trading-events` 的事件；**还在上游或 Normalizer 里的事件看不到**。所以“确认我自己的订单已经生效”应该用 `CAUSAL`，不是 `STRONG`。
+**`STRONG` 读的实现**（同时解决“旧主是否还以为自己是 leader”的问题）：
+
+```text
+strong_read(key):
+  H = ListOffsets(trading-events[p], latest)            # 读屏障：请求到达时日志的末尾位置
+  wait until applied_offset[p] >= H - 1                  # 引擎追到该位置（不算已提交）
+  wait until committed_offset[p] >= H - 1               # 等包含该位置的事务提交成功
+  return state(key) with (generation, version)
+```
+
+- **保证的含义**：返回的状态等于 `trading-events[p]` 前缀 `[0, H)` 的**已提交**计算结果。因为计算是确定性的，同一个日志前缀只对应一个状态，这个结果不取决于由哪个实例计算。
+- **旧主为什么不会返回过时数据**：如果新主接管后处理了新事件，`H` 会包含这些事件。旧主要返回，就必须提交包含它们的事务，而被隔离的 producer 提交必然失败（`ProducerFenced`），所以它只能报错。如果接管后日志没有新事件，旧主的状态和新主完全相同，返回也是正确的。正确性不依赖租约时间。
+- 旧主收到 `ProducerFenced` 后立即停止服务全部读写请求，并以 standby 身份重启。
+- 读屏障只覆盖已经进入 `trading-events` 的事件；**还在上游或 Normalizer 里的事件看不到**。确认“自己的订单已经生效”应该用 `CAUSAL`。
+
+**陈旧度的定义**（v1 用“最后应用事件的处理时间”，有交易少时误报、积压时漏报的问题）：
+
+| 字段 | 含义 | 计算方式 |
+|---|---|---|
+| `complete_through` | 本分区的数据在交易所时间上完整到哪一刻 | 引擎根据 Normalizer 写入的 `SOURCE_WATERMARK` 计算：所有活跃会话中，没有未补齐缺口的最小交易所时间 |
+| `projection_lag_ms` | 读模型落后引擎多少 | Projector 已投影的水位与引擎最新水位的时间差 |
+| `staleness_ms` | 返回给客户端的总陈旧度 | `now − complete_through`（已经包含投影延迟） |
+| `source_gaps` | 有没有未补齐的来源缺口 | 有缺口的会话列表；此时 `status` 至少为 `STALE` |
+
+没有交易并不代表数据落后：只要来源水位在正常推进，`complete_through` 就会跟着推进；积压时，即使刚处理过一条事件，`complete_through` 也停留在积压的位置。
 
 ### 9.5 同步查询 API（gRPC）
 
 ```protobuf
 syntax = "proto3";
-package positions.api.v1;
+package positions.api.v2;
 
 import "google/protobuf/timestamp.proto";
 
 service PositionQuery {
-  rpc GetPosition(GetPositionRequest)               returns (PositionResponse);
-  rpc BatchGetPositions(BatchGetPositionsRequest)   returns (BatchGetPositionsResponse);
+  rpc GetPosition(GetPositionRequest)                   returns (PositionResponse);
+  rpc BatchGetPositions(BatchGetPositionsRequest)       returns (BatchGetPositionsResponse);
   rpc ListAccountPositions(ListAccountPositionsRequest) returns (ListAccountPositionsResponse);
-  rpc GetAccountSummary(GetAccountSummaryRequest)   returns (AccountSummaryResponse);
-  rpc GetPositionAsOf(GetPositionAsOfRequest)       returns (PositionResponse);   // 按时间点
-  rpc GetPositionLineage(GetLineageRequest)         returns (stream LineageEntry); // 事件链
-  rpc GetRoutingTable(GetRoutingTableRequest)       returns (RoutingTable);       // 仅白名单直连客户端
+  rpc GetAccountSummary(GetAccountSummaryRequest)       returns (AccountSummaryResponse);
+  rpc GetPositionAsOf(GetPositionAsOfRequest)           returns (PositionResponse);    // 按时间点
+  rpc GetPositionLineage(GetLineageRequest)             returns (stream LineageEntry); // 事件链
+  rpc GetRoutingTable(GetRoutingTableRequest)           returns (RoutingTable);        // 仅白名单直连客户端
 }
 
 service PositionStream {
@@ -737,22 +976,25 @@ enum PositionStatus { STATUS_UNSPECIFIED = 0; OK = 1; STALE = 2; RECONCILING = 3
 
 message PositionKey { string account_id = 1; string instrument_id = 2; string book_id = 3; }
 
+message StateVersion { uint32 generation = 1; uint64 version = 2; }   // 先比较 generation，再比较 version
+
 message CausalToken {                     // CAUSAL 等待的事件，三选一
   oneof target {
-    string exec_id = 1;
-    OrderRef order = 2;
-    string event_id = 3;
+    ExecRef  exec     = 1;
+    OrderRef order    = 2;
+    string   event_id = 3;
   }
 }
-message OrderRef { string order_id = 1; uint32 min_order_version = 2; }
+message ExecRef  { string venue = 1; string exec_id = 2; }
+message OrderRef { string order_id = 1; uint32 min_order_rev = 2; }
 
 message ReadOptions {
-  Consistency consistency    = 1;
-  uint64      min_version    = 2;   // AT_LEAST_VERSION
-  CausalToken causal         = 3;   // CAUSAL
-  uint32      max_wait_ms    = 4;   // AT_LEAST_VERSION / CAUSAL 最长等待
-  uint32      max_staleness_ms = 5; // EVENTUAL 可接受的最大陈旧度
-  bool        include_mark   = 6;   // 是否用标记价补充浮动盈亏
+  Consistency  consistency      = 1;
+  StateVersion min_version      = 2;   // AT_LEAST_VERSION
+  CausalToken  causal           = 3;   // CAUSAL
+  uint32       max_wait_ms      = 4;   // AT_LEAST_VERSION / CAUSAL 最长等待
+  uint32       max_staleness_ms = 5;   // EVENTUAL 可接受的最大陈旧度
+  bool         include_mark     = 6;   // 是否用标记价补充浮动盈亏
 }
 
 message Decimal { string value = 1; }  // 对外用十进制字符串，避免浮点误差
@@ -771,7 +1013,7 @@ message Position {
   Decimal open_sell_qty = 11;
   Decimal open_buy_notional = 12;
   Decimal open_sell_notional = 13;
-  uint64  version = 14;
+  StateVersion state_version = 14;
   PositionStatus status = 15;
   google.protobuf.Timestamp last_event_ts = 16;
   Mark    mark = 17;                 // include_mark=true 时返回
@@ -779,12 +1021,13 @@ message Position {
 message Mark { Decimal price = 1; Decimal unrealized_pnl = 2; google.protobuf.Timestamp mark_ts = 3; }
 
 message ReadMeta {
-  uint64 version = 1;
-  google.protobuf.Timestamp as_of = 2;   // 数据截至时间（最后应用事件的处理时间）
+  StateVersion state_version = 1;
+  google.protobuf.Timestamp complete_through = 2;   // 数据在交易所时间上完整到哪一刻（§9.4）
   uint32 staleness_ms = 3;
-  Consistency served_consistency = 4;    // 实际满足的一致性等级
-  bool   causal_satisfied = 5;           // CAUSAL：等待的事件是否已生效
-  string served_by = 6;                  // REDIS / DYNAMODB / ENGINE
+  repeated string source_gaps = 4;                  // 未补齐缺口的来源会话
+  Consistency served_consistency = 5;               // 实际满足的一致性等级
+  bool   causal_satisfied = 6;                      // CAUSAL：等待的事件是否已提交
+  string served_by = 7;                             // REDIS / DYNAMODB / ENGINE
 }
 
 message GetPositionRequest { PositionKey key = 1; ReadOptions options = 2; }
@@ -800,13 +1043,13 @@ message PositionResponse   { Position position = 1; ReadMeta meta = 2; }
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/v1/accounts/{accountId}/positions` | 列出账户持仓，支持 `consistency`、`max_staleness_ms`、分页 |
-| GET | `/v1/accounts/{accountId}/positions/{instrumentId}` | 单个持仓，支持 `book`、`min_version`、`wait_exec_id`、`max_wait_ms` |
-| GET | `/v1/accounts/{accountId}/summary` | 账户汇总 |
-| GET | `/v1/accounts/{accountId}/positions:asOf?ts=2026-10-15T14:30:00Z` | 按时间点查询 |
-| GET | `/v1/accounts/{accountId}/positions/{instrumentId}/lineage?trade_date=2026-10-15` | 事件链 |
+| GET | `/v2/accounts/{accountId}/positions` | 列出账户持仓，支持 `consistency`、`max_staleness_ms`、分页 |
+| GET | `/v2/accounts/{accountId}/positions/{instrumentId}` | 单个持仓，支持 `book`、`min_version`（格式 `g7.v42`）、`wait_exec`（格式 `venue:exec_id`）、`max_wait_ms` |
+| GET | `/v2/accounts/{accountId}/summary` | 账户汇总 |
+| GET | `/v2/accounts/{accountId}/positions:asOf?ts=2026-10-15T14:30:00Z` | 按时间点查询 |
+| GET | `/v2/accounts/{accountId}/positions/{instrumentId}/lineage?trade_date=2026-10-15` | 事件链 |
 
-响应头：`ETag: "v42"`（版本号）、`X-Data-As-Of`、`X-Staleness-Ms`、`X-Served-By`。客户端轮询时带 `If-None-Match`，没有变化就返回 `304`。
+响应头：`ETag: "g7.v42"`、`X-Complete-Through`、`X-Staleness-Ms`、`X-Served-By`。客户端轮询时带 `If-None-Match`，没有变化就返回 `304`。
 
 示例响应：
 
@@ -821,35 +1064,49 @@ message PositionResponse   { Position position = 1; ReadMeta meta = 2; }
     "realizedPnl": "-1200.00000000",
     "openBuyQty": "200",
     "openSellQty": "0",
-    "version": 6,
+    "stateVersion": { "generation": 7, "version": 6 },
     "status": "OK",
     "lastEventTs": "2026-10-15T14:30:01.123456Z"
   },
-  "meta": { "version": 6, "asOf": "2026-10-15T14:30:01.131Z", "stalenessMs": 3, "servedBy": "REDIS", "servedConsistency": "EVENTUAL" }
+  "meta": {
+    "stateVersion": { "generation": 7, "version": 6 },
+    "completeThrough": "2026-10-15T14:30:01.128Z",
+    "stalenessMs": 6,
+    "sourceGaps": [],
+    "servedBy": "REDIS",
+    "servedConsistency": "EVENTUAL"
+  }
 }
 ```
 
 ### 9.7 实时订阅协议（WebSocket / gRPC Stream）
 
-**连接与消息**（WebSocket，`wss://positions-stream.example.com/v1/stream`）：
+**v1 的问题**：Projector 写 Redis 和 Fan-out 推送是两条独立链路，再加上 Redis Pub/Sub 是至多一次投递，所以“先订阅再读快照”仍然可能漏掉某个版本，而且网关生成的连续 `seq` 发现不了这种丢失。
+
+**v2 的做法：快照和增量来自同一个有序消费循环。**
+
+- Fan-out 按 `position-updates-by-account.g{n}` 的分区分片（每个分区一个 owner，带租约）。owner 以 `read_committed` 顺序消费，在内存中维护该分区每个 key 的最新状态，并记录自己已处理到的 offset `O`。owner 还保留最近约 60 秒的增量环形缓冲（按 offset 索引）。
+- **快照**是 owner 在处理完 offset `O` 之后，在**同一个事件循环里**读取的账户状态，所以快照对应的流位置精确等于 `O`。之后推送的增量就是 offset 大于 `O` 的记录，中间不存在缺口。
+- **游标** `cursor = {generation, partition, offset}`。客户端断线重连时带上最后的游标：如果 offset 还在 owner 的环形缓冲里，就从这里继续推送；如果已经不在（缓冲是 60 秒，by-account 流本身保留 7 天历史），就从 Kafka 补读；世代变化时返回 `resync_required(GENERATION_CHANGED)`。
+- **Fan-out 故障切换**：Fan-out 定期把内存状态连同 offset 写成本地快照（存 S3）。新 owner 加载快照，再从快照的 offset 补读到最新，秒级恢复。旧 owner 只是推送通道，不写任何权威数据；切换期间连接断开，客户端带游标重连，由新 owner 补读。
+
+**连接与消息**（WebSocket，`wss://positions-stream.example.com/v2/stream`）：
 
 ```jsonc
 // 客户端 → 服务端
 {"op":"auth","token":"<jwt>"}
 {"op":"subscribe","subId":"s1","accounts":["ACC-1001"],"instruments":["*"],"conflateMs":100}
-{"op":"resync","subId":"s1"}
+{"op":"subscribe","subId":"s1","accounts":["ACC-1001"],"resumeFrom":{"generation":7,"partition":42,"offset":918273}}
 {"op":"unsubscribe","subId":"s1"}
 
 // 服务端 → 客户端
-{"type":"snapshot","subId":"s1","seq":1,"positions":[{"key":{"accountId":"ACC-1001","instrumentId":"AAPL.US","bookId":"default"},"version":6,"netQty":"600","avgCost":"185.5","openBuyQty":"200","status":"OK"}]}
+{"type":"snapshot","subId":"s1","cursor":{"generation":7,"partition":42,"offset":918273},"positions":[{"key":{"accountId":"ACC-1001","instrumentId":"AAPL.US","bookId":"default"},"stateVersion":{"generation":7,"version":6},"netQty":"600","avgCost":"185.5","openBuyQty":"200","status":"OK"}]}
 // v7：在途的 200 股买单以 187 成交，均价 = (600×185.5 + 200×187) / 800 = 185.875
-{"type":"delta","subId":"s1","seq":2,"key":{"accountId":"ACC-1001","instrumentId":"AAPL.US","bookId":"default"},"version":7,"position":{"netQty":"800","avgCost":"185.875","openBuyQty":"0","status":"OK"}}
-{"type":"status","subId":"s1","seq":3,"key":{"accountId":"ACC-1001","instrumentId":"AAPL.US","bookId":"default"},"status":"STALE","reason":"QUARANTINED"}
-{"type":"heartbeat","seq":4,"watermarkTs":"2026-10-15T14:30:02.000Z","lagMs":4}
-{"type":"resync_required","subId":"s1","reason":"SLOW_CONSUMER"}
+{"type":"delta","subId":"s1","cursor":{"generation":7,"partition":42,"offset":918311},"key":{"accountId":"ACC-1001","instrumentId":"AAPL.US","bookId":"default"},"stateVersion":{"generation":7,"version":7},"position":{"netQty":"800","avgCost":"185.875","openBuyQty":"0","status":"OK"}}
+{"type":"status","subId":"s1","cursor":{"generation":7,"partition":42,"offset":918390},"key":{"accountId":"ACC-1001","instrumentId":"AAPL.US","bookId":"default"},"status":"STALE","reason":"SOURCE_GAP"}
+{"type":"heartbeat","cursor":{"generation":7,"partition":42,"offset":918402},"completeThrough":"2026-10-15T14:30:02.000Z","stalenessMs":6}
+{"type":"resync_required","subId":"s1","reason":"GENERATION_CHANGED","newGeneration":8}
 ```
-
-**快照和增量的衔接**（避免快照与增量之间漏数据）：
 
 ```mermaid
 sequenceDiagram
@@ -857,74 +1114,120 @@ sequenceDiagram
     participant C as 交易前端
     participant G as Stream Gateway
     participant E as Entitlement
-    participant R as Redis
-    participant F as Fan-out
+    participant F as Fan-out（分区 42 的 owner）
+    participant K as by-account 流 g7 分区 42
 
     C->>G: 建立 WSS 连接, auth(JWT)
     G->>E: 校验用户对 ACC-1001 的权限（带缓存）
     E-->>G: 允许
     C->>G: subscribe(ACC-1001)
-    G->>R: 先订阅频道 upd:{ACC-1001}
-    Note over G: 订阅成功后到达的增量先缓存
-    G->>R: 读取账户全部持仓（含每个 key 的 version）
-    R-->>G: 快照
-    G-->>C: snapshot(seq=1)
-    G-->>C: 回放缓存中 version 大于快照的增量
-    F->>R: 发布 delta(AAPL, v=7)
-    R-->>G: delta
-    G-->>C: delta(seq=2, v=7)
-    Note over C: 只应用 version 大于本地的增量, seq 不连续就请求 resync
-    G-->>C: heartbeat（每 1 秒）
-    Note over C: 3 秒没有心跳则断线重连, 指数退避加抖动, 重连后重新拿快照
+    G->>F: 注册订阅（按 account 路由到 owner）
+    loop 有序消费
+        K->>F: 已提交记录 offset = O
+        F->>F: 更新内存状态, 已处理到 O
+    end
+    F->>F: 在同一个事件循环里读取账户状态
+    F-->>G: snapshot(cursor = g7 / p42 / O)
+    G-->>C: snapshot
+    K->>F: 记录 offset = O + 1（v7）
+    F-->>G: delta(cursor = O + 1)
+    G-->>C: delta
+    Note over C: 客户端保存最后的 cursor
+    Note over C,G: 断线后带 resumeFrom = cursor 重连
+    C->>G: subscribe(resumeFrom = O + 1)
+    G->>F: 从环形缓冲续传, 不在缓冲内就从 Kafka 补读
+    F-->>C: 后续增量（经网关）
 ```
 
 **客户端处理规则**：
-1. 每个 key 只应用 `version` 大于本地的增量（增量是合并过的，版本号可能跳跃，这是正常的）。
-2. `seq` 是每个订阅内的连续序号，**不连续就发 `resync`** 重新拿快照。
-3. 收到 `status = STALE` 时，界面上明确标注“数据待确认”，不要展示成正常数字。
-4. 用心跳里的 `lagMs` 显示数据延迟；超过阈值（例如 2 秒）时提示用户。
+1. 每个 key 只应用 `(generation, version)` 更大的增量（增量可能经过合并，版本号跳跃是正常的）。
+2. 保存最后收到的 `cursor`，重连时带上它；不需要每次重新拿快照。
+3. 收到 `resync_required` 时清空本地状态，重新订阅。
+4. 收到 `status = STALE` 或 `RECONCILING` 时，界面上明确标注“数据待确认”，不要展示成正常数字。
+5. 用心跳里的 `stalenessMs` 显示数据延迟；超过阈值（例如 2 秒）时提示用户。
 
 **服务端保护**：
-- 每个连接一个有上限的发送队列，**队列里按 key 只保留最新版本**。合并后仍然超过上限，说明客户端太慢：发 `resync_required` 并清空队列，让客户端重新拿快照，服务端内存始终有上限。
+- 每个连接一个有上限的发送队列，**队列里按 key 只保留最新版本**（合并不影响续传，游标始终是已发送的最后一个 offset）。合并后仍然超过上限，就断开这个连接并告知原因，客户端带游标重连，服务端内存始终有上限。
 - 每个用户的订阅数和账户数有上限；连接数按节点限流。
 
 ### 9.8 事前风控如何访问（重点）
 
-风控对延迟和正确性的要求都最高，推荐 **“本地副本 + 预扣 + 因果标识”** 模式：
+风控对延迟和正确性的要求都最高，推荐 **“本地副本 + 持久预扣 + 按覆盖量释放”** 模式。预扣属于风控服务自己的状态，持久化到风控服务拥有的 `risk-reservations` topic；持仓服务提供的是 by-account 流中每个 key 的权威状态和 `order_effects`。
 
-1. **初始化**：风控按账户分片，只消费自己负责的账户。先从 `positions-latest`（compacted）加载全量；再用 `offsetsForTimes` 从“加载开始前一段时间”（例如 1 分钟前）消费按账户重分区的 `position-updates-by-account`，**只应用版本更大的记录**。两个 topic 的 offset 不能直接对应，靠版本号合并才不会出现缺口或回退。注意要消费**未合并**的变更流，每个版本都要看到。
-2. **本地检查**：下单检查直接查本地内存，p99 < 1ms，不需要网络调用。
-3. **预扣在途订单**：风控放行一个订单时，先把它记入本地 `pending[order_id]`（数量、方向、金额）。
-4. **因果标识消除重复计算**：每条 `PositionUpdated` 都带 `cause`（触发它的事件身份）。风控看到第一条 `cause.order_id = X` 的更新时（通常是 `ORDER_NEW`；如果 ACK 或成交先到，就是那一条），说明这个订单已经反映在 `open_buy_qty` 或持仓里，于是从 `pending` 中移除 X。**这样既不会漏算（还没进持仓的订单由预扣覆盖），也不会重复计算。**
-5. **预扣超时**：`pending` 条目带超时（例如 5 秒）。超时还没看到对应的 `ORDER_NEW`，说明订单可能没发出去，或者链路有延迟。这时先向 OMS 核实订单状态，再决定清理还是保留，不能直接删除。
-6. **兜底**：如果本地副本落后超过阈值（心跳 `lagMs` 或消费 lag 超限），或者对应 key 是 `STALE`，就改用同步 `STRONG` 读；如果仍然失败，**按 fail-closed 拒单**（策略可按账户类型配置）。
+**1. 初始化：基于位置，不再回看固定时间窗。**
+
+- 风控按账户分片，每个分片对应 `position-updates-by-account.g{n}` 的若干个分区。
+- 初始化时，从该分区 compacted 数据的起点开始，以 `read_committed` 顺序读取到当前末尾。读完后，本地状态就等于该位置处每个 key 的最新状态，然后从这个位置继续消费。**本地副本的位置就是 Kafka offset，不需要和另一个 topic 对齐，也不存在 v1 那种“回看 1 分钟够不够”的问题。**
+- 同时从 `risk-reservations` 恢复本分片的未结预扣。
+- 规模估算：每个 by-account 分区约 2,000 万 ÷ 128 ≈ 15.6 万个 key，但分区里还有 7 天内未压缩的历史版本（每天约 10 亿 ÷ 128 ≈ 780 万条，7 天约 5,500 万条）。按每秒约 100 万条读取，**冷启动约 1 分钟**，期间该分片 fail-closed。日常重启和分片迁移从风控自己的本地快照（附带 offset，至少每分钟一次）开始，只补读增量，秒级完成。
+
+**2. 预扣台账：先持久化再放行。**
+
+```text
+Reservation {
+  order_id, account, side, instrument, book
+  reserved_rev            # 该预扣对应的订单修订号
+  reserved_qty, reserved_notional
+  covered_qty             # 已被权威状态覆盖的数量
+  status: OPEN | RELEASED | EXPIRED_PENDING_CHECK
+}
+```
+
+- **同一账户的“检查 + 预扣”串行执行**：风控按账户分片，每个账户由一个单线程执行器处理，同一账户的两个订单不会并发通过检查。
+- **放行之前，先把预扣写入 `risk-reservations` 并提交**（同一账户的多个预扣可以批量提交）。风控重启或分片迁移后，从这个 topic 恢复所有 `OPEN` 预扣，不会丢失已放行、但持仓服务还没看到的订单。
+- **改单**：增加数量的改单按差额追加预扣，修订号为 `rev = k`；减少数量的改单不提前释放，等交易所确认后再按覆盖量释放。
+
+**3. 按覆盖量释放（修正 v1 的“看到第一条更新就整笔释放”）。**
+
+```text
+on_position_update(u):                          # u 来自 by-account 流，read_committed
+  apply_to_local_replica(u)                     # 按 (generation, version) 更新本地持仓
+  for eff in u.order_effects:
+      r = reservations[eff.order_id]
+      if r == null: continue
+      covered = eff.cum_qty + eff.leaves        # 权威状态已经覆盖的数量：成交 + 已确认的剩余挂单
+      if eff.order_rev_acked >= r.reserved_rev and (eff.is_terminal or covered >= r.reserved_qty):
+          release(r)                            # 整笔释放：已确认的修订覆盖了全部预扣，或者订单已结束
+      else:
+          r.covered_qty = min(covered, r.reserved_qty)   # 只释放已覆盖的部分
+
+available_exposure(account) =
+    Σ 本地持仓与已确认在途敞口（来自权威状态）
+  + Σ over OPEN reservations of (reserved_qty − covered_qty)    # 尚未被覆盖的预扣
+```
+
+  前面提到的反例（放行买入 500 股，先收到 100 股成交，NEW_ACK 还没到）现在的处理是：成交事件的 `order_effects` 为 `{cum_qty = 100, leaves = 0, acked_rev = 0}`，`covered = 100`。风控把 `covered_qty` 记为 100，剩余 400 股仍由预扣覆盖。NEW_ACK 到达后，`leaves = 400`，`covered = 500`，修订号也满足条件，此时才整笔释放。在任何时刻，“权威状态 + 未覆盖预扣”都不小于订单的真实敞口。
+
+**4. 预扣超时**：超过 5 秒仍未完全覆盖的预扣，进入 `EXPIRED_PENDING_CHECK`，**额度继续占用**，并向 OMS 查询订单状态，确认订单从未发出或已被拒绝后才释放。
+
+**5. 兜底**：以下任一情况，改用同步 `STRONG` 读，或者直接 fail-closed 拒单（按账户类型配置）：本地副本的 `staleness_ms` 超过阈值；对应 key 为 `STALE` 或 `RECONCILING`；收到 `GENERATION_CHANGED`（新世代重新初始化完成前全部 fail-closed）。
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant T as 交易员
     participant O as OMS
-    participant K as 风控（本地副本）
+    participant K as 风控（账户执行器）
+    participant RS as risk-reservations
     participant L as trading-events
     participant E as Position Engine
-    participant U as position-updates
+    participant U as by-account 流
 
-    T->>O: 买入 AAPL 500 股
-    O->>K: 风控检查(order X)
-    K->>K: 可用敞口 = 持仓 + open_buy + pending
-    K->>K: 通过, pending 加入 X（500）
+    O->>K: 风控检查（order X, 买 500, rev 1）
+    K->>K: 可用敞口 = 权威状态 + 未覆盖预扣
+    K->>RS: 事务写入预扣 X（500, rev 1）
+    RS-->>K: 已提交
     K-->>O: 放行
-    O->>L: ORDER_NEW X（经 outbox / Normalizer）
-    L->>E: 拉取
-    E->>E: open_buy_qty 增加 500, version 加 1
-    E->>U: PositionUpdated(v, cause = ORDER_NEW X)
+    O->>L: NEW_REQ X（经 outbox 和 Normalizer）
+    Note over L: 交易所先回报成交 100 股, NEW_ACK 稍后才到
+    L->>E: FILL X 100
+    E->>U: 变更记录（order_effects: cum 100, leaves 0, acked_rev 0）
     U->>K: 消费
-    K->>K: 更新本地持仓, pending 移除 X
-    Note over K: X 只被计算一次：先在 pending, 后在 open_buy_qty
-    alt 本地副本延迟过高, 或者 key 为 STALE
-        K->>E: GetPosition(STRONG)
-        E-->>K: 读屏障之后的持仓
-    end
+    K->>K: covered = 100, 剩余 400 仍由预扣覆盖
+    L->>E: NEW_ACK X（rev 1, 500）
+    E->>U: 变更记录（order_effects: cum 100, leaves 400, acked_rev 1）
+    U->>K: 消费
+    K->>K: covered = 500 且修订号满足条件, 整笔释放
+    K->>RS: 事务写入释放 X
 ```
 
 ### 9.9 OMS 的读己之写
@@ -932,11 +1235,11 @@ sequenceDiagram
 OMS 收到成交后要立刻展示或推送最新持仓时，使用 `CAUSAL`：
 
 ```text
-GetPosition(key, options = { consistency: CAUSAL, causal: { exec_id: "E-8812" }, max_wait_ms: 50 })
+GetPosition(key, options = { consistency: CAUSAL, causal: { exec: { venue: "XNAS", exec_id: "E-8812" } }, max_wait_ms: 50 })
 ```
 
-- Query API 把请求路由到该分区 leader。leader 检查 `exec_id` 是否已经在去重集合中：在就立即返回；不在就等待，最多 `max_wait_ms`。
-- 超时返回当前持仓，并设置 `causal_satisfied = false`，由调用方决定重试还是提示用户。
+- Query API 把请求路由到该分区 leader。leader 检查该成交的输出是否**已提交**（在有效成交表中，并且 `src_offset ≤ committed_offset`）：已提交就立即返回；没有就等待，最多 `max_wait_ms`。
+- 超时返回当前已提交的持仓，并设置 `causal_satisfied = false`，由调用方决定重试还是提示用户。
 
 ### 9.10 客户端 SDK
 
@@ -948,7 +1251,10 @@ GetPosition(key, options = { consistency: CAUSAL, causal: { exec_id: "E-8812" },
 | 重试 | 只重试幂等读；指数退避加抖动（5ms 起，最多 3 次）；`UNAVAILABLE` 和 `NOT_LEADER` 可以重试，`PERMISSION_DENIED` 不重试 |
 | 对冲请求 | `EVENTUAL` 读在 p95 时间仍未返回时，向另一个副本再发一次，取先返回的结果 |
 | 熔断 | 错误率或延迟超过阈值时熔断，半开后再探测 |
-| 单调读 | 自动记录每个 key 见过的最大版本，后续请求自动带上 `min_version` |
+| 单调读 | 自动记录每个 key 见过的最大 `(generation, version)`，后续请求自动带上 `min_version` |
+| 世代处理 | 收到更高世代的数据或 `GENERATION_CHANGED` 时，清空本地缓存和单调读记录 |
+| 订阅续传 | 自动保存游标，断线后带游标重连 |
+| Kafka 消费 | 封装消费者，强制 `read_committed`，按 `(generation, version)` 合并 |
 | 路由缓存 | 仅白名单直连模式：缓存路由表，收到 `NOT_LEADER` 时按 hint 重试并刷新 |
 | 降级 | 可配置 fail-open（返回 `EVENTUAL` 数据并标记陈旧）或 fail-closed（直接报错）。**风控必须 fail-closed** |
 | 可观测 | 内置 OpenTelemetry trace 和指标（延迟、重试次数、陈旧度） |
@@ -969,15 +1275,17 @@ PositionKey key = PositionKey.of("ACC-1001", "AAPL.US", "default");
 // 1. 普通查询：最终一致，最多接受 200ms 陈旧
 PositionResponse p1 = client.getPosition(key, ReadOptions.eventual().maxStaleness(Duration.ofMillis(200)));
 
-// 2. 读己之写：等成交 E-8812 生效
-PositionResponse p2 = client.getPosition(key, ReadOptions.causal(CausalToken.exec("E-8812")).maxWait(Duration.ofMillis(50)));
+// 2. 读己之写：等成交 XNAS/E-8812 的输出提交
+PositionResponse p2 = client.getPosition(key,
+    ReadOptions.causal(CausalToken.exec("XNAS", "E-8812")).maxWait(Duration.ofMillis(50)));
 if (!p2.getMeta().getCausalSatisfied()) { /* 提示“成交处理中”或稍后重试 */ }
 
-// 3. 订阅
+// 3. 订阅：SDK 自动保存游标并续传
 client.subscribe(SubscribeRequest.accounts("ACC-1001"), new PositionListener() {
-    public void onSnapshot(List<Position> ps) { view.reset(ps); }
-    public void onDelta(Position p)           { view.applyIfNewer(p); }   // 只应用更大的版本
-    public void onStale(PositionKey k, String reason) { view.markStale(k, reason); }
+    public void onSnapshot(List<Position> ps, Cursor c)  { view.reset(ps); }
+    public void onDelta(Position p, Cursor c)            { view.applyIfNewer(p); }   // 按 (generation, version) 比较
+    public void onStale(PositionKey k, String reason)    { view.markStale(k, reason); }
+    public void onResyncRequired(String reason)          { view.clear(); }            // SDK 随后自动重新订阅
 });
 ```
 
@@ -985,13 +1293,15 @@ client.subscribe(SubscribeRequest.accounts("ACC-1001"), new PositionListener() {
 
 | gRPC 状态 | 业务原因（ErrorInfo.reason） | 含义 | 客户端处理 |
 |---|---|---|---|
-| `OK` + `status=STALE` | — | 返回了数据，但该 key 被隔离，数据可能不完整 | 风控按 fail-closed；UI 标注“待确认” |
+| `OK` + `status=STALE` | — | 返回了数据，但该 key 被隔离或来源有缺口，数据可能不完整 | 风控按 fail-closed；UI 标注“待确认” |
+| `OK` + `status=RECONCILING` | — | 该 key 正在进行跨日或历史修正 | 同上 |
 | `NOT_FOUND` | `ACCOUNT_NOT_FOUND` | 账户不存在 | 不重试 |
 | `PERMISSION_DENIED` | `NOT_ENTITLED` | 无权访问该账户 | 不重试 |
 | `INVALID_ARGUMENT` | `BAD_REQUEST` | 参数错误 | 不重试，修正参数 |
 | `FAILED_PRECONDITION` | `NOT_LEADER` | 直连到了非 leader（带 leader hint） | 按 hint 立即重试并刷新路由表 |
+| `FAILED_PRECONDITION` | `GENERATION_CHANGED` | 请求中的世代已经过期 | 清空缓存后重试 |
 | `UNAVAILABLE` | `PARTITION_FAILOVER` | 分区正在切换（通常 2~3 秒） | 退避重试；`EVENTUAL` 读不受影响 |
-| `DEADLINE_EXCEEDED` | `CAUSAL_WAIT_TIMEOUT` | 等待的事件没在时限内生效 | 视业务重试或提示 |
+| `DEADLINE_EXCEEDED` | `CAUSAL_WAIT_TIMEOUT` | 等待的事件没在时限内提交 | 视业务重试或提示 |
 | `RESOURCE_EXHAUSTED` | `RATE_LIMITED` | 超过配额 | 按 `retry-after` 退避 |
 | `INTERNAL` | — | 服务内部错误 | 有限重试并上报 |
 
@@ -1008,25 +1318,29 @@ client.subscribe(SubscribeRequest.accounts("ACC-1001"), new PositionListener() {
 |---|---|
 | 写入通道 | 写入对应的 raw topic（MSK IAM 认证），或者通过 Ingest gRPC API（由服务代写） |
 | Schema | 使用 Schema Registry 中注册的 Protobuf，只允许向后兼容的变更 |
-| 必填字段 | `source`、`source_session`、`source_seq`、`type`、`account_id`、交易所代码或 `instrument_id`；成交必须带 `exec_id`；订单必须带 `order_id` 和 `order_version` |
-| 序列号 | 每个会话内 `source_seq` 严格单调连续，用于缺口检测 |
+| 必填字段 | `source`、`source_session`、`source_seq`、`type`、`account_id`、交易所代码或 `instrument_id`；成交必须带 `venue` 和 `exec_id`；订单事件必须带 `order_id` 和 `order_rev` |
+| 序列号 | 每个会话内 `source_seq` 严格单调连续，用于缺口检测和去重 |
+| 修订号 | OMS 为每个改单请求分配递增的 `order_rev`，并在请求事件中带上 `ClOrdID → (order_id, order_rev)` 的映射 |
 | 可靠性 | `acks=all`、开启幂等；OMS 必须使用 Transactional Outbox |
 | 补发 | 必须支持按序列号或时间段补发（FIX ResendRequest / outbox 重放），用于缺口修复和 Region 切换 |
-| 人工调账 | `MANUAL_ADJUSTMENT` 只能通过运营后台发出，需双人审批，带工单号 |
+| 人工调账 | `MANUAL_ADJUSTMENT` 和 `RESTATEMENT` 只能通过运营后台发出，需双人审批，带工单号 |
 
 ---
 
 ## 10. 一致性模型总结
 
-| 范围 | 保证 |
-|---|---|
-| 单个 key（写） | 单写者、日志顺序、确定性 → 线性一致 |
-| 单个 key（读） | 由客户端选择：`EVENTUAL` / 单调读 / 读己之写 / 线性一致 |
-| 跨 key、跨账户 | 最终一致（毫秒级）；账户汇总通过“每个 key 取最大版本”收敛，结果确定 |
-| 跨系统（和交易所、清算所） | 日内和 Drop Copy 对账（分钟级），日终和清算 / 托管对账 |
-| 重放 | 同样的日志前缀一定得到同样的状态和同样的版本号 |
+| 范围 | 保证 | 前提 |
+|---|---|---|
+| 单个 key（写） | 单写者、日志顺序、确定性；每个事件的效果恰好一次提交到权威输出流 | §4.2 的 A1~A6 |
+| 单个 key（读） | 由客户端选择：`EVENTUAL`（只读已提交数据）、单调读、读己之写（`CAUSAL`）、线性一致（`STRONG`） | 读模型和客户端都按 `(generation, version)` 比较 |
+| 同一个输入事件影响的多个 key | 在权威输出流和 by-account 流中原子可见 | 同一事务提交 |
+| 跨分区的 key、账户汇总 | **收敛一致**：一段时间没有新事件后，汇总等于各 key 最新状态之和；不保证某一时刻的快照一致 | — |
+| 严格的账户级风控 | 由风控服务按账户串行执行检查与持久预扣（§9.8），持仓服务提供权威状态和订单效果 | 风控按账户分片 |
+| 跨系统（交易所、清算所） | **只能检测**：日内与 Drop Copy 全字段对账，日终与清算、托管对账 | — |
+| 重放 | 同一世代内，同样的日志前缀一定得到同样的状态和同样的版本号 | 确定性计算、代码版本一致（A5） |
+| 世代之间 | 不保证同一个 version 对应同样的内容；世代变化时客户端必须重建 | §7.12 |
 
-用 CAP 的说法：单个 key 的写路径选择 **CP**（分区切换时短暂不可写，但不会出现两个写者）；读路径的 `EVENTUAL` 选择 **AP**（切换期间仍然可以读，带陈旧度标记）。
+用 CAP 的说法：单个 key 的写路径选择 **CP**（分区切换期间不可写，但只有一个写者能提交）；读路径的 `EVENTUAL` 选择 **AP**（切换期间仍然可以读，带陈旧度标记）。
 
 ---
 
@@ -1036,63 +1350,76 @@ client.subscribe(SubscribeRequest.accounts("ACC-1001"), new PositionListener() {
 
 | 故障 | 影响 | 处理 | RPO / RTO |
 |---|---|---|---|
-| 某个 broker 故障 | 部分分区 leader 切换 | MSK 自动切换；`min ISR=2` 保证已确认数据不丢 | 0 / 秒级 |
-| 引擎 Pod 崩溃 | 相关分区暂停输出 | Standby 接管（§11.2），没有 standby 时用快照 + 重放 | 0 / 约 2~3 秒（standby），约 30 秒（重建） |
+| 某个 broker 故障 | 部分分区 leader 切换 | MSK 自动切换；`min ISR=2` 保证已确认数据不丢；事务协调者状态同样是 3 副本 | 0 / 秒级 |
+| 引擎 Pod 崩溃 | 相关分区暂停输出 | Standby 接管（§11.2）；没有 standby 时，用快照加静默重放恢复（§7.7） | 0 / 约 2~3 秒（standby），约 30 秒（重建） |
 | 整个 AZ 故障 | 1/3 的计算和存储 | MSK、Redis、DynamoDB、EKS 都跨 3 AZ；standby 在其他 AZ | 0 / 秒级 |
-| 网络分区导致僵尸写者 | 两个节点同时输出 | lease 自我隔离 + epoch 隔离 + 下游拒收旧 epoch | — |
-| Normalizer 重启 | 重复事件 | 会话序号 / `exec_id` 去重 | 0 |
-| Redis 故障 | 热读变慢 | 读回退到 DynamoDB；从 `positions-latest` 重建 Redis | 0 / 分钟级（重建期间读延迟变高） |
+| 旧主暂停后恢复（GC、网络延迟、僵尸进程） | 旧主试图继续输出 | `initTransactions` 已经隔离了旧 producer，旧主的提交被拒绝，未提交的数据对下游不可见（§11.2） | 0 / — |
+| Normalizer 重启 | 可能重复转发 | 会话状态与转发在同一事务提交；重复事件按会话状态丢弃 | 0 |
+| Fan-out 节点故障 | 部分订阅断开 | 新 owner 从快照加增量恢复（§9.7）；客户端带游标重连续传 | 0 / 秒级 |
+| Redis 故障 | 热读变慢 | 读回退到 DynamoDB；从 `position-updates.g{n}` 重建 Redis | 0 / 分钟级（重建期间读延迟变高） |
 | DynamoDB 限流 | 持久读模型写入变慢 | Projector 合并写、退避；热路径不依赖 DynamoDB | 0 |
-| 上游序列缺口 | 可能漏掉成交 | ResendRequest；Drop Copy 对账；超时后把账户标为 `STALE` | 补发后为 0 |
-| 代码 bug 导致持仓算错 | 持仓错误 | 隔离 → 修复 → 从日志重算（§16.3） | 0 / 取决于修复时间 |
-| Region 故障 | 全部服务 | 切换到 DR Region（§11.3） | 秒级（补发后为 0）/ 分钟级 |
+| 上游序列缺口 | 可能漏掉成交 | ResendRequest；超时后账户标为 `STALE(SOURCE_GAP)`；Drop Copy 补入 | 补发后为 0 |
+| 标的映射失败 | 相关事件无法处理 | 暂存并标为 `STALE(PENDING_REFDATA)`；修复后按会话状态补转发（§7.2） | 0 / 取决于修复时间 |
+| 超出更正窗口的事件 | 实时持仓无法自动修正 | `RECONCILING`、工单、审批后发 `RESTATEMENT`（§7.9） | 0 / 取决于审批 |
+| 代码 bug 导致持仓算错 | 持仓错误 | 隔离、修复、全量重算到新世代（§16.3） | 0 / 取决于修复时间 |
+| Region 故障 | 全部服务 | 切换到 DR Region，提升世代（§11.3） | 秒级（补发后为 0）/ 分钟级 |
 
-### 11.2 AZ 内主备切换（lease + epoch）
+### 11.2 AZ 内主备切换：租约负责选主，事务负责隔离
 
-- 租约存在 DynamoDB，用条件写更新。leader **每 500ms 续约一次，TTL 为 2 秒**。
-- **自我隔离**：leader 如果距离上次续约成功已经超过 1.5 秒（TTL 减去安全余量），就主动停止输出。这样它一定在 standby 接管之前停下，两者不会重叠。
-- **不依赖跨机器时钟**：standby 判断租约过期的方式是，用本机单调时钟计时，看到租约记录（`epoch`、续约计数）连续 2 秒没变化，就认为过期，避免两台机器时钟不一致导致误判。
-- standby 一直在消费和计算（不输出），并保留最近 N 秒的输出缓冲（按 `src_offset` 索引）。`position-updates` 和 `trading-events` 的分区一一对应，所以接管时只需要读一个分区的末尾。
-- 切换总耗时约等于“2 秒判定过期”加上“1 秒以内的接管和补发”，**RTO 约 2~3 秒**。
+**v1 的问题**：v1 依靠“旧主 1.5 秒后自停，一定早于备节点接管”来避免两个写者同时输出。这个前提在进程暂停、线程在检查之后被挂起、网络请求延迟到达等情况下都不成立；Projector 用“见过的最大 epoch”过滤，在新主还没输出之前也挡不住旧主。
+
+**v2 的分工**：
+
+| 机制 | 负责什么 | 失效时的后果 |
+|---|---|---|
+| 租约（DynamoDB，每 500ms 续约，2 秒没有变化视为过期） | 决定**由谁接管**、什么时候接管 | 判断错误只会导致不必要的切换或切换变慢（影响可用性），不会造成两个写者 |
+| Kafka 事务（固定的 `transactional.id = pos-engine-{p}`） | **只有一个写者能提交** | 依赖 Kafka 本身的正确性（A4） |
+| 下游 `read_committed` | 下游**只看到已提交的数据** | 消费者配置错误：SDK 强制并审计 |
+
+**接管流程**：
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant A as 主节点 A（AZ-a，epoch 7）
-    participant D as DynamoDB 租约表
-    participant B as Standby B（AZ-b）
-    participant U as position-updates
-    participant P as Projector
+    participant A as 旧主 A（暂停中）
+    participant D as DynamoDB 租约
+    participant B as Standby B
+    participant TC as Kafka 事务协调者
+    participant U as position-updates.g7
 
-    loop 每 500ms
-        A->>D: 续约（条件：owner = A 且 epoch = 7）
-    end
-    Note over A: AZ-a 故障, A 失联, 1.5 秒后若仍存活则自我停止输出
-    B->>D: 观察到租约 2 秒无变化, 判定过期
-    B->>D: 条件写：owner = B, epoch = 8
+    A->>U: 事务 T1 中途（尚未提交）
+    Note over A: GC 停顿或网络分区, 续约中断
+    B->>D: 观察到租约 2 秒无变化, 条件写 owner = B, epoch = 8
     D-->>B: 成功
-    B->>U: 读取分区最后一条输出的 src_offset = C
-    B->>U: 补发缓冲中 src_offset 大于 C 的输出（epoch = 8）
-    Note over B,P: 计算是确定性的, 补发内容和 A 原本要发的完全一致, 重叠部分按版本号去重
-    B->>U: 继续正常输出
-    U->>P: 消费
-    P->>P: 该分区最大 epoch 变为 8, 之后拒收 epoch 7 的输出
-    Note over A: A 若恢复, 发现续约失败, 自动降级为 standby
+    B->>TC: initTransactions(pos-engine-17)
+    TC->>TC: producer epoch 加 1, 作废 A 未提交的 T1
+    TC-->>B: 完成, A 已被隔离
+    B->>B: 读已提交 offset C, 静默追平到 C
+    B->>U: 事务 T2（从 C + 1 开始输出）, 提交成功
+    Note over A: A 恢复后继续发送 T1 或开启新事务
+    A->>TC: commitTransaction
+    TC-->>A: ProducerFenced, 拒绝
+    A->>A: 自杀式退出, 重启后作为 standby 运行
+    Note over U: 下游 read_committed, 永远看不到 T1
 ```
 
-> 为什么确定性这么重要：如果 A 在被隔离前多发了几条输出，它们和 B 补发的内容（版本号和数据）完全一样，下游按版本号去重即可。epoch 隔离主要防的是**状态不一致**的情况（例如部署期间 A 和 B 代码版本不同）。
+- **Standby 的状态**：standby 只消费 `trading-events` 中**不超过已提交 offset** 的部分（从 `position-updates.g{n}` 的水位记录得到已提交 offset）。所以 standby 的状态最多落后一个提交周期，接管时只需要追平到已提交 offset，然后从下一条开始输出，不需要像 v1 那样补发自己缓冲的输出。
+- **强一致读的领导权**：`STRONG` 读必须等到包含读屏障位置的事务提交成功才返回（§9.4）。被隔离的旧主无法提交，所以无法为 `STRONG` 读返回结果。
+- **RTO**：约 2 秒判定租约过期，加上不到 1 秒的 `initTransactions` 和追平，**约 2~3 秒**。
 
 ### 11.3 Region 级容灾（主备）
 
-- **复制**：MSK Replicator 把 `trading-events` 等 topic 异步复制到 DR Region（同时同步消费组 offset）；S3 快照和归档做跨区复制。
-- **DR 引擎温备**：DR 引擎持续消费复制过来的 `trading-events` 维护状态，只写 DR 本地的读模型，**不对外服务**。
-- **切换**：用 Route 53 Application Recovery Controller（ARC）的路由开关，由人工确认或自动化 runbook 触发，整体切换到 DR Region。
-- **补齐缺口**（异步复制的 RPO 在秒级）：
-  1. OMS outbox 从“故障时间减安全窗口”开始重新发布；
-  2. FIX 会话在 DR 重建，从 DR 已收到的最后序列号发 ResendRequest；
-  3. 所有重复由会话序号和 `exec_id` 去重；
-  4. 切换完成后马上和 Drop Copy 全量对账，确认没有遗漏后，账户才从 `RECONCILING` 恢复为 `OK`。
-- **为什么不用 DynamoDB Global Tables 复制持仓读模型**：Global Tables 跨区冲突按“最后写入者胜”处理，条件写只在本区生效，和“按版本号单调递增”的语义不兼容。每个 Region 由自己的 Projector 从本区 topic 生成读模型。
+**复制**：MSK Replicator 把 `trading-events` 等 topic 异步复制到 DR Region；S3 快照和归档做跨区复制。**跨 Region 复制不保证逐条一致，也不保证事务原子性**（A7），所以 DR 不能在主 Region 的世代上继续写。
+
+**切换流程**：
+
+1. **隔离旧 Region**：用 Route 53 ARC 的路由控制，把所有客户端和上游的写入流量切到 DR，同时翻转 `generations` 表中的活跃 Region。旧 Region 的组件每次提交前都检查本地缓存的活跃 Region（缓存有效期 1 秒），发现自己不再是活跃 Region 就停止。即使旧 Region 还在运行，它的输出也只会写进旧世代的 topic，客户端已经切到新世代，不会读到这些数据。
+2. **提升世代**：DR 以 `generation = n + 1` 启动，从 DR 已复制到的 `trading-events` 加上上游补发，计算出新世代的输出（`position-updates.g{n+1}`）。
+3. **补齐缺口**：OMS outbox 从“故障时间减去安全窗口”开始重新发布；FIX 会话在 DR 重建，从 DR 已收到的最后序列号发 ResendRequest；重复事件由 Normalizer 的会话状态和引擎的 `(venue, exec_id)` 去重。
+4. **对账后恢复**：所有账户先标为 `RECONCILING`；和 Drop Copy 全量对账、确认没有遗漏后，账户才恢复为 `OK`。
+5. **客户端重建**：订阅收到 `resync_required(GENERATION_CHANGED)`；SDK 清空缓存；风控按新世代重新初始化，期间 fail-closed。
+
+- **为什么不用 DynamoDB Global Tables 复制持仓读模型**：Global Tables 跨区冲突按“最后写入者胜”处理，条件写只在本区生效，和 `(generation, version)` 单调递增的语义不兼容。每个 Region 由自己的 Projector 生成读模型。
 - **为什么跨 Region 不做双活**：同一个 key 必须只有一个写者、严格有序。双活要么产生冲突合并问题，要么每次写都要跨区同步（增加几十毫秒），代价太大。
 
 ### 11.4 背压
@@ -1105,32 +1432,38 @@ sequenceDiagram
 
 ## 12. 性能与扩展
 
-### 12.1 端到端延迟预算（估算值）
+### 12.1 端到端延迟预算（估算值，待压测）
+
+v2 在 Normalizer 和引擎各增加了一次事务提交，下面的预算已经包含这部分开销。
 
 | 环节 | p99 估算 |
 |---|---|
-| 网关接收 + 写入 raw topic（acks=all，跨 AZ） | 2~5 ms |
-| Normalizer 处理 + 写入 `trading-events` | 2~5 ms |
-| 引擎拉取 + 处理 | 1~2 ms |
-| 写入 `position-updates` | 2~5 ms |
-| Projector 写 Redis / Fan-out 推送 | 1~5 ms |
-| **事件到达到可读（不含网关段）** | **约 10~20 ms** |
+| 网关接收 + 写入 raw topic（acks=all，跨 AZ） | 2~5 ms（不计入下表合计） |
+| Normalizer 批处理（≤1ms）+ 事务提交 | 3~6 ms |
+| 引擎读到已提交事件（read_committed） | ≤1 ms |
+| 引擎批处理（≤1ms）+ 事务提交 | 3~6 ms |
+| Projector 读到已提交记录并写 Redis | 1~3 ms |
+| **小计：从 Normalizer 收到事件到可查询** | **约 8~16 ms，目标 p99 < 25 ms** |
+| Repartitioner 事务复制 | 3~6 ms |
+| Fan-out 推送或风控收到（从 by-account 流） | 1~3 ms |
+| **小计：从 Normalizer 收到事件到推送或风控** | **约 11~25 ms，目标 p99 < 30 ms** |
 
-如果想进一步缩短：把 Normalizer 和 Gateway Adapter 合并（少一次 Kafka 往返），或者让风控直接消费引擎输出（已经是推荐做法）。
+可以进一步缩短的方向：把 Gateway Adapter 和 Normalizer 合并，少一次 Kafka 往返；风控直接消费 `position-updates.g{n}`，省掉 Repartitioner 这一跳（代价是风控要按持仓分区而不是账户分区来管理本地状态，同一账户的串行检查需要额外协调）。
 
 ### 12.2 扩展方式
 
 | 维度 | 方式 |
 |---|---|
-| 写入吞吐 | 512 个分区预留余量；一个引擎 Pod 负责多个分区，扩容时迁移分区（通过 lease 交接 + 快照） |
-| 热点账户 | `(account, instrument)` 分区已经把热点分散；单个热点 key 由单线程内存计算，每秒几十万事件也能承受 |
+| 写入吞吐 | 512 个分区预留余量；一个引擎 Pod 负责多个分区，扩容时迁移分区（租约交接 + 快照 + `initTransactions`） |
+| 热点 key | 在途敞口增量维护（每个事件 O(1)）；成交撤销或更正只重算受影响的 key，超过阈值切换为增量批次重算（§7.4）。单个 key 的吞吐上限由单线程处理能力（每秒几万到几十万事件）和每批事务提交频率共同决定，需要压测确认 |
+| 热点账户 | `(account, instrument)` 分区已经把单个账户的写入分散到多个分区；账户级的风控串行由风控服务按账户分片处理 |
 | 查询 | Query API 无状态水平扩展；Redis 增加分片或只读副本 |
-| 推送 | Stream Gateway 按连接数水平扩展；Fan-out 按分区扩展 |
+| 推送 | Stream Gateway 按连接数水平扩展；Fan-out 按 by-account 分区扩展 |
 | 存储 | Tiered Storage 自动下沉；S3 无上限 |
 
 ### 12.3 调优要点
 
-- Kafka：`linger.ms=0~1`、`fetch.min.bytes=1`、`fetch.max.wait.ms` 调小、压缩用 lz4 或 zstd；broker 选 Graviton 实例并配足网络带宽。
+- Kafka：`linger.ms=0~1`、`fetch.min.bytes=1`、`fetch.max.wait.ms` 调小、压缩用 lz4 或 zstd；事务批按“每 1ms 或每 500 条”提交，在延迟和提交开销之间取平衡；broker 选 Graviton 实例并配足网络带宽。
 - 引擎：固定 CPU 核、关闭 CPU 节能、使用 off-heap 数据结构和对象池（JVM 可用 ZGC / Generational ZGC），或者直接用 Rust / C++ 实现。
 - 网络：同 AZ 优先读（Kafka rack awareness / follower fetching），减少跨 AZ 往返和流量费用。
 
@@ -1138,25 +1471,31 @@ sequenceDiagram
 
 ## 13. 对账、审计与合规
 
+> 对账用来**检测**差异，不能证明结果正确。正确性来自 §4.2 的前提和 §7 的协议；对账负责发现前提不成立或者实现有 bug 的情况。
+
 ### 13.1 不变量（每次处理和每次快照时校验）
 
-- `net_qty = sod_qty + bought_qty - sold_qty`（加上公司行动调整）。
-- 每个订单 `cum_qty ≤ order_qty`；`leaves ≥ 0`。
-- 每个分区维护滚动 checksum（对所有持仓状态做哈希），快照时写入 manifest；主备之间定期比对。
+- `net_qty = sod_qty + bought_qty − sold_qty`（加上公司行动调整）。
+- 每个订单 `cum_qty = Σ 有效成交`，`cum_qty ≤ acked_qty`（交易所主动超额成交时告警，不静默修正），`leaves ≥ 0`。
+- 交易所回报带 `venue_cum_qty` 时，必须和 `cum_qty` 一致。
+- 每个 key 的 `open_buy_qty` 等增量维护的汇总值，在快照时和全量重算结果比对。
+- 每个分区维护滚动 checksum（对所有持仓状态做哈希），写入快照 manifest；主备持续比对。
 
-### 13.2 三层对账
+### 13.2 对账层次
 
-| 层级 | 频率 | 对象 | 处理 |
-|---|---|---|---|
-| 日内 | 分钟级 | 交易所 Drop Copy 与引擎的成交集合（按 `exec_id`） | 发现缺失就触发补发；超时未解决则标记 `STALE` 并通知风控 |
-| 日终 | 每日 | 清算所 / 托管方的持仓文件 | 差异进入工单流程，必要时人工调账（`MANUAL_ADJUSTMENT`，需审批） |
-| 内部 | 每日 | 用 S3 归档日志影子重算，与生产快照比对 checksum | 不一致说明存在不确定性或 bug，必须排查到根因 |
+| 层级 | 频率 | 对象 | 能发现什么 | 处理 |
+|---|---|---|---|---|
+| 日内 | 分钟级 | 交易所 Drop Copy 与引擎有效成交表，按 `(venue, exec_id)` **逐字段**比对：数量、价格、方向、账户、标的、撤销和更正链 | 漏成交、重复、价格或数量错误、更正链没有应用 | 发现缺失就触发补发；字段不一致就标为 `STALE` 并告警；超时未解决则通知风控 |
+| 日终 | 每日 | 清算所 / 托管方的持仓和成交文件 | 持仓数量、成本与外部权威数据不一致 | 差异进入工单，必要时审批后发 `MANUAL_ADJUSTMENT` 或 `RESTATEMENT` |
+| 内部：可重复性 | 每日 | 用同一份代码，从 S3 归档日志重算，和生产快照比对 checksum | 非确定性（读墙钟、并发问题等） | 必须排查到根因 |
+| 内部：独立实现差分 | 每日 | 由另一个团队用不同语言写的独立实现（例如 Python + 数据湖 SQL），对同一份日志计算持仓，**逐字段**比对 | 实现 bug（同一份代码重算会得到同样的错误结果，checksum 发现不了） | 差异进入工单 |
+| 主备一致性 | 持续 | 主备的分区 checksum | 主备代码版本不同或内存损坏 | 告警，必要时重建 standby |
 
 ### 13.3 审计
 
 - 原始事件、输出事件、快照都存入 S3 并开启 **Object Lock（合规模式）**，满足 SEC 17a-4 一类不可篡改保留要求（具体保留期按适用法规确认）。
-- **事件链查询**：任意 `(key, version)` 都能查到 `src_offset` 和 `cause`，进而追溯到原始回报。
-- 人工调账全程留痕：发起人、审批人、工单号、调账前后版本。
+- **事件链查询**：任意 `(generation, version)` 都能查到 `src_offset` 和 `cause`，进而追溯到原始回报。
+- 人工调账和历史修正全程留痕：发起人、审批人、工单号、调账前后版本。
 
 ---
 
@@ -1166,10 +1505,12 @@ sequenceDiagram
 
 | 类别 | 指标 |
 |---|---|
-| 时效 | 端到端延迟直方图（`ts_ingest` 到可读）、每分区 consumer lag（条数和毫秒数）、推送延迟 |
-| 正确性 | 去重命中数（按层次）、序列缺口数和补齐耗时、隔离 key 数、对账差异数、条件写被拒数（正常为小量） |
-| 可用性 | 查询成功率、`STRONG` 读失败率、epoch 切换次数、快照年龄 |
-| 容量 | 每分区事件速率、引擎 CPU 和内存、Redis 内存、DynamoDB 限流次数、WebSocket 连接数和被踢的慢消费者数 |
+| 时效 | 端到端延迟直方图（从 `ts_ingest` 到可读、到推送）、每分区 consumer lag（条数和毫秒数）、`complete_through` 落后时间、事务提交耗时 |
+| 正确性 | 各层去重命中数、来源缺口数和补齐耗时、暂存事件数、隔离 key 数、`RECONCILING` key 数、对账差异数（按字段）、独立实现差分的差异数、主备 checksum 不一致次数 |
+| 事务 | 每秒事务数、事务中止次数、`ProducerFenced` 次数（大于 0 说明发生过旧主隔离）、事务超时次数 |
+| 可用性 | 查询成功率、`STRONG` 读失败率、主备切换次数、快照年龄、世代切换次数 |
+| 风控相关 | 未结预扣数量和金额、预扣超时次数、部分覆盖的预扣数 |
+| 容量 | 每分区事件速率、引擎 CPU 和内存、Redis 内存、DynamoDB 限流次数、WebSocket 连接数、被断开的慢消费者数 |
 
 链路追踪：OpenTelemetry，以 `event_id` 作为贯穿 ID，从网关一直追到推送。
 
@@ -1177,8 +1518,9 @@ sequenceDiagram
 
 | SLO | 目标 | 告警 |
 |---|---|---|
-| 端到端时效 | 交易时段 99.9% 的分钟内 p99 < 20ms | 任一分区 lag > 500ms 持续 10 秒，P1 |
-| 正确性 | 没有未解释的对账差异 | 出现任何隔离 key 或对账差异，P1，同时通知风控 |
+| 端到端时效 | 交易时段 99.9% 的分钟内，可查询 p99 < 25ms，推送 p99 < 30ms | 任一分区 lag > 500ms 持续 10 秒，P1 |
+| 数据完整性 | `complete_through` 落后 < 1 秒 | 任一来源缺口超过 500ms 未补齐，P1 |
+| 正确性 | 没有未解释的对账差异或差分差异 | 出现任何隔离 key、对账差异或差分差异，P1，同时通知风控 |
 | 查询可用性 | 99.99% | 错误率 > 0.1% 持续 1 分钟，P1 |
 | 快照新鲜度 | 快照年龄 < 5 分钟 | 超过 5 分钟，P2 |
 
@@ -1187,10 +1529,10 @@ sequenceDiagram
 ## 15. 安全
 
 - **加密**：MSK、DynamoDB、S3、ElastiCache 都开启静态加密（KMS CMK）和传输加密（TLS）。
-- **身份与权限**：EKS 使用 IRSA / Pod Identity，按组件授予最小权限；MSK 使用 IAM 认证和 topic 级 ACL。
+- **身份与权限**：EKS 使用 IRSA / Pod Identity，按组件授予最小权限；MSK 使用 IAM 认证和 topic 级 ACL，每个 topic 只有指定的写入方有写权限（§8.1）。
 - **网络**：组件部署在私有子网；外部流量只能经过 CloudFront + WAF + NLB / ALB；跨账号通过 PrivateLink。
 - **数据访问**：每次查询都做账户级 ABAC 鉴权；读取操作写审计日志；数据湖用 Lake Formation 控制行列权限。
-- **变更控制**：人工调账双人审批；生产配置变更走审批流程；快照和归档不可删除（Object Lock）。
+- **变更控制**：人工调账和历史修正双人审批；生产配置变更走审批流程；快照和归档不可删除（Object Lock）。
 
 ---
 
@@ -1200,34 +1542,39 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    A["盘前<br/>加载 SOD 和公司行动<br/>核对日初持仓<br/>预热, 扩容"] --> B["开盘<br/>实时处理<br/>日内对账"]
+    A["盘前<br/>对账日初持仓<br/>预热, 扩容"] --> B["开盘<br/>实时处理<br/>日内对账"]
     B --> C["收盘<br/>处理迟到回报<br/>日终快照"]
-    C --> D["日终<br/>清算 / 托管对账<br/>影子重算比对"]
-    D --> E["日切<br/>写入 DAY_ROLL 控制事件<br/>归档当日成交, 清理去重集合"]
+    C --> D["日终<br/>清算 / 托管对账<br/>独立实现差分"]
+    D --> E["日切<br/>写入 DAY_ROLL<br/>滚动日基线, 归档窗口外数据"]
     E --> A
 ```
 
-- **日切通过控制事件实现**：调度器向每个分区写一条 `DAY_ROLL` 事件，引擎在日志里的确定位置执行日切，不依赖墙钟，所以重放结果不变。
+- **日切通过控制事件实现**：调度器向每个分区写一条 `DAY_ROLL` 事件，引擎在日志里的确定位置对分区内全部 key 执行日切（§7.9），不依赖墙钟，所以重放结果不变。
 - 7×24 交易的品种（例如加密货币）按 UTC 固定时间写入 `DAY_ROLL`。
 
 ### 16.2 发布策略
 
-- **影子验证**：新版本引擎先以 standby 角色运行，与当前版本比对每个分区的状态 checksum 和输出；连续 N 分钟一致后再切换 leader。
+- **影子验证**：新版本引擎先以 standby 角色运行，与当前版本比对每个分区的状态 checksum；连续 N 分钟一致后，按分区逐个切换 leader（切换过程与 §11.2 相同）。
+- **计算逻辑有变化的发布**：如果新代码对同样的输入会产生不同结果（修 bug 或改口径），不能直接切换 leader，必须走 §16.3 的全量重算，生成新世代。
 - **交易时段冻结发布**，紧急修复除外。
 - Schema 只允许向后兼容的变更；新增事件类型先上线消费端，再上线生产端。
 
-### 16.3 全量重算（蓝绿）
+### 16.3 全量重算到新世代（蓝绿）
 
 发现计算 bug 或需要修改计算口径时：
 
-1. 用新代码新建消费组，从 S3 归档或 Tiered Storage 重算，写入新的读模型表。
-2. 在指定的日志位置比对新旧结果，把差异列出来，由业务确认。
-3. 原子切换读路由（Query API 配置）到新表，旧表保留一段时间用于回滚。
+1. 以 `generation = n + 1` 启动新代码的引擎集群，从 S3 归档或 Tiered Storage 重算，写入 `position-updates.g{n+1}`，Projector 写入新世代的读模型命名空间。
+2. 追平后，新旧世代并行运行，在相同的 `trading-events` offset 处逐字段比对，把差异列出来，由业务确认。
+3. 原子切换世代（更新 `generations` 表）：Query API 改读新命名空间；订阅收到 `resync_required(GENERATION_CHANGED)`；风控按新世代重新初始化（期间 fail-closed）；流式消费者切换到新世代的 topic。
+4. 旧世代保留一段时间用于回滚。回滚也是一次世代切换（切到 `n + 2`，内容来自旧代码），不能把世代号往回调。
+
+> 为什么必须提升世代：客户端可能已经缓存了旧代码算出的 `v100`。新代码重算后的 `v100` 内容不同，如果世代不变，客户端按“只接受更大版本”的规则会拒收修正。
 
 ### 16.4 演练
 
-- 定期在预发环境做混沌演练：杀引擎 Pod、模拟 AZ 故障（AWS FIS）、注入重复和乱序事件、模拟序列缺口。
-- 每季度做一次 Region 切换演练，验证补发和对账流程。
+- 定期在预发环境做混沌演练：杀引擎 Pod、模拟 AZ 故障（AWS FIS）、**冻结旧主进程后再恢复（验证 producer fencing）**、注入重复和乱序事件、模拟序列缺口和标的映射失败、在事务提交前后的各个时刻杀进程（验证不丢不重）。
+- **基于模型的测试**：随机生成订单和成交序列（包括乱序、重复、撤销、更正、跨日），和一个简单的参考模型比对持仓与在途敞口。
+- 每季度做一次 Region 切换演练，验证世代切换、补发和对账流程。
 
 ---
 
@@ -1235,15 +1582,18 @@ flowchart LR
 
 | 决策 | 选择 | 备选与理由 |
 |---|---|---|
-| 流处理实现 | 自研单写者引擎（或 Kafka Streams） | **Flink** 也可以，但它的恰好一次依赖 checkpoint + 两阶段提交，下游可见延迟会被拉到 checkpoint 间隔级别（秒级）。本方案用“幂等 + 版本号”换来毫秒级延迟 |
-| Kafka 事务（EOS） | 可选，默认不开 | 打开后输出和 offset 原子提交，但每批提交增加几毫秒；版本号幂等已经足够 |
-| 消息总线 | MSK | **Kinesis** 运维更省，但单分片吞吐和分片数管理、消费模型和事务语义都弱于 Kafka |
-| 事实来源 | Kafka 日志 | **Aurora 作为台账**：每笔成交更新一行，热点行有锁竞争，跨 AZ 落盘延迟高，重放容易重复计算 |
-| 热读模型 | Redis（可重建） | **把 Redis 当事实来源**：主从异步复制，切换时可能丢写，对成交不可接受 |
+| 输出提交方式 | **Kafka 事务**（输出、水位与输入 offset 原子提交） | v1 的“至少一次 + 版本号幂等”能去掉重复，但**补不回没发出去的输出**，评审指出的快照漏发问题正源于此。每批提交增加几毫秒，已计入 §12.1 |
+| 流处理实现 | 自研单写者引擎（或 Kafka Streams，EOS v2） | **Flink** 也可以：它的恰好一次依赖 checkpoint 加两阶段提交，下游 `read_committed` 时可见延迟会拉到 checkpoint 间隔（通常为秒级）。自研引擎每 1ms 提交一次事务，延迟更低，代价是需要自己实现快照和恢复 |
+| 写者隔离 | Kafka producer fencing + `read_committed` | 只用 epoch 或租约：依赖时钟和调度，无法覆盖进程暂停和延迟到达的请求 |
+| 输出 topic | 一条权威 compacted 流 | v1 的两个 topic（变更流 + 最新状态流）可能只写成功一个；compaction 按位置保留最后一条，不比较业务版本 |
+| 推送一致性 | 基于 Kafka 位置的快照 + 游标续传 | Redis Pub/Sub 是至多一次投递，并且和 Redis 写入不同源，存在漏更新窗口 |
+| 风控预扣 | 风控服务持久化预扣，按覆盖量释放 | 预扣只放内存：重启后丢失；按订单号整笔释放：先到的部分成交会让剩余敞口消失 |
+| 消息总线 | MSK | **Kinesis** 运维更省，但没有事务语义，单分片吞吐和分片管理也弱于 Kafka |
+| 事实来源 | Kafka 日志 | **Aurora 作为台账**：每笔成交更新一行，热点行有锁竞争，跨 AZ 落盘延迟高 |
+| 热读模型 | Redis（可重建） | **把 Redis 当事实来源**：主从异步复制，切换时可能丢写 |
 | 分区键 | (account, instrument) | 按 account 分区账户视图强一致，但热点账户会压垮单分区 |
-| 持仓读模型的跨区复制 | 每区独立生成 | DynamoDB Global Tables 的“最后写入者胜”和版本号语义冲突 |
+| 持仓读模型的跨区复制 | 每区独立生成，Region 切换时提升世代 | DynamoDB Global Tables 的“最后写入者胜”和版本号语义冲突 |
 | 多 Region | 主备 | 双活需要冲突合并或跨区同步写，代价太大 |
-| 风控读取 | 本地副本 + 预扣 + 因果标识 | 每单同步调用 `STRONG` 读：多一跳网络（几毫秒），并且把持仓服务的可用性直接串进下单链路 |
 
 ---
 
@@ -1251,12 +1601,16 @@ flowchart LR
 
 | 问题 | 影响 | 建议 |
 |---|---|---|
+| 更正窗口长度 | 窗口越长，内存越大（每增加一个交易日约 14.4GB），可自动处理的跨日更正越多 | 和业务、清算确认实际的撤销和更正时效分布；默认当日加前 2 个交易日 |
 | 资产类别范围（股票 / 期货 / 期权 / 加密货币 / 外汇） | 持仓规则差异：合约乘数、行权与交割、保证金、7×24 日切 | 第一期确定资产类别，持仓规则做成按资产类别可插拔 |
 | 成本计算方法（加权平均 / FIFO / 税批次） | FIFO 和税批次需要批次队列，内存和重算成本上升 | 和财务、税务确认；如需批次，按 key 存批次并设上限 |
+| 交易所订单语义的映射 | 各 venue 的改单、撤单、重述语义有差异（A3） | 按 venue 维护映射表和回归测试用例 |
+| 事务提交带来的延迟 | 实际 p99 取决于跨 AZ 往返和批大小 | 用真实流量回放压测，调整批大小 |
 | 多币种 | 已实现盈亏的币种、汇率来源 | 持仓按交易币种存储；折算放在查询层或 PnL 服务 |
 | 实际规模和延迟目标 | 本文数字是假设 | 用真实流量回放压测，调整分区数和 Pod 数 |
-| 上游补发能力 | Region 切换和缺口修复依赖 OMS 和网关能补发 | 写进生产者接入规范（§9.13），并定期演练 |
-| 风控 fail-closed 的业务影响 | 持仓不可用时会拒单 | 和业务确认按账户类型的降级策略 |
+| 上游补发能力 | Region 切换和缺口修复依赖 OMS 和网关能补发（A1） | 写进生产者接入规范（§9.13），并定期演练 |
+| 风控 fail-closed 的业务影响 | 持仓不可用、世代切换期间会拒单 | 和业务确认按账户类型的降级策略 |
+| 风控预扣台账的所有权 | 预扣属于风控服务，本文只定义接口约定 | 和风控团队确认台账的存储和恢复方案 |
 | 监管保留期限和数据驻留要求 | 存储成本和部署区域 | 合规团队确认 |
 
 ---
@@ -1266,23 +1620,30 @@ flowchart LR
 | 术语 | 含义 |
 |---|---|
 | Position（持仓） | 某账户在某标的上的数量、成本和盈亏 |
-| Order Event（订单事件） | OMS 发出的下单、改单、撤单等事件 |
-| Execution / Fill（成交） | 交易所回报的成交，带唯一 `exec_id` |
+| Order Event（订单事件） | OMS 发出的请求，以及交易所对它的确认或拒绝 |
+| Execution / Fill（成交） | 交易所回报的成交，在同一 venue 内有唯一 `exec_id` |
 | Bust / Correct | 交易所撤销 / 更正已回报的成交 |
-| Leaves | 订单剩余未成交量 = 订单量 − 累计成交量 |
+| Order Revision（订单修订号） | 同一订单每次改单请求递增的编号 |
+| Leaves | 订单剩余未成交量 = 已确认订单量 − 累计有效成交量 |
 | SOD / EOD | 日初（Start of Day）/ 日终（End of Day） |
 | Drop Copy | 交易所或券商提供的独立成交副本，用于对账 |
-| Single Writer（单写者） | 每个分区同一时刻只有一个进程或线程写状态 |
-| Epoch | 写者任期编号，每次主备切换加 1，用于拒绝旧写者 |
-| Version（版本号） | 每个持仓 key 的状态版本，从日志确定性推导，单调递增 |
+| Single Writer（单写者） | 每个分区同一时刻只有一个实例能提交输出 |
+| Producer Fencing | Kafka 事务机制：新 producer 以相同的 `transactional.id` 初始化后，旧 producer 的提交会被拒绝 |
+| `read_committed` | Kafka 消费者隔离级别：只读取已提交事务中的消息 |
+| Epoch | 写者任期编号，只用于诊断；隔离由事务机制保证 |
+| Generation（数据世代） | 一份派生历史的编号；Region 切换或全量重算时递增 |
+| Version（版本号） | 每个持仓 key 在一个世代内的状态版本，单调递增 |
 | Cause（因果标识） | 触发某个持仓版本的事件身份 |
-| Read Barrier（读屏障） | 强一致读时，等引擎追上请求到达时的日志位置再返回 |
+| Order Effects | 一次持仓变更涉及的订单状态（已确认修订、剩余量、累计成交、是否结束），供风控释放预扣 |
+| Correction Window（更正窗口） | 可以自动进入实时持仓的重发和更正的时间范围 |
+| Watermark（水位） | 沿日志流动的进度标记：Normalizer 的来源水位、引擎的处理水位 |
+| Read Barrier（读屏障） | 强一致读时，等引擎追上并提交请求到达时的日志位置再返回 |
 | Transactional Outbox | 业务数据和出站事件在同一事务提交，由 relay 进程投递的模式 |
 | CQRS | 读写分离：写模型保证正确，读模型按访问方式优化 |
-| STALE | 该 key 因为隔离或缺口，数据可能不完整的状态 |
+| STALE / RECONCILING | 数据可能不完整 / 正在修正中 |
 
 ---
 
 ## 附录 B：面试用 30 秒总结
 
-> “我把持仓当作成交日志计算出来的状态。MSK 是唯一事实来源，按 (account, instrument) 分区，每个分区只有一个确定性的内存引擎在写。去重分两层，offset 加 exec_id。每条输出带 version 和 epoch，下游条件写，所以重放永远是安全的。容错靠 3 AZ 复制、Hot Standby 秒级接管，加上快照和重放；Region 级做主备，再靠上游补发和对账补齐缺口。客户端可以按需选择一致性：UI 用最终一致的快照加增量订阅，OMS 用因果读做到读己之写，风控在本地维护副本，用预扣加因果标识避免漏算或重复计算，必要时用带读屏障的强一致读兜底。热路径端到端 p99 大约 10 到 20 毫秒。最后用 Drop Copy、清算对账和每天的影子重算来证明结果正确。”
+> “我把持仓当作成交日志计算出来的状态。MSK 是唯一事实来源，按 (account, instrument) 分区，每个分区一个确定性的内存引擎。关键是提交协议：每批输出、水位和输入 offset 在同一个 Kafka 事务里提交，快照只在提交边界生成，所以崩溃后不丢也不重；每个分区用固定的 transactional.id，接管者初始化时自动隔离旧主，下游全部 read_committed，租约只负责选主，不负责安全。业务上用 venue 加 exec_id 和订单修订号去重，覆盖整个更正窗口，撤销和更正从受影响日期的基线原位重算。所有输出带 generation 加 version，Region 切换或全量重算会提升世代，客户端据此重建。客户端方面：订阅的快照带 Kafka 位置，可以续传；风控先持久化预扣再放行，并按已被权威状态覆盖的数量逐步释放。这些保证都有明确前提，比如上游能补发、exec_id 唯一；前提不成立的情况由 Drop Copy 全字段对账和独立实现差分来发现。”
