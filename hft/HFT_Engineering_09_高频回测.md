@@ -27,7 +27,7 @@
 | 140 | 交易所处理我们的撤单 |
 | 150、160 | 本地依次收到第二次成交回报和撤单回报 |
 
-只改变模拟方法，同一组事件就会生成不同的账本。随文的 [C++20 实验](examples/backtest_09/backtest.cpp)实际运行得到以下结果：
+只改变模拟方法，同一组事件就会生成不同的账本。随文的 [C++20 实验](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/examples/backtest_09/backtest.cpp)实际运行得到以下结果：
 
 | 模型 | 成交记录，以交易所时间计 | 最终成交量 |
 |---|---|---:|
@@ -44,7 +44,7 @@
 
 90 时，交易所已经让我们买入 5 手；本地到 110 时才收到成交回报。两者之间，模拟器知道真实持仓是 5 手，策略却只能使用自己已经收到的消息。让策略提前读取交易所的成交状态，会把未来信息带进当前决策，这就是前视偏差。
 
-![交易所侧与本地策略侧的双时间线](assets/hft-09/dual-timeline.png)
+![交易所侧与本地策略侧的双时间线](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/assets/hft-09/dual-timeline.png)
 
 实现时保存四份状态最直观。**交易所行情簿**保存当前可撮合的订单；**本地行情簿**只应用已经送达本地的公开行情。**交易所订单状态**记录原单是否有效、真实成交量和剩余量；**本地订单状态**记录策略目前知道的接受、成交、撤单和拒绝结果。两侧分别更新，策略接口只暴露本地两份状态。
 
@@ -97,7 +97,7 @@ $s_i$ 是本条实际开始处理的时间，$c_i$ 是本条计算耗时。本�
 
 策略代码最适合放在一个小而稳定的接口后面。输入只有行情事件、订单回报和定时器，输出是下单、撤单和改单请求。策略读取由适配器提供的当前时间、本地行情簿与本地订单状态。在回测中，适配器把请求送进模拟交易所；实盘中，适配器完成编码并交给真实网关。同一份策略逻辑因此可以经过历史回测、实时影子运行和真实委托验证。
 
-![回测引擎组件与事件流](assets/hft-09/engine-components.png)
+![回测引擎组件与事件流](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/assets/hft-09/engine-components.png)
 
 事件源负责把原始数据转换成带时间和顺序的事件。它可以读取历史文件、录制的网络报文或合成事件；原始报文继续使用实盘解码器，规范化事件则明确保留市场、标的、交易日、通道序号、订单标识及双时间戳。转换器先处理重传去重、快照衔接和数据缺口，再交给引擎。只有完成恢复的区间，才能进入依赖队列位置的策略评估。
 
@@ -105,7 +105,7 @@ $s_i$ 是本条实际开始处理的时间，$c_i$ 是本条计算耗时。本�
 
 数据存储会决定参数搜索能否及时跑完。按交易日分片的列式文件便于只读取所需标的和字段，压缩后也便于保存大规模历史；定长二进制记录便于顺序读取和内存映射，代价是字段扩展、字节序和格式版本要自行管理。预先解码能减少每组参数重复解析的计算量，但每条记录膨胀后会增加内存带宽和存储读取量。
 
-[Chronicle Queue 和 Aeron Archive](HFT_Engineering_07_开源项目解析.md) 更适合保留运行时事件及其读取位置。拿到记录后，模拟器仍然要解释记录里的时间与交易语义。Archive 的流位置或 Queue 的索引确定“从哪条记录接着读”，交易所序号确定“这条市场事件相对谁先发生”，本地时间戳确定“策略何时看见它”；三者在数据契约里各有字段。比较存储方案时，可以直接测“读取一天数据并完成一组策略参数需要多久”，再拆分解析、事件调度和策略计算的耗时。
+[Chronicle Queue 和 Aeron Archive](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_07_%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE%E8%A7%A3%E6%9E%90.md) 更适合保留运行时事件及其读取位置。拿到记录后，模拟器仍然要解释记录里的时间与交易语义。Archive 的流位置或 Queue 的索引确定“从哪条记录接着读”，交易所序号确定“这条市场事件相对谁先发生”，本地时间戳确定“策略何时看见它”；三者在数据契约里各有字段。比较存储方案时，可以直接测“读取一天数据并完成一组策略参数需要多久”，再拆分解析、事件调度和策略计算的耗时。
 
 hftbacktest 在这里提供了一个可读的实现参照。本篇固定到官方发布的 **Rust `rust-v0.9.4`、Python `py-v2.4.4`**。Rust 核心把本地处理器、交易所处理器、数据读取器、延迟模型、手续费模型和队列模型组合起来，Python 接口便于组织研究任务。该版本确实包含 L2 和 L3：L2 按价位保存深度，L3 按订单保存深度。源码里的 `L3AssetBuilder`、`L3Local` 与 `L3NoPartialFillExchange` 可以直接核对；L3 builder 选择 `PartialFillExchange` 的分支仍是 `unimplemented!()`，不能因为 L2 存在同名选项，就把它当作 L3 已实现的模式。[版本发布](https://github.com/nkaz001/hftbacktest/releases/tag/rust-v0.9.4)、[固定版本源码](https://github.com/nkaz001/hftbacktest/blob/rust-v0.9.4/hftbacktest/src/backtest/mod.rs)
 
@@ -160,7 +160,7 @@ $A$ 是区间内新增数量，$C$ 是撤销量，$V$ 是该价位被成交消�
 
 主案例可以只靠加减法算完。在 60 时入队，前方数量是 $40+20=60$。70 时卖出 30，A 剩 10，前方总量降到 30。75 时 B 的 20 手撤走，前方只剩 A 的 10 手。90 时主动卖出 15，先消耗这 10 手，再成交我方 5 手；我方剩余 15 手继续保留原来的优先级。130 时再卖出 10，全部由我方承接，余下 5 手等到 140 时撤掉。
 
-![FIFO 队列逐次扣量](assets/hft-09/fifo-queue.png)
+![FIFO 队列逐次扣量](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/assets/hft-09/fifo-queue.png)
 
 用 $F$ 表示成交前排在我方前面的数量，$R$ 表示自己的剩余量，$v$ 表示这次到达该价位的主动量，则本次我方成交：
 
@@ -205,7 +205,7 @@ FIFO 之外，队列状态要跟着规则改变。Nasdaq 普通簿处理采用�
 
 如果发出撤单就释放全部库存额度，120 时程序会误以为还能再买 15 手，随后旧单成交和新单成交叠加，库存就超过计划。风控计算保留尚未终结的买单敞口：已知净持仓，加上仍可成交的买单剩余量，得到买方最坏方向暴露；卖方按相反方向计算。对在途新单和撤单也按其仍可能生效的状态预留。
 
-把撤单进入延迟从 20 改为 5，撤单在 125 生效，130 时的卖出再也轮不到这笔单，所以最终只成交 5。若改成 10，撤单和卖出都落在 130；市场事件先处理得到 15 手，撤单先处理得到 5 手。完整结果已经保存在 [summary.csv](examples/backtest_09/results/summary.csv)。这种差异来自两个合法事件顺序，不宜靠某个固定的“半个 tick 滑点”吸收。
+把撤单进入延迟从 20 改为 5，撤单在 125 生效，130 时的卖出再也轮不到这笔单，所以最终只成交 5。若改成 10，撤单和卖出都落在 130；市场事件先处理得到 15 手，撤单先处理得到 5 手。完整结果已经保存在 [summary.csv](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/examples/backtest_09/results/summary.csv)。这种差异来自两个合法事件顺序，不宜靠某个固定的“半个 tick 滑点”吸收。
 
 本地状态机还要容纳撤单失败。如果原单在请求到达之前已经全部成交，模拟交易所返回对应的失败或终结结果；本地保留已成交状态，等待尚未收到的成交回报完成关联。示例代码在没有剩余量时记录 `CANCEL_REJECT`，这是一种合成交易所语义，接入真实协议时映射到它实际规定的回报类型与原因。
 
@@ -219,7 +219,7 @@ FIFO 之外，队列状态要跟着规则改变。Nasdaq 普通簿处理采用�
 
 被动买单加入后，买方可见数量增大，买卖盘不平衡发生变化。其他参与者收到更新后，可以决定继续排队、撤单、改价或主动成交。主动吃单则先机械地消耗对手深度，随后其他人看到价格和数量变化，再做新的动作。两类作用都经过观察和处理延迟；在自己的订单尚未公开之前，对手没有理由已经知道这笔新增委托。
 
-![固定历史回放与背景参与者响应](assets/hft-09/market-response.png)
+![固定历史回放与背景参与者响应](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/assets/hft-09/market-response.png)
 
 实验增加了一个小的响应规则：我方 60 时挂入后，B 在 70 时看到新增买量，计算 3 微秒后决定继续保留自己的 20 手，因此取消尚未发出的预定撤单动作；原计划是在 75 时立即撤掉 B，它在 73 时尚未变成在途请求。其余三笔主动卖出保持原样。70 时 A 剩 10、B 仍有 20；90 时卖出消耗 A 10 和 B 5；130 时再消耗 B 10，B 还剩 5。轮不到我方成交，140 时我方 20 手全部撤掉。程序的 `reactive_B_stays` 场景实际得到成交量 0。
 
@@ -307,11 +307,11 @@ $$
 
 ## 附录：运行实验与接入真实数据
 
-在仓库根目录运行：
+从上文的 C++20 实验链接下载 `backtest.cpp`，在文件所在目录运行：
 
 ```bash
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic \
-  hft/examples/backtest_09/backtest.cpp -o /tmp/hft-backtest-09
+  backtest.cpp -o /tmp/hft-backtest-09
 /tmp/hft-backtest-09 /tmp/hft-backtest-09-results
 cmp /tmp/hft-backtest-09-results/baseline.fills.csv \
     /tmp/hft-backtest-09-results/baseline.repeat.fills.csv
@@ -331,7 +331,7 @@ exchange_us,known_us,order_id,side,price,qty,cumulative
 130,150,me,BUY,100,10,15
 ```
 
-[实验 README](examples/backtest_09/README.md)解释每个配置与输出字段；[随文结果目录](examples/backtest_09/results/)保存此次实际运行的账本、快照对照和忙碌时间表。实验执行的是事件机制，没有策略收益优化，也没有使用真实市场订单来拟合参数。
+[实验说明](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/examples/backtest_09/README.md)解释每个配置与输出字段；[公开实验结果](https://github.com/Obscurepawn/TradingSystemLearning/tree/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/examples/backtest_09/results)保存此次实际运行的账本、快照对照和忙碌时间表。实验执行的是事件机制，没有策略收益优化，也没有使用真实市场订单来拟合参数。
 
 真实市场实验接入时，先取得目标市场有权使用的逐笔行情或快照、交易日与交易阶段信息，以及自己的请求和私有回报。CME 的历史 MBO 可以从其 [DataMine 数据目录](https://datamine.new.cmegroup.com/catalog?category=FE10)确认产品；其他市场先核对记录产品的字段、历史覆盖和授权，只有公开日线的下载入口无法替代队列数据。
 

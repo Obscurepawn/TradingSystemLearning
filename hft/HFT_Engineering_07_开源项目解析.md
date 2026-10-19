@@ -1,6 +1,6 @@
-# HFT Engineering 07：开源项目解析——一条交易事件经过哪些组件
+# HFT Engineering 07：HFT相关的开源组件的底层原理和使用
 
-接入程序收到一条行情后，策略要读它，记录程序要保存它，排障工具还要知道它来自哪一段原始报文。这几个用途共享同一条事件，却关心不同的事情：策略关心何时能读到，记录程序关心重启后从哪里继续，排障工具关心能否还原当时发生了什么。
+很多时候，我们并不需要从0开始完成所有的研发工作，在社区中有不少的HFT相关的开源套件，这一个章节会对他们进行调研，主要着重于如何使用和他们的底层原理。
 
 ## 1. 事件、组件和进程
 
@@ -8,7 +8,7 @@
 
 C++ 主链中，接入进程把事件交给策略进程。策略更新订单簿，生成带有请求标识的订单意图；记录进程保存输入事件、策略决策和发送结果。原始行情可以单独存放，但内部事件保留 `sourceSeq`、源通道标识以及原始记录位置，便于从一次异常决策追回原始字节。
 
-![SBE、Aeron、Archive、Chronicle Queue 与诊断日志在交易链路中的位置](assets/hft-07/component-flow.png)
+![SBE、Aeron、Archive、Chronicle Queue 与诊断日志在交易链路中的位置](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/assets/hft-07/component-flow.png)
 
 图中每个 C++ 进程都链接自己的 Aeron Client 库。Media Driver 是管理通信资源的运行实例，可以单独占一个进程，也可以嵌入应用进程。进程间通信（Inter-Process Communication，IPC）走同一份共享日志缓冲区；跨机通信走用户数据报协议（User Datagram Protocol，UDP），由两端 Driver 收发网络报文。这里的“日志缓冲区”是循环使用的传输内存，不是供长期保存的诊断日志文件。
 
@@ -60,7 +60,7 @@ static_assert(std::is_trivially_copyable_v<Event>);
 
 ## 3. SBE 的消息布局与访问器
 
-SBE 的 schema 是一份 XML 消息描述，指定字段类型、出现顺序、字节序和引入版本。生成器根据同一份描述生成 C++、Java 等语言的访问器。下面截取本篇[完整 schema](examples/components_07/event-v1.xml)的消息部分：
+SBE 的 schema 是一份 XML 消息描述，指定字段类型、出现顺序、字节序和引入版本。生成器根据同一份描述生成 C++、Java 等语言的访问器。下面截取本篇[完整 schema](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/examples/components_07/event-v1.xml)的消息部分：
 
 ```xml
 <sbe:message name="Event" id="1">
@@ -155,7 +155,7 @@ FlatBuffers 的 table 带有指向 vtable 的偏移，vtable 保存字段在对�
 
 选型可以从一次实际访问开始：策略每条消息只读合约、价格和数量，还是会遍历所有档位？是否独立升级？是否跨语言？是否要把字符串留到回调之后？能否在一次短调用内顺序消费整个消息？这些答案比一张脱离消息大小的速度排名更有用。
 
-“直接读缓冲区”省去的是构造独立对象或复制字段的一部分工作。SBE 编码依然要写入输出缓冲区；调用 Aeron `offer()` 还会把它复制进传输日志；网络协议栈和网卡有各自的搬运；字符串转成 `std::string` 又会复制。只有明确指出省掉哪一次复制，才能判断下一项优化是否值得做。[FIX tag-value 与 FAST](HFT_Engineering_08_交易所协议.md) 受交易所既定线格式约束。
+“直接读缓冲区”省去的是构造独立对象或复制字段的一部分工作。SBE 编码依然要写入输出缓冲区；调用 Aeron `offer()` 还会把它复制进传输日志；网络协议栈和网卡有各自的搬运；字符串转成 `std::string` 又会复制。只有明确指出省掉哪一次复制，才能判断下一项优化是否值得做。[FIX tag-value 与 FAST](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_08_%E4%BA%A4%E6%98%93%E6%89%80%E5%8D%8F%E8%AE%AE.md) 受交易所既定线格式约束。
 
 ## 5. Aeron IPC：注册、共享内存与发布
 
@@ -295,7 +295,7 @@ C++ Wrapper 把 C API 的常见流控状态保留为返回值；非法参数等 
 
 买一价更新如果只是“当前状态”，可按合约合并为最新值；逐笔成交、订单意图和撤单指令具有独立业务含义，合并会改变结果。事件队列设容量上限和积压时限，超过阈值后让策略暂停、切换到恢复状态，往往比卡在无限重试里更容易保持一致。
 
-正值表示[本地 API 接受请求](HFT_Engineering_06_网络通信.md#completion-points)。若调用方还要求“策略已处理”或“记录已同步”，接收服务需要发送应用确认（application acknowledgement，业务 ACK），带上请求 ID、处理状态或确认游标。超时重发会遇到原请求已经处理但 ACK 丢失的情况，接收方据请求 ID 查找已有结果并返回。跨会话去重采用业务事件标识，Aeron position 只在对应会话和记录范围内有意义。
+正值表示[本地 API 接受请求](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_06_%E7%BD%91%E7%BB%9C%E9%80%9A%E4%BF%A1.md#completion-points)。若调用方还要求“策略已处理”或“记录已同步”，接收服务需要发送应用确认（application acknowledgement，业务 ACK），带上请求 ID、处理状态或确认游标。超时重发会遇到原请求已经处理但 ACK 丢失的情况，接收方据请求 ID 查找已有结果并返回。跨会话去重采用业务事件标识，Aeron position 只在对应会话和记录范围内有意义。
 
 ## 7. Archive：保存流，以及接回实时流
 
@@ -318,7 +318,7 @@ cpp_wrapper/client/archive/AeronArchive.h
 
 录制位置推进到 P，表示录制程序已把对应数据写入记录文件。Archive 的 `fileSyncLevel` 决定是否执行存储同步：0 为不强制同步，1 强制数据，2 强制数据与元数据；默认是 0。`RecordingWriter` 根据这个配置调用 `FileChannel.force`。如果业务要求已同步到存储再确认，录制配置、catalog 同步级别和确认时点一起决定能承诺到哪里。［12］
 
-![Archive 历史重放追赶实时流及切换位置](assets/hft-07/archive-replay.png)
+![Archive 历史重放追赶实时流及切换位置](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/assets/hft-07/archive-replay.png)
 
 策略快照保存最后一条已应用消息的结束 position=P。P 同时是下一条消息的起点，因此恢复过程先加载快照，再从 P 开始重放；若该位置之后是 term 尾部 padding，由传输层跳过 padding 进入下一条数据消息。重放进行时实时流还在前进，恢复者需要暂存或订阅实时流，并追到一个能够无缝切换的位置。比较的是同一原始会话中的位置，而不是两条任意流的“消息条数”。遇到分片消息，切换点还要落在完整消息边界，避免重放拿前半条、实时流拿后半条后重复或丢失。
 
@@ -437,7 +437,7 @@ Quill 13.1.0 的四种队列类型对热路径有直接影响：
 
 默认是 `UnboundedBlocking`，初始容量 128 KiB，可增长的配置上限为 2 GiB。“unbounded”这个类型名在这一版仍受 `unbounded_queue_max_capacity` 约束。扩容分配和阻塞重试都发生在生产者的发送过程里，会把日志开销带回交易线程。延迟敏感且允许丢失的诊断流，可以选择固定容量的 `BoundedDropping`，预先触发线程上下文初始化、分配并触摸队列；同时把丢弃量送入独立计数监控。［20］
 
-时间戳默认可以使用[处理器时间戳计数器](HFT_Engineering_05_高频交易系统中的时钟.md)（Time Stamp Counter，TSC）；Quill 在后台将读数转换成时间。它也支持系统时钟和用户时钟。时间戳排序用于组织输出，跨线程真实因果仍由事件序号、请求 ID 和业务关系表达。不要用两行日志在文件中的相邻顺序，替代消息之间的发布与消费关系。
+时间戳默认可以使用[处理器时间戳计数器](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_05_%E9%AB%98%E9%A2%91%E4%BA%A4%E6%98%93%E7%B3%BB%E7%BB%9F%E4%B8%AD%E7%9A%84%E6%97%B6%E9%92%9F.md)（Time Stamp Counter，TSC）；Quill 在后台将读数转换成时间。它也支持系统时钟和用户时钟。时间戳排序用于组织输出，跨线程真实因果仍由事件序号、请求 ID 和业务关系表达。不要用两行日志在文件中的相邻顺序，替代消息之间的发布与消费关系。
 
 ### NanoLog 把文本恢复放到离线阶段
 
@@ -465,62 +465,12 @@ Quill 主要把格式化与输出从交易线程挪到进程内后台，便于�
 
 自研的理由应该落到具体冲突：消息格式不支持必需的访问方式、通信窗口无法表达消费关系、记录布局不适合恢复查询，或者量化后的运行成本超过预算。替换一个组件时，同时接手其长期维护的部分：旧数据兼容、故障注入、资源清理、错误可观测性和升级回滚。上线检查保留四份工件：schema、生成器及组件版本、历史消息样本、带确认游标的恢复样本。
 
-## 附录：已运行的字节实验与进一步复现
-
-### SBE 新旧版本与边界检查
-
-[实验目录](examples/components_07/README.md)包含两个 schema、C++ 程序和运行脚本。脚本下载并校验 SBE 1.40.2 生成器，实际生成 C++ 访问器，用地址消毒器（AddressSanitizer，ASan）和未定义行为消毒器（UndefinedBehaviorSanitizer，UBSan）编译，再用独立的 Python `struct.pack` 字节编码核对输出。
-
-实际运行环境为 macOS ARM64、Apple Clang 17.0.0、OpenJDK 24.0.2。输出中的 40 字节是该环境的原生 POD 布局；86 与 90 字节是完整 SBE 消息长度，包含两档重复组和四字节字符串。
-
-```text
-POD size=40 sourceSeq offset=8
-v0=86 v1=90 cross-decode=4/4 truncated-prefixes=90/90 order-check=pass view-alias=pass
-independent Python wire oracle=pass
-```
-
-四组交叉读取覆盖“旧写旧读、旧写新读、新写旧读、新写新读”。90 种截断前缀全部被实验中的入口校验器拒绝；这个校验器明确支持 v0/v1，并在调用生成访问器前检查头、组和字符串边界。访问顺序实验提前读取字符串，确认开启的顺序检查会抛错；视图实验确认底层字节修改会影响已返回的 `string_view`。这些结果验证的是布局、兼容和生命周期，没有测量吞吐或延迟。
-
-```bash
-# JAVA_BIN 指向 JDK 17 或更新版本；CXX 可指定 C++20 编译器。
-JAVA_BIN=/path/to/jdk/bin/java python3 hft/examples/components_07/run.py
-```
-
-### 通信、恢复与日志的复现步骤
-
-下面的通信负载、存储故障和日志压力实验尚未在本篇环境执行。它们需要目标 Linux 主机、相应运行组件，部分需要两台机器或可断电的虚拟机；复现时分别保留本地提交、应用消费和存储同步的测量结果。
-
-| 实验 | 输入与故障 | 观察和判定 |
-| --- | --- | --- |
-| 编码方案比较 | 同一份短事件和含组、字符串的事件；POD/SBE/Protobuf/FlatBuffers 字段一致 | 分开测编码、验证、读取指定字段、完整解析；计入字节数与分配次数 |
-| Aeron IPC | 连续递增业务序号，足够跨越多个 term；暂停订阅线程 | `pub-pos`、`pub-lmt`、`sub-pos` 与返回值；恢复后已提交事件顺序一致 |
-| Aeron UDP | 两台机器；三类接收者分别切换 `max/min/tagged`；受控丢包、乱序 | `snd-pos`、`rcv-hwm`、`rcv-pos`、NAK 与业务序号缺口；退出组后的恢复行为 |
-| `offer` 对比 claim | 同样长度与字节；相同流控、核绑定和消费者 | 编码加本地提交的时间、应用消费时间；claim 异常分支能 abort，未提交 claim 能被观测 |
-| Archive | 写序号流并记录 P；快照后停止消费者，再从 P 重放 | 原 recording 身份、完整消息切换点、业务去重；同一快照重放得到相同状态 |
-| Chronicle 进程退出 | 正常提交后杀进程；另一次在 `DocumentContext` 中途退出 | 最后完整序号、未发布头、写锁恢复、后续能否追加 |
-| Chronicle 存储故障 | 分别使用 NONE/ASYNC/SYNC；跨 cycle；受控断电与磁盘满 | 同步错误、文件与目录恢复、最后连续可读序号；与进程退出实验分别报告 |
-| Quill 突发日志 | 固定业务循环，四种队列策略，后台限速 | 业务循环 p50/p99/p99.9、队列增长、阻塞次数、日志丢弃量 |
-
-复现存储故障时，在另一个故障域记录“应用观察到的最后提交序号”和“应用承诺已同步的最后序号”。故障后只从恢复文件扫描得到第三个序号，再比较三者；若把证据文件也放在被断电的同一块盘上，就失去了独立参照。
-
-## 源码版本与参考资料
-
-所有源码链接固定到以下 commit；API 行为按这一组版本解释。
-
-| 项目 | 版本或快照 | commit |
-| --- | --- | --- |
-| Aeron | 1.53.0 | `af20315a6b6323783ae717b075ba4a70c9abbf0c` |
-| SBE | 1.40.2 | `05b076c0c64d7164b56db2f9b5e6ca476ac46072` |
-| Chronicle Queue | 2026.7；依赖 BOM 2026.26 | `36a4d7dec1223a2759b2fa50ca1e3d9a19035f1f` |
-| Chronicle Wire | 2026.10 | `33a92e1ed387c78f317494619adefb8ecaa8568c` |
-| Chronicle Bytes | 2026.4 | `e06230d436c0f6890faffaa9bfed19fee02c59eb` |
-| Quill | 13.1.0 | `78c0696c5be589488d882c280796dfa06bdcd492` |
-| NanoLog | 仓库源码快照 | `2a94d70f9d1db4da416053b1b926387fa068a59b` |
+## 参考资料
 
 1. [Aeron 1.50.0 的 C++ API 迁移说明](https://aeron.io/other/aeron-community-meetup-whats-new-march-2026/)；[Aeron 固定版本模块目录](https://github.com/aeron-io/aeron/tree/af20315a6b6323783ae717b075ba4a70c9abbf0c)。
 2. [C++ 对象表示与可平凡复制类型](https://eel.is/c++draft/basic.types#trivial)；[SBE 固定版本源码](https://github.com/aeron-io/simple-binary-encoding/tree/05b076c0c64d7164b56db2f9b5e6ca476ac46072)。
 3. SBE：[SbeTool 入口与生成开关](https://github.com/aeron-io/simple-binary-encoding/blob/05b076c0c64d7164b56db2f9b5e6ca476ac46072/sbe-tool/src/main/java/uk/co/real_logic/sbe/SbeTool.java)、[CppGenerator 字段、版本与枚举生成](https://github.com/aeron-io/simple-binary-encoding/blob/05b076c0c64d7164b56db2f9b5e6ca476ac46072/sbe-tool/src/main/java/uk/co/real_logic/sbe/generation/cpp/CppGenerator.java)、[官方示例 schema](https://github.com/aeron-io/simple-binary-encoding/blob/05b076c0c64d7164b56db2f9b5e6ca476ac46072/sbe-samples/src/main/resources/example-schema.xml)。
-4. SBE：[C++ 使用指南](https://github.com/aeron-io/simple-binary-encoding/wiki/Cpp-User-Guide)、[Safe Flyweight Usage](https://github.com/aeron-io/simple-binary-encoding/wiki/Safe-Flyweight-Usage)。本篇实际生成和验证文件见 [components_07](examples/components_07/README.md)。
+4. SBE：[C++ 使用指南](https://github.com/aeron-io/simple-binary-encoding/wiki/Cpp-User-Guide)、[Safe Flyweight Usage](https://github.com/aeron-io/simple-binary-encoding/wiki/Safe-Flyweight-Usage)。本篇实际生成和验证文件见 [配套实验源码与说明](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/examples/components_07/README.md)。
 5. Protobuf：[线格式](https://protobuf.dev/programming-guides/encoding/)、[C++ arena](https://protobuf.dev/reference/cpp/arenas/)。
 6. [FlatBuffers Internals](https://flatbuffers.dev/internals/)、[Cap’n Proto Encoding](https://capnproto.org/encoding.html)、[MessagePack Specification](https://github.com/msgpack/msgpack/blob/master/spec.md)。
 7. Aeron：[C++ Wrapper Aeron 注册入口](https://github.com/aeron-io/aeron/blob/af20315a6b6323783ae717b075ba4a70c9abbf0c/aeron-client/src/main/cpp_wrapper/Aeron.h)、[C Client Conductor](https://github.com/aeron-io/aeron/blob/af20315a6b6323783ae717b075ba4a70c9abbf0c/aeron-client/src/main/c/aeron_client_conductor.c)、[Driver Conductor](https://github.com/aeron-io/aeron/blob/af20315a6b6323783ae717b075ba4a70c9abbf0c/aeron-driver/src/main/c/aeron_driver_conductor.c)。

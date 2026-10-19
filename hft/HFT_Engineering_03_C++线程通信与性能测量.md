@@ -335,7 +335,7 @@ for dependency in dependencies[name]:
 
 消费者只检查当前待处理的序号，因此会停在第一个尚未发布的事件上。申请序号的生产者若一直未发布，这个空洞就会阻塞后续按序消费。实际实现也可以保存槽位的轮次标记。
 
-![多生产者下，后面的事件先发布，不能越过前面的空洞](assets/hft-02/disruptor-publication-gap.png)
+![多生产者下，后面的事件先发布，不能越过前面的空洞](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/assets/hft-02/disruptor-publication-gap.png)
 
 *图 3：生产者申请序号后还要写入、发布事件；消费者按序处理，在前面的发布空洞处等待。*
 
@@ -355,11 +355,11 @@ for dependency in dependencies[name]:
 
 两个核心访问同一份数据时，交接脏数据、获取写权限都需要一致性通信。缓存行对齐可以隔离无关对象，而局部值复用进一步减少了对共享行本身的访问。
 
-对于辅助核刚写好、主核即将读取的结果，还可以通过 `CLWB` 发起[脏数据写回](HFT_Engineering_02_C++内存与计算优化.md#hft02-3-4)。读取若转由 L3 响应，就能减少跨核 snoop 转发，相应的成本是辅助核增加一次写回。
+对于辅助核刚写好、主核即将读取的结果，还可以通过 `CLWB` 发起[脏数据写回](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_02_C%2B%2B%E5%86%85%E5%AD%98%E4%B8%8E%E8%AE%A1%E7%AE%97%E4%BC%98%E5%8C%96.md#hft02-3-4)。读取若转由 L3 响应，就能减少跨核 snoop 转发，相应的成本是辅助核增加一次写回。
 
 若先 release 发布结果标志，再执行 `CLWB` 和 `MFENCE`，主核看到标志时，后面的写回可能仍在进行。原子发布负责交接，`CLWB` 调整数据的写回时机。
 
-整个事件要等[较慢的分支](HFT_Engineering_04_高频交易系统的部署.md#hft04-1-3)完成，再合并结果。主核已经提前完成时，应优先缩短辅助核的路径。
+整个事件要等[较慢的分支](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_04_%E9%AB%98%E9%A2%91%E4%BA%A4%E6%98%93%E7%B3%BB%E7%BB%9F%E7%9A%84%E9%83%A8%E7%BD%B2.md#hft04-1-3)完成，再合并结果。主核已经提前完成时，应优先缩短辅助核的路径。
 
 <a id="hft03-1-7"></a>
 ### 1.7 少访问共享游标，让接口允许原地填写
@@ -548,7 +548,7 @@ auto end = ordered_rdtsc();
 
 按表中假设的核心频率换算，时钟读取成本约为十纳秒量级。测量几条指令时，前后各读一次时间戳的成本就可能与目标代码相当；加入约束指令排序和编译器重排的措施后，还要计入这些措施的成本。
 
-先测一个两次时间戳读取之间没有业务计算的空区间，可以看到[时钟读取和屏障](HFT_Engineering_05_高频交易系统中的时钟.md#hft05-5-4)本身的开销。屏障还会改变指令之间的重叠，因此这部分影响很难靠减去一个固定数值消除。
+先测一个两次时间戳读取之间没有业务计算的空区间，可以看到[时钟读取和屏障](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_05_%E9%AB%98%E9%A2%91%E4%BA%A4%E6%98%93%E7%B3%BB%E7%BB%9F%E4%B8%AD%E7%9A%84%E6%97%B6%E9%92%9F.md#hft05-5-4)本身的开销。屏障还会改变指令之间的重叠，因此这部分影响很难靠减去一个固定数值消除。
 
 <a id="hft03-2-5"></a>
 ### 2.5 既看分布，也保留同一条消息的分段记录

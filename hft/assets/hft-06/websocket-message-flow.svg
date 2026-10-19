@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1000" viewBox="0 0 1280 1000" role="img" aria-labelledby="title desc">
+<title id="title">WebSocket：从建连到收到一条行情</title>
+<desc id="desc">经典 HTTP/1.1 Upgrade 建连流程，以及 TCP、TLS、WebSocket 和 JSON 的接收处理顺序。</desc>
+<style>text {font-family:"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;} .mono {font-family:Menlo,Consolas,monospace;}</style>
+<defs>
+<marker id="arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto-start-reverse"><polygon points="0,0 9,3.5 0,7" fill="#2563eb"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="1000" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="48" y="48" font-size="30" fill="#111827" font-weight="600" text-anchor="start">WebSocket：从建连到收到一条行情</text>
+<text x="48" y="80" font-size="17" fill="#6b7280" font-weight="400" text-anchor="start">经典 HTTP/1.1 Upgrade 方式 · wss:// 使用 TLS · 下图按时间从上往下读</text>
+<rect x="40" y="108" width="1200" height="574" rx="16" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5" />
+<rect x="150" y="128" width="260" height="60" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" />
+<rect x="870" y="128" width="260" height="60" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5" />
+<text x="280" y="165" font-size="22" fill="#111827" font-weight="600" text-anchor="middle">行情客户端</text>
+<text x="1000" y="165" font-size="22" fill="#111827" font-weight="600" text-anchor="middle">交易所服务器</text>
+<line x1="280" y1="188" x2="280" y2="618" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="6 6"/>
+<line x1="1000" y1="188" x2="1000" y2="618" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="6 6"/>
+<text x="78" y="233" font-size="18" fill="#6b7280" font-weight="600" text-anchor="start">① 建连</text>
+<line x1="288" y1="227" x2="992" y2="227" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<rect x="518.0" y="211.0" width="244" height="28" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" opacity="0.97"/>
+<text x="640.0" y="232.0" font-size="18" fill="#111827" font-weight="400" text-anchor="middle">TCP 建连 + TLS 握手</text>
+<text x="78" y="307" font-size="18" fill="#6b7280" font-weight="600" text-anchor="start">② 升级</text>
+<line x1="280" y1="292" x2="1000" y2="292" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="474.0" y="276.0" width="332" height="28" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" opacity="0.97"/>
+<text x="640.0" y="297.0" font-size="18" fill="#111827" font-weight="400" text-anchor="middle">HTTP 请求：Upgrade: websocket</text>
+<line x1="1000" y1="348" x2="280" y2="348" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="453.0" y="332.0" width="374" height="28" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" opacity="0.97"/>
+<text x="640.0" y="353.0" font-size="18" fill="#111827" font-weight="400" text-anchor="middle">HTTP 响应：101 Switching Protocols</text>
+<text x="78" y="416" font-size="18" fill="#6b7280" font-weight="600" text-anchor="start">③ 订阅</text>
+<line x1="280" y1="410" x2="1000" y2="410" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="461.0" y="394.0" width="358" height="28" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" opacity="0.97"/>
+<text x="640.0" y="415.0" font-size="18" fill="#111827" font-weight="400" text-anchor="middle">WebSocket 文本帧：JSON 订阅请求</text>
+<text x="78" y="480" font-size="18" fill="#6b7280" font-weight="600" text-anchor="start">④ 推送</text>
+<line x1="1000" y1="474" x2="280" y2="474" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="461.0" y="458.0" width="358" height="28" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" opacity="0.97"/>
+<text x="640.0" y="479.0" font-size="18" fill="#111827" font-weight="400" text-anchor="middle">WebSocket 文本帧：JSON 行情更新</text>
+<line x1="1000" y1="536" x2="280" y2="536" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="568.0" y="520.0" width="144" height="28" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" opacity="0.97"/>
+<text x="640.0" y="541.0" font-size="18" fill="#111827" font-weight="400" text-anchor="middle">Ping 控制帧</text>
+<line x1="280" y1="588" x2="1000" y2="588" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="568.0" y="572.0" width="144" height="28" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5" opacity="0.97"/>
+<text x="640.0" y="593.0" font-size="18" fill="#111827" font-weight="400" text-anchor="middle">Pong 控制帧</text>
+<rect x="210" y="634" width="860" height="30" rx="6" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="640" y="655" font-size="17" fill="#6b7280" font-weight="400" text-anchor="middle">升级后复用同一条 TCP 长连接：服务器持续推送，双方也可以主动发送消息</text>
+<text x="48" y="733" font-size="23" fill="#111827" font-weight="600" text-anchor="start">接收端：从字节流到业务字段</text>
+<rect x="64" y="780" width="192" height="92" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" />
+<text x="160" y="816" font-size="21" fill="#111827" font-weight="600" text-anchor="middle">TCP 字节流</text>
+<text x="160" y="846" font-size="16" fill="#6b7280" font-weight="400" text-anchor="middle">按序交付接收字节</text>
+<rect x="304" y="780" width="192" height="92" rx="10" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5" />
+<text x="400" y="816" font-size="21" fill="#111827" font-weight="600" text-anchor="middle">TLS 解密</text>
+<text x="400" y="846" font-size="16" fill="#6b7280" font-weight="400" text-anchor="middle">得到应用层明文</text>
+<rect x="544" y="780" width="192" height="92" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5" />
+<text x="640" y="816" font-size="21" fill="#111827" font-weight="600" text-anchor="middle">WebSocket</text>
+<text x="640" y="846" font-size="16" fill="#6b7280" font-weight="400" text-anchor="middle">解帧与消息重组</text>
+<rect x="784" y="780" width="192" height="92" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5" />
+<text x="880" y="816" font-size="21" fill="#111827" font-weight="600" text-anchor="middle">JSON 解析</text>
+<text x="880" y="846" font-size="16" fill="#6b7280" font-weight="400" text-anchor="middle">读取品种、价格等</text>
+<rect x="1024" y="780" width="192" height="92" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5" />
+<text x="1120" y="816" font-size="21" fill="#111827" font-weight="600" text-anchor="middle">策略</text>
+<text x="1120" y="846" font-size="16" fill="#6b7280" font-weight="400" text-anchor="middle">更新状态与计算</text>
+<line x1="256" y1="826" x2="301" y2="826" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="256.0" y="755" width="48" height="24" rx="2" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="280.0" y="772" font-size="15" fill="#6b7280" font-weight="400" text-anchor="middle">密文</text>
+<line x1="496" y1="826" x2="541" y2="826" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="496.0" y="755" width="48" height="24" rx="2" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="520.0" y="772" font-size="15" fill="#6b7280" font-weight="400" text-anchor="middle">明文</text>
+<line x1="736" y1="826" x2="781" y2="826" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="736.0" y="755" width="48" height="24" rx="2" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="760.0" y="772" font-size="15" fill="#6b7280" font-weight="400" text-anchor="middle">消息</text>
+<line x1="976" y1="826" x2="1021" y2="826" stroke="#2563eb" stroke-width="2.1" marker-end="url(#arrow)"/>
+<rect x="976.0" y="755" width="48" height="24" rx="2" fill="#ffffff" stroke="none" stroke-width="1.5" />
+<text x="1000.0" y="772" font-size="15" fill="#6b7280" font-weight="400" text-anchor="middle">字段</text>
+<text x="64" y="916" font-size="18" fill="#111827" font-weight="400" text-anchor="start">一次 recv() 可以只读到半帧，也可以读到多帧；一个消息也可以由多个帧组成。</text>
+<text x="64" y="949" font-size="17" fill="#6b7280" font-weight="400" text-anchor="start">客户端发出的帧需要掩码，服务器发来的帧不加掩码；加密由 TLS 负责。</text>
+</svg>

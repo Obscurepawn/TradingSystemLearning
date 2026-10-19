@@ -1,389 +1,459 @@
-# HFT Engineering 06：网络通信，从行情进入主机到订单发出
+# HFT Engineering 06：网络通信——从内核网络栈到ByPass Kernel
 
-两台服务器收到同一条行情，策略计算都很短，订单离开网卡的时间却差了一截。差距可以出现在光纤、交换机、网卡缓冲区，也可以出现在一次中断等待、一次线程唤醒，或发送队列前面排着的几个报文里。只有把这条链路展开，才知道该换网卡、改程序，还是缩短物理线路。
+行情从网卡到达策略，订单从程序发往交易所，中间会经过协议处理、缓冲区复制和队列等待。降低网络延迟，就是减少这条链路中不必要的工作与等待，让关键消息尽早进入业务处理。
 
-沿用一个具体系统：交易所通过两路 UDP 组播发送行情，一条交易线程更新订单簿、计算信号，再通过已建立的 TCP 连接发单。行情与订单的业务规则由两端约定的应用协议决定。··
+可以把整条链路想象成一条**带多级暂存仓的流水线**：消息每经过一个环节，要么被加工（协议解析、校验、加头），要么被搬运（复制、DMA），要么在等待（中断、排队、调度、凑批）。网络优化的本质就是三件事：
 
-## 1. 报文在哪里，什么时刻算完成
+- **少等**：不要为了凑批、攒包、睡眠唤醒而白等；
+- **少搬**：减少数据复制和跨核转移；
+- **少打扰**：减少中断、系统调用和上下文切换。
 
-一条价格更新在线上是一段以太网帧：帧头说明发送方和接收方的链路层地址，内部装着网际协议（Internet Protocol，IP）包，IP 包里面再装 UDP 数据报和交易所消息。网卡识别帧、检查错误并搬运字节；驱动管理设备队列；协议栈处理 IP、UDP 或 TCP；交易程序解析品种、价格和数量。一个以太网帧可以装多条业务消息，一条 TCP 业务消息也可以跨越多个帧。
+这个章节我们从传统网络栈的流程、优化点探讨到bypass kernel网络栈。全章分四部分：
 
-因此，UDP、DPDK、TCPDirect、ExaNIC 所回答的问题不同。UDP 规定线上的传输格式；数据平面开发套件（Data Plane Development Kit，DPDK）提供用户态收发包框架；TCPDirect 是一套用户态 TCP/UDP 协议实现；ExaNIC 是 Cisco Nexus SmartNIC 网卡系列的原名。选择 TCPDirect 之后仍在使用 TCP，选择 DPDK 之后仍然要决定如何处理报文里的协议。应用编程接口（Application Programming Interface，API）约定程序怎样调用这些功能；下文把接收简称 RX（Receive），发送简称 TX（Transmit）。
+1. **传统网络栈的收发流程**：一条消息从网卡到策略（或反向）到底经过了什么，时间花在哪；
+2. **保留内核网络栈时的 14 个优化点**：不换架构，用普通 socket 就能做的调优；
+3. **用户态收发与硬件旁路**：ExaNIC、DPDK、RDMA、Solarflare 四条绕开内核的路线；
+4. **Crypto 行情中的 WebSocket 与 JSON**：当入口是加密长连接 + 文本协议时，额外的延迟来自哪里、怎么优化。
 
-```text
-交易所消息       价格、数量、业务序号、订单标识
-      ↓ 编码
-传输层           UDP 数据报 / TCP 字节流
-      ↓ 封装
-网络与链路层     IP 包 → 以太网帧
-      ↓ 发送
-物理线路         光纤 / 铜缆 / 无线链路
-      ↓ 接收
-网卡与收发接口   内核驱动 / ef_vi / libexanic / DPDK / AF_XDP
-      ↓ 交付
-协议栈与应用     TCP/UDP 处理 → 业务解码 → 订单簿与策略
+## 1. 传统网络栈的收发流程
+
+普通 Linux 程序通过 socket 调用 `send()`、`recv()`。传输控制协议（Transmission Control Protocol，TCP）提供可靠、有序的字节流，用户数据报协议（User Datagram Protocol，UDP）提供数据报传输，两者都可以通过 socket 使用。下面这张图左侧是发送，从应用向下读到网卡；右侧是接收，从网卡向上读到应用。
+
+![Linux 网络栈：TCP/UDP 收发流程概览（左发送右接收，含队列与阻塞/丢包点）](assets/hft-06/network_stack_overview.png)
+
+对照这张图，一次典型的发送是：应用调用 `send()` → 数据复制进内核缓冲区 → TCP/UDP 加传输层头 → IP 层加 IP 头、查路由、过防火墙 → 填 MAC 头 → 进入网卡发送队列 → 网卡通过 DMA 取走数据并发到线上。接收方向相反：网卡把帧 DMA 进内存 → 中断通知 CPU → 内核软中断收包、逐层剥头 → 数据挂到 socket 的接收队列 → 应用调用 `recv()` 复制走。
+
+对低延迟交易程序，主要成本集中在三处：
+
+- **进入内核与等待调度。** `send()`、`recv()` 等系统调用要切换执行特权级。线程若阻塞，还要经历睡眠、唤醒和重新调度。通俗说，就是线程在"睡着等门铃 → 被叫醒 → 重新排队上 CPU"，这一睡一醒本身就是微秒级的开销，而且唤醒时机不稳定。
+- **处理器参与协议与队列处理。** 驱动、TCP/UDP 协议处理、路由、过滤和各级队列管理都消耗处理器时间。中断处理、协议栈处理与业务线程之间的核间通信和等待，还会带来延迟波动。数据即使本身到得很快，被另一个核心"转手"一次，也要付出缓存失效和跨核通知的代价。
+- **额外的payload复制。** 普通复制式 socket 发送会把应用数据复制到内核缓冲区，接收会把内核中的数据复制到应用缓冲区。应用再拼接消息、转交线程时，还可能增加复制。每多一次复制，就多一次内存读写和缓存占用。
+
+网卡与主机内存之间的数据搬运，已经可以由直接内存访问（Direct Memory Access，DMA）完成，无须处理器逐字节搬运；主要差别在于搬到哪里，以及之后还要经过多少软件处理、等待和复制。协议栈各层可以复用同一份payload，并非图中每经过一层就复制一遍。[Linux DMA 指南](https://docs.kernel.org/core-api/dma-api-howto.html)、[AMD 传统网络栈与旁路对比](https://docs.amd.com/r/en-US/ug1586-onload-user/Contrasting-with-Conventional-Networking)
+
+> **本节要点**：传统栈不是某一帧特别慢，而是链路上有大量"为通用性和吞吐而设计"的等待与搬运。后面的优化分别对应三条主线——让数据**少等**（中断、轮询、Nagle）、让 CPU **少搬**（零拷贝、批量系统调用）、让处理**少绕路**（RSS 绑核、卸载给网卡）。
+
+## 2. 保留内核网络栈时，怎样降低延迟
+
+内核旁路之前，普通 socket 还有不少优化空间。低延迟的重点是让关键消息及时进入处理器、减少核间通信，并避免为了吞吐而长时间等待。
+
+下面 14 个手段可以先按"解决什么问题"分成六组，建议按这个顺序理解，而不是孤立地记参数：
+
+| 分组 | 小节 | 解决的核心问题 |
+| --- | --- | --- |
+| 让数据更早被 CPU 看到 | 2.1 中断合并、2.2 忙轮询、2.3 RSS 与中断亲和性 | 缩短"包到了网卡"到"CPU 开始处理"之间的等待和绕路 |
+| 让小消息按预期时机发出 | 2.4 TCP_NODELAY、2.5 MSG_MORE / TCP_CORK | 控制内核要不要替你"攒小包" |
+| 减少系统调用与内存操作 | 2.6 sendmsg、2.7 recvmmsg、2.8 复用接收缓冲区 | 同样的活少进几次内核、少申请几次内存 |
+| 缓冲与队列的取舍 | 2.9 SO_RCVBUF、2.10 有界待发队列 | 抗短时突发，但不让过时消息无限堆积 |
+| 把活交给网卡 | 2.11 校验和卸载、2.12 TSO、2.13 GRO | CPU 不做的，就不消耗 CPU 时间 |
+| 彻底去掉一次复制 | 2.14 MSG_ZEROCOPY | 发送时网卡直接读用户内存 |
+
+下面的 C 片段面向 Linux，使用已有 socket `fd`，省略头文件与建立连接过程。`check()` 检查系统调用结果，`require()` 检查必要条件，`send_all()` 在阻塞 TCP 上处理短写与信号中断。
+
+```c
+static long check(long rc) {
+    if (rc < 0) { perror("socket demo"); exit(EXIT_FAILURE); }
+    return rc;
+}
+
+static void require(bool condition, const char *message) {
+    if (!condition) { fprintf(stderr, "%s\n", message); exit(EXIT_FAILURE); }
+}
+
+static void send_all(int fd, const char *data, size_t size, int flags) {
+    while (size) {
+        ssize_t n = send(fd, data, size, flags | MSG_NOSIGNAL);
+        if (n < 0 && errno == EINTR) continue;
+        check(n);
+        require(n > 0, "send made no progress");
+        data += n;
+        size -= (size_t)n;
+    }
+}
 ```
 
-<a id="completion-points"></a>
+网卡命令中的 `eth0`、CPU 编号和中断号按目标机器替换。
 
-一次网络操作有多个完成点，记录延迟时要同时写出起点、终点和观测方式：
+### 第一组：让数据更早被 CPU 看到
 
-| 标记与完成点 | 已经发生的事实 | 常用观测方式 |
+### 2.1 中断合并
+
+**问题是什么**：在中断驱动的收包路径中，网卡先把数据 DMA 到接收缓冲区，再通过中断通知处理器。如果每来一个包就中断一次，包速率高时 CPU 会被中断淹没。于是网卡默认会"攒一攒"：等包数达到门槛或定时器到期，再集中通知。这就像快递员选择"攒一筐再送上门"而不是"每件都敲门"——**门铃次数少了，但最先到的那件在门口多等了一段时间**，尾延迟也可能随之增大。
+
+**怎么做**：缩短定时等待、降低包数门槛，能让处理器更早开始收包，代价是更频繁的中断。[ethtool 合并配置](https://docs.kernel.org/networking/ethtool-netlink.html#coalesce-get)
+
+先记录当前配置，再尝试关闭接收方向的自适应合并和定时等待：
+
+```bash
+ethtool -c eth0
+sudo ethtool -C eth0 adaptive-rx off rx-usecs 0 rx-frames 1
+ethtool -c eth0
+```
+
+`rx-usecs 0` 表示不设置这项定时等待，`rx-frames 1` 把帧数门槛设为 1（等价于"来一个就通知"）。驱动可能只支持其中部分参数；最后一行查看实际结果，比较结束后恢复先前记录的值。
+
+> 注意这是用**中断频率换延迟**：低延迟交易机能接受更高的中断开销；吞吐型机器则通常保留适度合并。
+
+### 2.2 SO_BUSY_POLL：忙轮询
+
+**问题是什么**：普通阻塞接收在没有数据时会让线程睡眠，之后经历网卡中断、内核收包和线程唤醒。Linux 的 NAPI 是驱动从网卡队列取包并交给协议栈的处理机制：驱动从网卡队列批量取包、再交给协议栈处理，平时由中断"叫醒"它。`SO_BUSY_POLL` 的思路很直接——**与其睡下等门铃，不如让线程站在门口主动等一会儿**：接收线程进入 `recv()` 时，可以先在内核中主动轮询对应的 NAPI 实例。如果包在这段时间内到达，就有机会直接处理，减少等待中断和重新调度的时间。
+
+**代价**：这项优化用持续占用处理器换取较低的等待延迟，TCP/UDP 协议处理和接收复制仍在内核中完成。另外要注意，只在用户态反复调用非阻塞 `recv()`，不会自动启用 NAPI 忙轮询，必须通过这个 socket 选项开启。[Linux NAPI 忙轮询](https://docs.kernel.org/networking/napi.html#busy-polling)
+
+```c
+int us = 50;
+check(setsockopt(fd, SOL_SOCKET, SO_BUSY_POLL, &us, sizeof(us)));
+char buf[2048];
+ssize_t n = check(recv(fd, buf, sizeof(buf), 0));
+```
+
+`50` 的单位是微秒，限制的是忙轮询时间，超过后仍按 socket 的阻塞规则等待。socket 从支持该功能的网卡收到数据、关联到对应 NAPI 实例后，才有实际的忙轮询对象。[SO_BUSY_POLL 接口](https://man7.org/linux/man-pages/man7/socket.7.html)
+
+### 2.3 RSS 与中断亲和性
+
+**问题是什么**：一块现代网卡有多个接收队列，可以把流量分散到多个 CPU 核心并行处理，避免单核成为瓶颈。接收侧扩展（Receive Side Scaling，RSS）让网卡对报文的源、目的地址及端口等字段做哈希，再查映射表选择接收队列；配置稳定时，同一条流会落到同一个队列（类似超市的"熟客固定通道"，同一会话每次都排同一队，缓存热度得以保留）。中断亲和性再决定由哪个核心处理该队列的中断。
+
+**原则**：让收包、协议处理和业务线程尽量靠近，可以减少跨核通知、缓存数据转移和额外排队。如果硬件队列已经合理分配，再用软件把每个包转交给另一个核心，就会增加一次核间通信。单核能承担整条处理链时，可以尽量在同一核心完成；负载超过单核能力时，再按流拆分到多个核心。[Linux 网络栈扩展与队列分配](https://docs.kernel.org/networking/scaling.html)
+
+单接收核实验可以先把 RSS 分配集中到队列 0，再绑定这个队列的中断。下面假设从 `/proc/interrupts` 找到的队列 0 中断号是 `42`，目标核心是 CPU 2：
+
+```bash
+ethtool -x eth0                         # 记录原 RSS 分配
+sudo ethtool -X eth0 equal 1             # RSS 哈希桶集中到队列 0
+rg 'eth0' /proc/interrupts               # 找到队列对应的中断号
+echo 2 | sudo tee /proc/irq/42/smp_affinity_list
+cat /proc/irq/42/effective_affinity_list # 确认实际生效的 CPU
+```
+
+网卡队列在 `/proc/interrupts` 中的名称由驱动决定。若 `irqbalance` 正在管理该中断，还要避免它把亲和性改回。RSS 和中断亲和性的接口分别见 [ethtool](https://man7.org/linux/man-pages/man8/ethtool.8.html) 与 [Linux IRQ affinity](https://docs.kernel.org/core-api/irq/irq-affinity.html)。
+
+### 第二组：让小消息按预期时机发出
+
+### 2.4 TCP_NODELAY
+
+**背景：内核默认会替你"攒车"**。Nagle 算法为了减少小包，会在连接上已有未确认数据时，暂存后续不足一个完整 TCP 段的数据，等确认到达或数据积累到足够再发——像一辆没坐满不发车的班车。对几十字节的订单，这种合并会把本来已经准备好的消息留在发送缓冲区。
+
+**做法**：`TCP_NODELAY` 关闭这项等待，让小消息尽早提交发送；代价是报文数量增加，拥塞窗口、接收窗口和发送队列仍会限制实际发送时机（也就是它只能让消息"别在本地攒着"，不能突破网络本身的发送限制）。[Nagle 算法](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.7.4)、[TCP_NODELAY 接口](https://man7.org/linux/man-pages/man7/tcp.7.html)
+
+```c
+int one = 1;
+check(setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)));
+send_all(fd, "BUY\n", 4, 0);
+```
+
+### 2.5 MSG_MORE 与 TCP_CORK
+
+Nagle 是**内核猜**你后面还有数据而替你攒包；这两个接口则是**应用主动明确地告诉内核**"这条消息后面还有数据"。在 TCP 发送中，内核可以先保留不足一个完整段的尾部，把紧接着提交的头部、消息体合并发送，减少小包数量。两者区别在于作用范围：`MSG_MORE` 随每次发送传入，`TCP_CORK` 则是跨调用保留的 socket 状态。
+
+低延迟的用法是**只合并且一次写调用中已经准备好的内容**，最后一段及时清除标记或解除 cork，避免等待下一笔尚未产生的订单——否则"为合并而等待"反而制造了延迟。[MSG_MORE 接口](https://man7.org/linux/man-pages/man2/send.2.html)、[TCP_CORK 接口](https://man7.org/linux/man-pages/man7/tcp.7.html)
+
+下面两段数据合起来是一条完整消息，第二次发送不再传 `MSG_MORE`：
+
+```c
+send_all(fd, "PRICE=", 6, MSG_MORE);
+send_all(fd, "123\n", 4, 0);
+```
+
+如果之前通过 `TCP_CORK` 暂缓发送，完整消息提交后解除：
+
+```c
+int zero = 0;
+check(setsockopt(fd, IPPROTO_TCP, TCP_CORK, &zero, sizeof(zero)));
+```
+
+### 第三组：减少系统调用与内存操作
+
+### 2.6 sendmsg：分散缓冲区一次提交
+
+**问题是什么**：消息头和 payload 经常放在不同的应用缓冲区。先拼成连续数组，会增加一次应用内复制；分别调用 `send()`，又会增加系统调用（每进一次内核都有固定开销）。`sendmsg()` 接收一组 `iovec`，每项只记录地址和长度，内核在一次调用中按顺序读取这些区域，省掉应用拼接和多次进入内核的开销。这是一次"分散-聚集（gather）"式提交：数据不用物理上挨在一起，只要告诉内核去哪几块内存读。普通发送仍会把 payload 复制到内核缓冲区（省的是系统调用和应用内拼接，不是内核复制）。[sendmsg 接口](https://man7.org/linux/man-pages/man2/sendmsg.2.html)
+
+在已连接的 UDP socket 上，下面发送一条内容为 `PX=123` 的数据报：
+
+```c
+char header[] = "PX=", body[] = "123";
+struct iovec parts[] = {{header, 3}, {body, 3}};
+struct msghdr msg = {.msg_iov = parts, .msg_iovlen = 2};
+check(sendmsg(fd, &msg, 0));
+```
+
+### 2.7 recvmmsg：批量接收
+
+**问题是什么**：逐条调用 `recv()`，每条消息都要支付一次系统调用的固定开销。`recvmmsg()` 在一次调用中取出多条消息，分别写入各自的缓冲区，保留数据报边界——相当于"一次把信箱里的信全取走"。配合 `MSG_DONTWAIT`，它只处理当前已经到达的消息，不等未来消息凑满一批；减少的是进入、退出内核的次数，payload 复制仍然存在。[recvmmsg 接口](https://man7.org/linux/man-pages/man2/recvmmsg.2.html)
+
+示例先向接收队列放入两条短 UDP 消息，再用四个位置接收：
+
+```c
+char buf[4][128];
+struct iovec iov[4];
+struct mmsghdr msgs[4] = {0};
+for (int i = 0; i < 4; ++i) {
+    iov[i] = (struct iovec){buf[i], sizeof(buf[i])};
+    msgs[i].msg_hdr = (struct msghdr){.msg_iov = &iov[i], .msg_iovlen = 1};
+}
+int n = (int)check(recvmmsg(fd, msgs, 4, MSG_DONTWAIT, NULL));
+```
+
+此时 `n` 为 2，无须等到四个位置填满。第 `i` 条消息的长度在 `msgs[i].msg_len`；如果 `msg_flags` 带有 `MSG_TRUNC`，说明该条消息超过缓冲区，应丢弃并处理缺口。队列为空时返回 `-1/EAGAIN`，事件循环可以稍后再读。重复接收时可以复用这些数组，不必每轮重新分配。
+
+### 2.8 复用应用接收缓冲区
+
+**问题是什么**：每条消息都申请、释放内存，会反复执行分配器逻辑；首次触碰新页面还可能触发缺页处理（临时分配的内存第一次写入时，内核才真正分配物理页，这是一次可能发生在关键路径上的停顿）。预先分配并复用缓冲区，可以减少这些工作，也有利于复用缓存中的数据。`recv()` 仍把内核数据复制进这块内存，因此上一条消息要消费完，再覆盖同一缓冲区。
+
+接收两条小于 2 KiB 的 UDP 消息时，只准备一份应用缓冲区：
+
+```c
+char buf[2048];
+for (int i = 0; i < 2; ++i) {
+    ssize_t n = check(recv(fd, buf, sizeof(buf), 0));
+    printf("%.*s\n", (int)n, buf);  // 同步消费；下一次 recv 会覆盖 buf
+}
+```
+
+这里用打印展示收到的内容，交易程序中替换为字段解析。
+
+### 第四组：缓冲区与队列：抗突发，但不制造速度
+
+### 2.9 SO_RCVBUF：内核接收缓冲区
+
+**它是什么**：数据经过协议处理后，先留在 socket 的内核接收队列，等应用调用 `recv()` 取走。`SO_RCVBUF` 控制这部分缓冲的内存额度。把它想成柜台前的等候区：**等候区变大不会让柜台处理得更快，只能在人突然变多时少拒几位客人**。适当增大可以容纳应用短暂来不及处理的突发行情，减少 UDP 因队列溢出而丢包；但持续过载时，更大的队列只是让旧行情等待更久——对交易而言，"迟到的行情"往往等于"错误的行情"。它不会提高应用处理速度。
+
+设置后读回实际值：
+
+```c
+int bytes = 256 * 1024;
+check(setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bytes, sizeof(bytes)));
+socklen_t size = sizeof(bytes);
+check(getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bytes, &size));
+printf("SO_RCVBUF=%d\n", bytes);
+```
+
+Linux 会限制请求值，并在返回值中包含额外的内核记账空间，因此读回值不一定等于传入值。[SO_RCVBUF 接口](https://man7.org/linux/man-pages/man7/socket.7.html)
+
+### 2.10 有界待发队列
+
+**问题是什么**：策略产生订单的速度超过发送端处理速度时，无界队列会持续积压，轮到发送的订单可能已经过时（行情早变了，这单发出去就是亏损）。固定容量的环形队列预先分配槽位，并在满时拒绝继续入队，让上游及时重试、停止产生或放弃已失效的订单。它既省掉逐条分配，也把过载暴露给调用方，避免把压力全部转化成等待——这是一种显式的**背压（backpressure）**机制。
+
+下面是单线程队列的入队操作，满时返回 `false`，由调用方决定稍后重试或放弃该笔尚未提交的订单：
+
+```c
+enum { CAP = 8 };
+struct Order { int price; };
+struct Queue { struct Order items[CAP]; unsigned head, tail, count; };
+bool try_push(struct Queue *q, struct Order order) {
+    if (q->count == CAP) return false;
+    q->items[q->tail] = order;
+    q->tail = (q->tail + 1) % CAP;
+    ++q->count;
+    return true;
+}
+```
+
+队首订单处理完后，推进 `head` 并减少 `count`，即可复用空位。这个容量限制作用于应用尚未提交的订单；已经提交给 TCP 的字节仍按连接顺序发送。
+
+### 第五组：把活交给网卡
+
+### 2.11 校验和计算卸载到网卡
+
+**先理解校验和是什么**：校验和（checksum）是报文携带的一个校验值，用来检测传输中的数据差错。以 TCP 为例，发送端根据 TCP 头、payload，以及包含源地址、目的地址等信息的“伪首部”计算一个 16 位校验和，写入 TCP 头；接收端按同样的规则验证收到的数据。[TCP 校验和定义](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.1)
+
+**为什么它是一项 CPU 负担**：假设一条 TCP 报文带有 1000 字节 payload，计算校验和就要把这 1000 字节都纳入计算。网卡通过 DMA 读取报文，只完成数据搬运；如果校验仍由软件执行，CPU 还要承担相应的加法、进位处理和取反运算。[Internet 校验和算法](https://www.rfc-editor.org/rfc/rfc1071.html)
+
+**offload 改变的是"这部分计算由谁执行"：**
+
+| 分工 | 关闭发送校验和 offload | 开启发送校验和 offload |
 | --- | --- | --- |
-| RX0：首字节到达 | 帧的开头抵达指定接收端口 | 网卡或线路设备的入口时间戳，具体打点位置由设备定义 |
-| RX1：完整帧到齐 | 帧末尾已经到达，可进行完整性检查 | 网卡接收状态、帧结束指示；坏帧仍须丢弃 |
-| RX2：应用取得完整消息 | 应用拥有解析该条消息所需的字节 | `recvmsg` 返回后、消息拼接完成处或接收回调 |
-| TX0：发送接口接受请求 | 本地接口接受了相应字节或消息，承担后续处理 | `send` 的正返回值、Aeron `offer` 的成功返回等；各接口的接收位置不同 |
-| TX1：网卡发出 | 帧到达设备定义的发送打点位置 | 发送硬件时间戳；注明对应帧头、帧尾或其他位置 |
-| TX2：远端传输层确认 | TCP 对端确认某段字节已被接收 | TCP 确认号；确认者也可能是终止连接的网关 |
-| EX0：交易所接受订单 | 交易所按该接口的业务定义接受订单 | 订单接受回报，含请求或订单标识 |
-| EX1：成交回报到达 | 本地收到一笔成交的业务通知 | 成交回报接收时间及成交标识 |
+| CPU | 构造报文，并根据报文内容算好完整校验和 | 构造报文，准备计算范围、结果位置及必要的初始值 |
+| 网卡 | DMA 读取已经算好校验和的报文，再发送 | DMA 读取报文，完成校验和计算并填入报文，再发送 |
 
-TX0 到 TX1 衡量本机排队和发送过程；RX0 到 TX1 可以衡量收到行情后发出订单的主机反应；从行情到 EX0 还包含线路、交易所接入与业务处理。成交是否发生由价格、对手盘和撮合规则决定，EX1 不是每笔订单都会经过的终点。
+驱动会把“从哪里开始计算、结果写入头部哪个位置”等信息交给网卡，网卡的数据处理硬件完成剩余计算。线上发出的仍是带有正确校验和的标准 TCP 报文，对端无须改变协议。接收方向也可以卸载：网卡验证校验和并报告结果，内核对已验证的报文省去重复计算。[Linux 校验和卸载](https://docs.kernel.org/networking/checksum-offloads.html)
 
-EX0 表示远端接受订单的事件；若只能在本地收到接受回报时打点，测到的区间还包含回报生成与返回线路，记录时称为“接受回报到达时间”。
+因此，它减少的是 CPU 的校验计算。软件实现若单独扫描报文，还能减少这次遍历；若把复制与校验合在一次遍历中完成，则主要省下校验运算。系统调用和用户缓冲区到内核缓冲区的复制仍然存在。报文较大或包速率较高时，这些计算累积起来会占用更多 CPU；卸载后能把处理器时间留给协议处理和交易逻辑。
 
-硬件时间戳只有在明确设备打点位置后才能与表中的事件对应。若两个时间来自不同的时钟，还要先建立[跨时钟换算关系](HFT_Engineering_05_高频交易系统中的时钟.md)。
+先记录当前状态，再启用发送校验和卸载：
 
-## 2. Linux 内核怎样把数据交给应用
+```bash
+ethtool -k eth0
+sudo ethtool -K eth0 tx on     # 发送校验和卸载
+```
 
-### 2.1 从网卡到 `recvmsg`
+### 2.12 TSO：发送分段卸载
 
-先看普通 Linux socket，也就是应用通过文件描述符调用 `send`、`recv` 的收发接口。接收开始前，驱动已在主机内存中准备一批缓冲区，并把地址和容量写入接收描述符。描述符环像一排交接单：它记录哪里可以写、哪里已经写完；真正的报文载荷放在描述符指向的缓冲区里。
+**背景**：线上的 TCP 段受 MTU 限制（通常每段约 1500 字节），但协议栈手里可能是几十 KB 的大块数据。传统做法是 CPU 在软件里把它切成一段段、每段单独加头算校验和。TCP 分段卸载（TCP Segmentation Offload，TSO）让内核把较大的数据块、分段大小和报文头信息一起交给网卡，由网卡切成线上允许的多个 TCP 段，并生成各段的头部和校验和。处理器因此少做逐段处理，较大的发送更容易受益；单条很小的订单本来就只有一个段，节省的工作有限。[Linux TSO](https://docs.kernel.org/networking/segmentation-offloads.html#tcp-segmentation-offload)
 
-直接内存访问（Direct Memory Access，DMA）让网卡自行把数据写入主机内存。驱动交给设备的是 DMA 地址；有输入输出内存管理单元（Input-Output Memory Management Unit，IOMMU）时，它会把设备使用的地址转换为主机物理地址。应用访问的是自己的虚拟地址。几种地址可以指向同一批内存，但不能把应用指针直接当成设备地址。
+下面关闭 TSO，用于比较开关前后的单条消息延迟与处理器占用：
 
-![普通 Linux socket 的接收与发送路径，包含缓冲区、复制位置和执行者](assets/hft-06/kernel-data-path.png)
+```bash
+sudo ethtool -K eth0 tso off   # 观察关闭 TSO 后的变化
+```
 
-行情帧抵达后，网卡把字节写入接收缓冲区，更新完成状态，并在常规中断模式下通知处理器。中断处理函数随后调度 NAPI。NAPI 是 Linux 网络事件处理机制，早期名称来自 New API；它让驱动在一次轮询中按预算处理一批已经完成的收发事件。这里的“轮询”发生在内核，应用仍可以睡眠等待。[Linux NAPI 文档](https://docs.kernel.org/networking/napi.html)
+### 2.13 GRO：接收合并
 
-中断合并会让网卡积累一定数量的事件，或等待一小段时间再通知处理器，从而减少中断次数。NAPI 本身按预算消费现有事件；它与网卡主动等待凑批是两件具体的操作。常规 NAPI 主要在软中断上下文执行，内核在处理硬中断之外集中完成网络工作。若软中断处理达到时间或重启次数限制，仍待处理的工作会交给 `ksoftirqd` 内核线程继续执行；显式启用 threaded NAPI 时，也可以使用专门的 NAPI 内核线程。
+**与 TSO 对称的接收侧优化**：通用接收合并（Generic Receive Offload，GRO）由内核软件在收包过程中，把同一条流中符合条件的连续报文合成较大的报文表示，再交给上层协议处理。这样可以减少逐包调用和重复处理报文头的开销，线上报文并没有改变（合并只发生在主机内部）。它合并的是收包过程中已经取得的数据；额外等待多久，还取决于中断合并和 NAPI 定时配置——所以在小消息延迟敏感的场景，GRO 的"再等等看有没有后续包"也可能成为延迟来源，需要实测开关对比。[Linux GRO](https://docs.kernel.org/networking/segmentation-offloads.html#generic-receive-offload)、[NAPI 合并与定时配置](https://docs.kernel.org/networking/napi.html#software-irq-coalescing)
 
-驱动围绕收到的数据构建 `sk_buff`。这个结构保存长度、协议、校验和状态和数据引用，载荷可以放在单独的页或片段中。数据沿以太网、IP、UDP 层向上推进时，内核会移动偏移、检查首部并查找接收 socket；每经过一层并不都复制一份载荷。实际复制位置取决于驱动如何组织接收内存以及启用了哪些处理功能。[`sk_buff` 结构](https://docs.kernel.org/networking/skbuff.html)
+观察小消息延迟时，可以单独关闭 GRO 做对比：
 
-UDP 根据目的地址、端口、绑定设备等条件找到 socket，把数据报加入接收队列。应用通过 `recvmsg` 得到这次数据报；如果应用提供的缓冲区太小，截断信息可以通过返回标志获知，解析器应直接拒绝不完整行情。TCP 则维护接收序号与乱序数据。例如前一段包含字节 1000—1099，后一段包含 1100—1199，若后一段先到，TCP 会暂存它，等前面的缺口补齐后才把连续字节交给应用。等待发生在传输层，应用再快也读不到尚未连续的那部分数据。
+```bash
+sudo ethtool -K eth0 gro off   # 观察关闭 GRO 后的变化
+```
 
-队列变成可读后，内核唤醒等待该 socket 的线程。`epoll` 是 Linux 的事件就绪通知接口：它告诉应用哪个文件描述符值得读取；真正取数据仍由 `recv` 或 `recvmsg` 完成。线程从“可运行”到实际得到处理器之间，还有调度等待。如果线程本来就在执行、数据早已在队列中，这次读取可以直接完成。普通复制式接收会把载荷从内核管理的内存复制到用户缓冲区，应用再解码业务消息。[Linux `recv` 手册](https://man7.org/linux/man-pages/man2/recv.2.html)
+### 第六组：彻底去掉一次复制
 
-TCP 提供的是字节流。即使发送端每次 `send` 都提交一条订单，接收端仍可能一次读到半条，也可能同时读到几条。消息长度字段、固定长度格式或分隔符负责找出业务边界。UDP 保留数据报边界，不过一个数据报内装多少条行情，仍由交易所格式决定。
+### 2.14 MSG_ZEROCOPY：发送 payload 零拷贝
 
-### 2.2 从 `send` 到发送队列
+普通 `send()` 先由处理器把用户缓冲区复制到内核缓冲区，再让网卡通过 DMA 读取。`MSG_ZEROCOPY` 尝试省掉前一次复制，让网卡直接读取用户缓冲区对应的内存页；系统调用、协议处理和报文头生成仍由处理器完成。
 
-策略生成订单后，普通复制式 `send` 把被接受的用户数据复制到内核缓冲区。TCP 为这些字节分配序号，维护待发数据与重传状态，并根据对端接收窗口、网络拥塞窗口和小包发送策略决定何时发送。UDP 直接构造相应数据报，应用自行承担需要的确认和恢复。
+为什么这件事不容易？因为 `send()` 正常返回后应用随时可以复用缓冲区，而网卡可能还没把数据发完，TCP 甚至可能在丢包后重传。零拷贝的解法是**把"什么时候可以复用缓冲区"的所有权交接显式化**。在能够保持零拷贝的发送路径中，基本过程是：
 
-IP 层查找路由，邻居子系统确定下一跳的链路层地址。以 IPv4 为例，地址解析协议（Address Resolution Protocol，ARP）把下一跳 IP 地址解析为以太网地址。若邻居信息尚未建立，首个业务包可能先等待解析完成。随后报文经过排队规则（queueing discipline，qdisc），由内核决定发送次序与节奏；空队列等条件允许直接发送时，不必先排入软件队列。[Linux 网络设备接口](https://docs.kernel.org/networking/netdevices.html)
+1. **内核固定用户页。** 应用只传入虚拟地址和长度，内核找到对应页面并 pin 住，避免这些页在使用期间被回收或换出；内核报文描述结构 `sk_buff`（简称 `skb`）通过页引用、偏移和长度描述 payload，省去另存一份 payload。[Linux skb 结构](https://docs.kernel.org/networking/skbuff.html)
+2. **驱动建立 DMA 映射。** 驱动通过 Linux DMA API 得到网卡可用的 DMA 地址。启用输入输出内存管理单元（Input-Output Memory Management Unit，IOMMU）时，这通常是 I/O 虚拟地址（I/O Virtual Address，IOVA），由 IOMMU 翻译到物理地址；应用无须查找或传递物理地址。[Linux DMA 地址映射](https://docs.kernel.org/core-api/dma-api-howto.html)
+3. **网卡读取 payload。** 驱动把 DMA 地址和长度写入发送描述符，网卡自身的 DMA 引擎按描述符读取数据。支持分散聚集（scatter-gather）的网卡可以从多段内存取数，用户缓冲区不必在物理内存中连续。
+4. **内核通知页面可以复用。** 等网络栈释放对这些页面的引用后，内核向 socket 的错误队列放入完成通知。应用通过 `recvmsg(..., MSG_ERRQUEUE)` 读取，再复用对应缓冲区。TCP 为重传保留的数据引用也会影响这个时机。[Linux MSG_ZEROCOPY](https://docs.kernel.org/networking/msg_zerocopy.html)
 
-驱动把报文所在内存及长度描述为发送描述符，通知网卡获取任务。常规网卡通过 DMA 读取数据，经卡上队列发到线路。发送完成事件让驱动回收描述符和本次设备访问需要的资源；TCP 仍保留重新发送未确认字节的能力，直到对端确认或连接失败。
+**两个必须记住的坑：**
 
-由此可以沿着一块发送缓冲区看清三个生命周期。应用的原始缓冲区，在普通复制式 `send` 接受相应字节后即可复用；设备相关资源，在驱动确认网卡不再访问它们后回收；TCP 的重传数据，在传输协议允许时释放。这三个时刻由不同执行者推进。
+- **pin 住页面不会阻止应用写入；在完成通知到来前覆盖缓冲区，可能改变尚未发出的内容。** 也就是说，pin 只保证页不被内核回收，不限制你自己写它——收到通知前必须把这块内存当作"还在内核手里"。
+- 完成通知只表示原缓冲区已可复用；发生退回复制时，它甚至可以早于实际发包。页面管理、DMA 映射和通知都有成本，所以这项优化更适合较大的发送；几十到几百字节的小订单，直接复制往往更划算。
 
-非阻塞 socket 的发送缓冲区没有空间时，`send` 返回 `EAGAIN` 或 `EWOULDBLOCK`。TCP 也可以只接受请求的一部分，例如返回 40 表示本次接受 40 字节，剩余部分仍归应用管理。应用保留偏移，等可写后继续提交剩余字节。如果把整个订单重发一次，字节流中就会出现重复内容。[Linux `send` 手册](https://man7.org/linux/man-pages/man2/send.2.html)
+下面只在一个新建、已连接的 IPv4 UDP socket 上提交一次数据，对应的零拷贝完成编号为 `0`。`wait_zerocopy_0()` 先等待错误队列可读，再检查通知来源和完成编号；通知内容来自 `<linux/errqueue.h>` 中的 `sock_extended_err`：
 
-| 职责 | TCP socket | UDP socket |
+```c
+static void wait_zerocopy_0(int fd) {
+    struct pollfd p = {.fd = fd, .events = POLLERR};
+    require(check(poll(&p, 1, 1000)) == 1, "zerocopy notification timed out");
+    union { struct cmsghdr align; char bytes[128]; } control;
+    struct msghdr msg = {.msg_control = control.bytes,
+                        .msg_controllen = sizeof(control.bytes)};
+    check(recvmsg(fd, &msg, MSG_ERRQUEUE));
+    require(!(msg.msg_flags & MSG_CTRUNC), "completion control data truncated");
+    for (struct cmsghdr *c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
+        if (c->cmsg_level != SOL_IP || c->cmsg_type != IP_RECVERR ||
+            c->cmsg_len < CMSG_LEN(sizeof(struct sock_extended_err))) continue;
+        struct sock_extended_err e;
+        memcpy(&e, CMSG_DATA(c), sizeof(e));
+        if (e.ee_origin != SO_EE_ORIGIN_ZEROCOPY || e.ee_errno != 0) continue;
+        require(e.ee_info == 0 && e.ee_data == 0, "unexpected completion IDs");
+        printf("MSG_ZEROCOPY: completion 0, copied=%d\n",
+               e.ee_code == SO_EE_CODE_ZEROCOPY_COPIED);
+        return;
+    }
+    require(false, "no matching zerocopy completion");
+}
+```
+
+发送后等到通知，再覆盖原缓冲区：
+
+```c
+int one = 1;
+check(setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &one, sizeof(one)));
+char buf[32768] = {0};
+check(send(fd, buf, sizeof(buf), MSG_ZEROCOPY));
+wait_zerocopy_0(fd);
+memset(buf, 'X', sizeof(buf));  // 收到完成通知后才允许复用
+```
+
+> **第二部分小结**：这些手段的共同点是"把吞吐导向的默认值改成延迟导向"。它们不是越多越好——中断合并、GRO、TSO、缓冲区大小都要在自己的工作负载下实测开关前后的延迟分布（尤其关注尾延迟），再决定取舍。
+
+## 3. 用户态收发与硬件旁路
+
+前面的优化都在内核网络栈**内部**做文章。内核旁路（kernel bypass）则更进一步：把关键数据收发移出普通内核网络栈。需要注意的是，"旁路"不等于"完全不要内核"——设备初始化、内存映射和权限管理仍由驱动配合；只是在**稳定运行时**，应用直接访问收发队列或映射的缓冲区，热路径上不再有系统调用、内核协议处理和内核缓冲复制。
+
+打个比方：传统栈像走公共邮政系统，每个包裹都要经过分拣中心的统一流程；内核旁路则是在你的机房和交易所机房之间修一条专用通道，日常运输直接走专线，但修路、划地、安检仍要一次性完成。
+
+下面四类技术采用了不同的分工：有的提供原始包接口，有的实现用户态 TCP/UDP，有的把传输工作交给网卡。可以按"应用需要自己承担多少工作"来排序：越往下越接近硬件、越快，但应用要管的事情也越多。
+
+### 3.1 ExaNIC
+
+ExaNIC 是 Cisco Nexus SmartNIC 的原名。它的设计哲学是**卡上尽量不缓存**，把到达的数据分块 DMA 到主机接收环；应用通过 `libexanic` 轮询并直接读取这些内存。支持的接口还允许在整帧到齐前先处理已经到达的部分，重叠线路接收与解析工作（网卡还在收后半帧，CPU 已经开始解析前半帧）。发送则可以由应用写入映射的卡上发送缓冲区，再触发网卡发送。[Cisco ExaNIC Internals](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/smartnic/sw/user-guide/cisco-nexus-smartnic-user-guide/internals.html)
+
+它的关键在于减少缓存等待和搬运核间通信。代价也要清楚：应用接管帧解析，也要跟上接收环的推进速度，否则旧数据会被新数据覆盖（环形缓冲没有人为你排队）；提前解析时，还要等完整帧的有效性结果（比如校验和），再决定是否采用这条消息，不能只解析了一半就下单。`libexanic` 的原始帧接口适合直接处理行情包，完整的 TCP 连接仍由额外的协议栈维护。
+
+### 3.2 DPDK
+
+数据平面开发套件（Data Plane Development Kit，DPDK）通过轮询模式驱动（Poll Mode Driver，PMD）在用户态收发包——没有中断，线程永远在轮询队列。网卡把数据 DMA 到预先准备的内存池，应用取得描述报文的 `mbuf`，完成处理后回收，或者转交发送队列。它把轮询、批量收发、内存池和核心分工组织在一起，减少逐包中断、临时分配和通用内核处理成本。[DPDK PMD](https://doc.dpdk.org/guides/prog_guide/ethdev/ethdev.html)
+
+DPDK 适合可分配专用核心、需要高包速率的行情接收和分发。要注意边界：它提供的是**包处理框架**（拿到的是原始以太网帧），TCP 的建连、重传和流控仍要由附加协议栈完成；它也要求独占 CPU 核心和网卡，不能和内核网络栈混用同一张卡。批量取包时，一次取走当前队列里的多个包可以减少开销；但主动等队列凑满才处理，会增加低流量时的等待——低延迟场景应当"有多少处理多少"，而不是"凑一批再动"。
+
+### 3.3 RDMA
+
+远程直接内存访问（Remote Direct Memory Access，RDMA）把通信区域预先注册给网卡，应用提交发送、读取或写入请求，由网卡执行传输，再通过完成队列报告结果。在硬件 RDMA 路径中，数据可以直接从一端的应用内存到另一端的应用内存，减少内核缓冲区复制，并由网卡承担相应传输协议工作。[NVIDIA RDMA 编程指南](https://networking-docs.nvidia.com/doca/archive/3-5-0/rdma-aware-networks-programming-guide)
+
+单边读写尤其直观：远端应用先注册内存并授予访问权限，之后一次远程读/写可以由网卡完成，无须远端业务线程逐次执行接收调用——数据像被"隔空放"进了对方内存。但要区分两个时间点：**本地传输完成 ≠ 远端业务处理完成**，业务线程仍负责消费数据和维护状态。RDMA 更适合双方可控、硬件与网络匹配的内部集群（例如机房内各服务之间）；交易所只提供 TCP/WebSocket 入口时，客户端无法单方面把连接改成 RDMA。
+
+### 3.4 Solarflare：Onload、TCPDirect 与 ef_vi
+
+Solarflare 的软件接口可以按应用愿意承担多少工作来理解：
+
+| 接口 | 核心做法 | 应用怎样接入 |
 | --- | --- | --- |
-| 通信状态 | 维护连接、序号与关闭过程 | 收发数据报；`connect` 可固定对端，但不建立可靠会话 |
-| 交付边界 | 有序字节流，应用切分消息 | 保留数据报边界 |
-| 确认与重传 | 协议栈确认字节并恢复丢失数据 | 应用协议按业务需要补充 |
-| 乱序处理 | 暂存后到的连续区间，补齐后按序交付 | 应用决定等待、去重或丢弃 |
-| 流量控制 | 接收窗口约束未确认数据规模 | 无内建接收窗口 |
-| 拥塞控制 | 拥塞窗口、发送节奏等约束网络负载 | 发送应用承担网络负载控制 |
+| Onload | 在用户态实现 TCP/UDP，尽量兼容现有 socket 编程方式 | 延续 `send()`、`recv()` 等调用方式，对受支持的连接进行加速 |
+| TCPDirect | 用更精简的功能和专用接口实现用户态 TCP/UDP | 改造事件循环，由应用主动推进协议处理，并使用直接访问缓冲区等能力 |
+| `ef_vi` | 暴露更接近网卡的帧与事件接口 | 应用取得原始帧，自行安排上层协议和业务处理 |
 
-这些职责来自 [TCP 规范](https://www.rfc-editor.org/rfc/rfc9293.html)和 [UDP 规范](https://www.rfc-editor.org/rfc/rfc768)。把协议栈移到用户态时，职责本身仍然存在。
+Solarflare TCPDirect 是其中面向低延迟应用的用户态 TCP/UDP 协议栈。关键收发操作绕过内核，线上仍然使用标准 TCP/UDP 报文，对端可以继续使用普通网络接口（旁路是本机的事，交换机和对端无感知）。应用在同一线程中推进网络、解析行情和计算策略，可以减少系统调用、线程唤醒及缓冲区复制。[TCPDirect 项目说明](https://github.com/Xilinx-CNS/tcpdirect)
 
-### 2.3 socket 基线有哪些调整空间
+应用通过 `zf_reactor_perform()` 推进收包、协议状态和定时任务——这是用户态协议栈的典型模型：**协议不会自己往前走，必须由应用的事件循环反复"驱动"它**。零拷贝接收接口让应用直接读取协议栈中的数据，处理完后归还缓冲区。协议处理仍由处理器执行，应用长时间不推进 reactor，网络处理也会停下来。[TCPDirect 用户指南](https://www.amd.com/content/dam/amd/en/support/downloads/solarflare/onload/openonload/packages/SF-116303-CD-9_TCPDirect_User_Guide.pdf)
 
-用户态与内核态之间的系统调用有进入和退出成本；线程睡眠、被抢占或切换到其他线程时，才进一步涉及任务调度与上下文切换。对一个一直有数据可读的 socket，只把延迟归因于“每个包都切一次线程”，会把排查方向带偏。
+这套技术的重点是让协议处理贴近应用，并利用配套网卡减少数据搬运。支持的网卡还可以使用直通程序控制输入输出（Cut-Through Programmed I/O，CTPIO）：处理器向网卡写入报文时，网卡在数据尚未全部写完前就开始发往线路，重叠"主机到网卡"和"网卡到线路"两段传输——连"写完再发"的串行等待都被压缩掉。[Onload 用户指南](https://docs.amd.com/r/en-US/ug1586-onload-user/all)、[`ef_vi` 接口说明](https://github.com/Xilinx-CNS/onload/blob/master/src/onload/distfiles/README.ef_vi)、[CTPIO 说明](https://docs.amd.com/r/en-US/ug1586-onload-user/CTPIO)
 
-普通 socket 有几种可以先验证的调整。`recvmmsg` 和 `sendmmsg` 在一次系统调用中处理多条数据报，摊薄调用成本；接收端可使用非阻塞方式取出当前已有的数据，无须等到数组填满。`SO_BUSY_POLL` 让应用在支持的接收路径上主动推动忙轮询，减少等待中断的时间，代价是处理器持续忙碌。`TCP_NODELAY` 关闭 Nagle 小包合并，适合订单这类希望尽快提交的小消息。[Linux socket 选项](https://man7.org/linux/man-pages/man7/socket.7.html)
+选择原始包接口，意味着自己承担更多协议和缓冲区管理；选择 TCPDirect、Onload，则可以沿用成熟 TCP/UDP 实现，把精力放在交易逻辑上。对于固定使用 TCP 的交易所入口，完整的用户态 TCP 栈往往比单纯取得原始帧更接近实际需求。
 
-网卡的接收侧扩展（Receive Side Scaling，RSS）根据报文头的哈希把流分到多个接收队列。然后中断、NAPI 和应用线程[分别在哪个核心执行](HFT_Engineering_04_高频交易系统的部署.md)，决定数据要跨越多少次缓存与处理器边界。非一致性内存访问（Non-Uniform Memory Access，NUMA）机器上，每个处理器访问本地内存更直接；网卡、接收缓冲区与处理线程跨 NUMA 节点时，数据会额外穿过处理器互连。队列多并不会自动让一条行情流更快，单流哈希常落在同一队列上。[Linux 网络栈扩展](https://docs.kernel.org/networking/scaling.html)。
+**四类路线横向对比：**
 
-通用接收合并（Generic Receive Offload，GRO）把符合条件的收到的数据合并交给协议栈；通用分段卸载（Generic Segmentation Offload，GSO）让软件较晚地拆分大块数据；TCP 分段卸载（TCP Segmentation Offload，TSO）把拆分工作交给网卡。这会改变处理次数，也会改变抓包时看到的报文大小。比较两条路径时记录这些开关，否则容易把聚合后的软件处理次数拿去和真实线速报文数量比较。[Linux 分段卸载文档](https://docs.kernel.org/networking/segmentation-offloads.html)
-
-## 3. 线路长度、帧长与交换机
-
-光纤中的传播时间可以先按长度估算。取有效群折射率约 1.47，传播速度约为真空光速除以 1.47，每千米约 4.9 微秒。Corning 一款单模光纤在 1550 纳米处给出的有效群折射率为 1.4682，可作为这个量级的依据。实际线路长度由铺设路径决定，而不是两座机房的地图直线距离。[Corning 光纤参数](https://www.corning.com/media/worldwide/coc/documents/Fiber/product-information-sheets/PI-1424-AEN.pdf)
-
-若光纤路线长 100 千米，单程传播约 490 微秒。相同几何长度的空气传播约 334 微秒，微波、毫米波链路因此有缩短传播时间的空间，但线路还受到视距、天气、可用频谱与带宽约束。两者都要再加收发设备、交换与排队。把进程中的一次复制省掉，改善的是其中一段；迁入交易所机房则直接改变整条线路的长度。
-
-一帧数据也不会在同一时刻全部进入线路。长度为 $L$ 字节、速率为 $R$ 比特每秒时，帧本体的串行化时间是：
-
-$$
-T_{\mathrm{serial}}=\frac{8L}{R}.
-$$
-
-64 字节最小以太网帧在 10 Gb/s 上占 51.2 纳秒。再计入 8 字节前导码及帧起始定界符、12 字节帧间隙，连续发送时每帧占用 67.2 纳秒；在 25 Gb/s 上相应为 26.88 纳秒。帧间隙是下一帧开始前的空闲时间，计算“当前帧末尾到达”时应使用前导码加帧本体的时间。最大传输单元（Maximum Transmission Unit，MTU）为 1500 字节且不含虚拟局域网（Virtual Local Area Network，VLAN）标签时，以太网帧本体为 1518 字节，在 10 Gb/s 上约占 1.214 微秒。
-
-交换机有两种相关转发方式。存储转发先收齐整帧并检查帧校验序列（Frame Check Sequence，FCS），再发往出口；直通转发读到足够的目的信息后就开始输出，使接收和发送重叠。出口比入口更快时，过早开始输出会把已收到的字节耗尽，因此设备可能改用存储转发。Cisco Nexus 3000 的文档明确列出了这种速率条件。出口拥塞时，即使启用了直通，报文仍要等前面的流量离开。[Cisco 交换模式说明](https://www.cisco.com/c/en/us/td/docs/switches/datacenter/nexus3000/sw/layer2/7x/b_Cisco_Nexus_3000_Layer_2_Switching_Config_7x/b_Cisco_Nexus_3000_Layer_2_Switching_Config_7x_chapter_0101.pdf)
-
-物理层交换机，常称 L1 交换机，可以把一个入口的信号复制到多个出口，用于行情扇出。它按预配置的物理连接关系转发；链路层 L2 交换机依据以太网地址等信息处理帧，网络层 L3 设备进一步依据 IP 路由转发。若需要组成员管理、按消息筛选、不同速率之间缓冲，相关处理仍要有设备或软件承担。[Cisco Nexus 3550 产品资料](https://www.cisco.com/c/en/us/products/switches/nexus-3550-series/datasheet-listing.html)
-
-托管机房内部还有交叉连接、配线架和接入交换机。Nasdaq 的网络运营商条款把特定分界点之间的“等长”定义为相同线缆距离与介质类型，并允许用光纤盘纤实现等长交叉连接。它约束的是明确划定的连接段，服务器处理、网卡与客户侧网络仍各有差异。阅读机房服务说明时，把等长段的起点和终点标进实际拓扑。[Nasdaq Network Operator Terms](https://www.nasdaq.com/docs/network-operator-agreement)
-
-## 4. UDP 组播与丢包发生的位置
-
-IP 组播让发送方发出一份数据，由网络在需要分叉的地方复制给多个接收者。接收主机通过互联网组管理协议（Internet Group Management Protocol，IGMP）表达加入或离开某个组；支持 IGMP snooping 的交换机会观察这些消息，维护哪些端口有订阅者。网卡再根据组播过滤配置接收相应帧，操作系统把它交给加入该组的 socket。组播减少了发送方逐个单播的负担，每个接收端仍要独立承受全部订阅流量。[IGMPv3 规范](https://www.rfc-editor.org/rfc/rfc3376)
-
-双路行情 A、B 常用于减少单路丢包的影响。在协议规定两路表达同一逻辑序列时，合并器以通道和序号识别消息，先到的处理，后到的去重。例如期望 501，A 先送来 501，就直接推进；A 缺了 502，但 B 有 502，仍可连续处理。若两路都只有 503，相关订单簿先进入[待恢复状态](HFT_Engineering_08_交易所协议.md)，后续消息保留在有界缓冲区，等缺口补齐后再推进。市场具体恢复机制可以参照 [CME MDP 3.0 Recovery Services](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457325847/MDP%2B3.0%2B-%2BRecovery%2BServices%2Bfor%2BUDP)。
-
-应用只看到“少了一条”，并不知道报文丢在哪里。把同一时间窗口的计数器增量沿接收方向排开，更容易缩小问题范围。
-
-| 位置 | 要观察的计数 | 增长时优先检查什么 |
-| --- | --- | --- |
-| 交换机出口 | 出口队列丢弃、错误帧、端口拥塞 | 突发扇入、出口速率、线缆与光模块 |
-| 网卡接收 | `rx_missed_errors`，以及驱动的无缓冲、无描述符计数 | 接收环耗尽、处理器长期未收包 |
-| Linux 网络处理 | `/proc/net/softnet_stat` 的 dropped 与 time_squeeze | 输入积压、处理预算；time_squeeze 表示处理受预算限制，本身不是丢包数 |
-| UDP socket | `UdpRcvbufErrors` 或 `/proc/net/snmp` 中的 `RcvbufErrors` | socket 缓冲区耗尽、应用读取过慢 |
-| 应用合并器 | 每通道序号缺口、重复、乱序、恢复等待时间 | 网络损失与解析拒绝分别计数，核对两路是否同缺口 |
-| 云网卡 | 带宽、包速率与连接跟踪 allowance 计数 | 实例配额、连接跟踪容量，见第 10 节 |
-
-`ethtool -S` 中的设备专用名字由驱动定义；Linux 通用统计与设备统计也存在包含关系，直接相加容易重复计数。用户态收包绕过 UDP socket 后，`RcvbufErrors` 无法覆盖该路径，此时观察对应驱动、收发框架和应用计数。[Linux 网络统计文档](https://docs.kernel.org/networking/statistics.html)
-
-## 5. 用户态收发与缓冲区所有权
-
-### 5.1 保留 socket，还是接手网卡队列
-
-内核路径已经承担设备管理、缓冲区回收、协议状态、路由和线程通知。所谓内核旁路，是把其中一部分数据处理从内核转移到用户态；初始化、权限管理和设备故障处理仍可能依赖内核。比较方案时，最有用的问题是“应用现在接到了哪一层”。
-
-Onload 用用户态库加速受支持网卡上的 TCP/UDP，并尽量保留 socket 编程接口。应用原来调用 `send`、`recv`、`epoll` 的结构可以延续，但实际是否被加速，要由连接、网卡和功能使用情况确认。TCPDirect 则提供专门的 TCP/UDP 接口，应用定期调用 `zf_reactor_perform()` 推进协议处理，包括接收事件和定时工作。若交易线程陷入一次长计算，推进协议的频率也随之下降。[AMD Onload 用户指南](https://docs.amd.com/r/en-US/ug1586-onload-user/all)、[TCPDirect 源码](https://github.com/Xilinx-CNS/tcpdirect/tree/13acc6886e5cdc47c4a5bd5bdcba01fadc50d9e1)
-
-这个改变缩短了线程间交接，也把“协议栈什么时候运行”交给了应用。TCPDirect 的复制式发送接口会接收并复制相应数据，零拷贝接收接口则借出协议栈拥有的数据，应用处理后调用对应完成接口归还。借出的指针如果被放到异步日志队列，日志线程稍后才读取，就可能读到已经复用的数据。需要跨越借用期时，复制少量必要字段到自己的对象，比保存整块借用内存更清楚。
-
-`ef_vi` 和 `libexanic` 提供更靠近以太网帧的接口。应用负责过滤和解析帧，也要自行安排所需的 IP、UDP 或 TCP 功能。直接收到一个 TCP 段，距离可靠的 TCP 字节流仍有连接、序号、重传和流控工作。TCPDirect 的用户态 TCP 实现可以承担这些工作；DPDK、`ef_vi` 这类包接口本身则没有替应用完成它们。[`ef_vi` 接口说明](https://github.com/Xilinx-CNS/onload/blob/8171e9292b66c0f876f9aee9d31eed76ef441aca/src/onload/distfiles/README.ef_vi)
-
-### 5.2 ExaNIC 的接收内存与发送内存
-
-ExaNIC 提供一个很直观的例子：接收缓冲区在主机内存，发送缓冲区却在网卡上。接收时，网卡把到达的数据持续 DMA 到主机环形缓冲区。`libexanic` 的原地接收接口可以把其中一段数据的指针借给应用；网卡不会因为某个应用处理较慢，就无限等待它释放位置。当写指针绕回，旧数据会被覆盖，应用借助代数和位置检查发现自己落后了一圈。[Cisco ExaNIC Internals](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/smartnic/sw/user-guide/cisco-nexus-smartnic-user-guide/internals.html)
-
-接收端的“归还”因此没有把生产者挡在原地的作用。应用尽快解析并取走业务字段，再检查借用期间是否发生覆盖；检查失败就丢弃这次结果，并按行情缺口规则恢复。把指针保存起来交给其他线程，延长的是读取时间，并没有延长数据的有效期。
-
-ExaNIC 还允许[按块读取尚未收齐的帧](HFT_Engineering_05_高频交易系统中的时钟.md)。应用可以在前几个块到达后先解析头部，但末块携带的完整帧状态仍决定这次报文是否有效。早解析与早产生不可撤销的业务动作之间，隔着一次完整性判断。
-
-发送方向的映射则指向卡上内存。PCI Express（PCIe）是处理器与网卡之间的高速互连；基地址寄存器（Base Address Register，BAR）描述设备对主机暴露的地址窗口。驱动把发送窗口映射到进程虚拟地址后，应用写这个地址，实际进行的是内存映射输入输出（Memory-Mapped I/O，MMIO），数据经 PCIe 到达网卡。它和普通主机内存里的 DMA 接收环位于不同位置。
-
-`exanic_begin_transmit_frame()` 分配一段可写发送区域，应用填入帧，再用 `exanic_end_transmit_frame()` 提交。库按设备要求保证数据写入与触发发送的顺序，网卡发送后向主机反馈区写回反馈标识，用来判断哪些发送空间可以回收。应用如果跳过库的排序操作，或提前重写尚未释放的发送区域，网卡读取到的就可能是另一笔订单的字节。[固定版本发送接口](https://github.com/cisco/exanic-software/blob/430e5eb35d455b06e84ba8053b1456c86d3f21a2/libs/exanic/fifo_tx.h)
-
-### 5.3 DPDK 与 AF_XDP
-
-DPDK 的轮询模式驱动（Poll Mode Driver，PMD）让用户线程轮询设备收发队列。报文通过 `mbuf` 表示，它包含数据位置、长度、卸载标志等信息，实际存储来自预先建立的缓冲池。接收函数返回一批 `mbuf` 后，应用持有它们；解析结束就释放，或转交发送队列。发送函数若只接受请求中的前 `n` 个包，前 `n` 个交给驱动管理，其余仍由应用处理。对已经接受的 `mbuf` 再次释放，会破坏驱动之后的访问。[DPDK PMD 文档](https://doc.dpdk.org/guides-25.11/prog_guide/ethdev/ethdev.html)
-
-批量接口只规定一次最多取多少。队列里现在有 3 个包，应用可以立刻处理这 3 个；如果应用故意等到 32 个再处理，才引入了凑批延迟。吞吐测试中的最佳批量大小，不能直接作为稀疏订单链路的设置。连续轮询还会占用专门的处理器时间，部署时要把驱动工作、业务计算和其他线程的处理器预算放在一起看。
-
-AF_XDP 是 Linux 为高性能包处理提供的地址族。它通过快速数据路径（eXpress Data Path，XDP）程序，将指定网卡队列的帧重定向到用户态 socket。用户内存区 UMEM 是应用注册的一块连续虚拟内存，划分成多个帧缓冲区；四类环通过地址和长度转移这些缓冲区的使用权。[Linux AF_XDP 文档](https://docs.kernel.org/networking/af_xdp.html)
-
-![AF_XDP 的四类环与 UMEM 缓冲区所有权](assets/hft-06/af-xdp-ownership.png)
-
-应用把空闲缓冲区地址放入 FILL 环，交给内核用于接收；内核接到帧后，在 RX 环发布地址和长度，应用取得数据。处理完后，可以把地址重新放回 FILL 环，也可以把准备好的帧放入 TX 环发送。TX 提交以后，应用一直等到 COMPLETION 环归还该地址，才重新使用它。COMPLETION 表达的是归还所有权，其中也可能有无效发送描述符被拒绝后回收的帧；发送错误计数和发送时间戳分别回答拒绝与实际发出的事实。
-
-AF_XDP 的零拷贝模式让设备直接使用 UMEM，省掉内核接收缓冲区到 UMEM 的载荷复制。驱动不支持时会使用复制模式；显式请求 `XDP_ZEROCOPY` 可在不支持时使绑定失败，也可以读取 `XDP_OPTIONS_ZEROCOPY` 确认实际模式。四个环遵守单生产者、单消费者约束，多线程同时操作同一环时，应用要自行协调访问。
-
-| 接口 | 队列与协议由谁处理 | 应用等待方式 | 应用缓冲区何时能复用 |
+| 路线 | 应用拿到什么 | TCP/UDP 谁实现 | 典型场景 |
 | --- | --- | --- | --- |
-| 普通 socket | 内核驱动访问设备队列，内核维护 TCP/UDP | 阻塞、`epoll` 或支持的忙轮询 | 复制式发送接受相应字节后；接收复制到应用自有缓冲区 |
-| Onload | 用户态协议栈加速受支持连接，配合驱动与内核控制功能 | 保留 socket 使用方式，可配置轮询 | 按所调用的复制或零拷贝接口合同 |
-| TCPDirect | 用户态栈维护 TCP/UDP，应用推进 reactor | 主动轮询或其事件接口 | 复制发送接受后；借用接收在归还前有效 |
-| `ef_vi` / `libexanic` | 帧接口与库管理设备资源，应用承担所需上层协议 | 轮询事件或接收位置 | DMA 发送等完成；ExaNIC 接收另受覆盖约束 |
-| DPDK | PMD 管设备队列，应用或附加协议栈处理协议 | 批量轮询 | 未被 TX 接受的仍归应用；已接受的交由驱动回收 |
-| AF_XDP | 内核驱动与 XDP 转交帧，应用处理上层协议 | 环轮询，按模式唤醒驱动 | RX 消费后由应用转交；TX 等 COMPLETION 归还 |
+| ExaNIC（libexanic） | 映射内存中的原始帧 | 应用自行解析，或另配协议栈 | 超低延迟行情捕获、抢跑解析 |
+| DPDK（PMD） | 原始帧（`mbuf`） | 需要附加用户态协议栈 | 高包速率行情接收、分发网关 |
+| RDMA | 已到应用内存的消息/单边读写 | 网卡硬件实现传输 | 双方可控的内部集群 |
+| Onload / TCPDirect | socket 或专用 API 的消息 | 成熟的用户态 TCP/UDP 栈 | 现有 TCP 策略程序的低延迟改造 |
+| `ef_vi` | 原始帧与事件 | 应用自行实现 | 需要完全自控的定制协议栈 |
 
-零拷贝的收益来自少一次具体复制，代价则是更明确的借用期和交接规则。对几十字节的业务状态，复制到线程私有对象有时能简化整个生命周期；对大量原始帧的转发，保留同一块缓冲区则更有价值。
+> **第三部分要点**：内核旁路不是银弹。它用"专用核心、专用网卡、应用承担更多责任"换来热路径上的低延迟；能否使用，还取决于交易所开放什么入口（RDMA/组播行情还是只有 TCP/WebSocket）。
 
-## 6. 一笔小订单怎样离开主机
+## 4. Crypto 行情中的 WebSocket 与 JSON
 
-订单很小，产生时间又不均匀。TCP 的 Nagle 算法在已有未确认数据时，会合并后续不足一个最大报文段的小数据，以减少零碎报文。`TCP_NODELAY` 关闭这项等待，但接收窗口、拥塞窗口、qdisc 与网卡队列仍继续约束发送。应用自己设置 `MSG_MORE` 或等待凑批，也仍会把字节留在本地。调节发送策略时，直接观察 TX0 到 TX1 的变化。[TCP Nagle 规则](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.7.4)
+前面讨论的优化针对"数据在本机怎么收发"。但消息到达应用之前的**表达方式**同样影响延迟：传统头部交易所已经有面向专业接入的二进制行情协议，例如 Nasdaq ITCH 直接规定消息类型、字段长度和二进制编码——程序拿到字节流后按固定偏移就能取出价格，几乎没有解析成本。Crypto 的低延迟接入能力则更不统一，面向普通开发者的公开行情入口仍广泛采用 WebSocket 与 JSON；Binance 的普通现货行情流就是一个具体例子。接入这种接口时，交易程序还要承担解密、消息重组和文本解析。[Nasdaq ITCH 规范](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NQTVITCHSpecification.pdf)、[Binance WebSocket 行情](https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md)
 
-当发送队列满了，处理返回值是交易流程的一部分。复制式 socket 或 TCPDirect 接口接受了多少字节，应用就推进多少；直接帧接口接受了哪些缓冲区，应用就等待哪些资源归还。还未提交的订单可以进入有界待发队列，由上层决定超时后放弃、重新计算或停发。无限积累虽然减少了立即报错，却把“现在的策略决定”延迟成“稍后发出的旧订单”。
+这种差异更适合按实际入口讨论：Binance 已经提供简单二进制编码（Simple Binary Encoding，SBE）行情流，并通过 WebSocket 二进制帧传输。因此，WebSocket 可以承载 JSON，也可以承载二进制消息；能否使用更直接的编码，取决于交易所开放了什么接口。[Binance SBE 行情](https://github.com/binance/binance-spot-api-docs/blob/master/sbe-market-data-streams.md)
 
-稀疏发送还有另一个成本：代码、连接状态和地址转换信息在空闲期间被挤出缓存。地址转换后备缓冲区（Translation Lookaside Buffer，TLB）保存虚拟地址转换结果，失效后访问相关内存会增加工作。TCPDirect 的 `zft_send_single_warm()` 和 `zfut_send_single_warm()` 会预热发送路径而不实际发包；`ef_vi` 的 `efsend_pio_warm` 展示了类似做法。PIO 指程序控制输入输出（Programmed I/O），处理器直接向设备发送窗口写入小报文。[TCPDirect 用户指南](https://www.amd.com/content/dam/amd/en/support/downloads/solarflare/onload/openonload/packages/SF-116303-CD-9_TCPDirect_User_Guide.pdf)
+### WebSocket：为什么需要它，数据怎么流过来
 
-预热作用于主机执行路径和相应设备写入过程；减少线程睡眠依靠轮询与调度安排，减少网络拥塞依靠发送控制。空闲时反复预热也会消耗处理器与 PCIe 资源，所以测量时同时记录触发间隔、预热频率、发送首包延迟和持续负载表现。
+先解决一个常见疑问：既然底层就是 TCP，为什么还要 WebSocket？因为原生 TCP 只给字节流，没有"消息边界""订阅关系""浏览器可用的全双工通道"这些概念。WebSocket 在一条长期保持的 TCP 连接上提供双向消息通信，且可以复用 HTTP 的 80/443 端口和升级机制。
 
-原始帧发送还可以预构造固定首部和业务字段，只在发单时更新价格、数量、序号以及相关校验和。一个 16 位字段由旧值 $m$ 改为新值 $m'$，旧互联网校验和为 $HC$，增量更新为：
+以经典的 HTTP/1.1 Upgrade 方式为例，建连和收行情的完整过程是：
 
-$$
-HC'=\sim(\sim HC+\sim m+m').
-$$
+1. 客户端与服务器建立 TCP 连接，再通过超文本传输协议（Hypertext Transfer Protocol，HTTP）发送一个带升级请求的 HTTP 报文；
+2. 服务器返回 `101 Switching Protocols`，连接此后不再走 HTTP 规则，改为 WebSocket 帧；
+3. 客户端发送订阅消息（订阅哪个品种、什么深度）；
+4. 服务器持续主动推送更新，无须客户端为每条行情再发起一次 HTTP 请求。
 
-这里的加法使用一补码运算，溢出的进位加回低 16 位。它省掉对全部未变化字节的重新求和；多个字段逐个更新即可。TCP 序号、确认号、窗口、时间戳选项等动态状态仍由协议栈或应用维护。直接复制昨天的一份 TCP 首部再改订单价格，无法满足今天连接的状态。[RFC 1624](https://www.rfc-editor.org/rfc/rfc1624)
+`wss://` 还使用传输层安全协议（Transport Layer Security，TLS）加密连接。JavaScript 对象表示法（JavaScript Object Notation，JSON）则负责表达行情里的品种、价格、数量等业务字段。下面把建连过程和一条行情的接收过程放在同一张图中。
 
-本篇附带的[校验脚本](examples/network_06/checksum_update.py)把增量更新与完整 IPv4 首部重新求和比较：65,536 种单字段替换、固定随机种子的 10,000 组多字段替换，以及 RFC 1624 的正零/负零边界案例全部通过。运行命令为 `python3 hft/examples/network_06/checksum_update.py`。这个检查验证字节运算，线上发包延迟由设备实验测量。
+![WebSocket 原理：建立连接、升级协议、订阅与持续推送，以及接收端的逐层解析](assets/hft-06/websocket-message-flow.png)
 
-`ef_vi` 的直通 PIO（Cut-Through PIO，CTPIO）进一步让网卡在报文经 PCIe 到达过程中开始发送，从而重叠两段传输。存储转发模式则先收齐卡上的报文，再送往线路。可用模式受网卡型号、固件、链路速率和接口设置约束；应用也要按库的要求提供后备发送与资源回收处理。[`ef_vi` 用户指南](https://www.amd.com/content/dam/amd/en/support/downloads/solarflare/onload/openonload/packages/SF-114063-CD-10_ef_vi_User_Guide.pdf)
+### 一次 recv() 的三种"不对齐"
 
-订单离开网卡后，还要经过线路和远端服务。TCP 确认使本端能够释放已确认字节，交易所订单接受回报才使订单状态进入相应业务阶段。若连接断开时订单是否被接受尚不明确，重连后通过[查询、会话重放和请求去重](HFT_Engineering_08_交易所协议.md)恢复订单状态。
+应用收到字节后，不能直接当完整消息解析，因为各层都有自己的分片规则：
 
-## 7. TLS、WebSocket 与 JSON 接入
+- **WebSocket 层**：帧带有操作码、长度和分片信息，用来识别文本、二进制数据，以及 Ping、Pong、Close 等控制消息；一条业务消息可以拆成多个帧。[WebSocket RFC 6455](https://www.rfc-editor.org/rfc/rfc6455)
+- **TCP 层**：只提供连续字节流，没有边界。一次 `recv()` 既可能只读到半个帧，也可能读到多个帧。因此接收程序要自己做**粘包/半包处理**：先完成 TLS 解密和 WebSocket 消息重组，攒出一条完整业务消息，再把完整 JSON 交给解析器。
+- **TCP 丢包**：后续字节要等缺失部分补齐后才能按序交付（队头阻塞），这段等待也会原样传递到行情解析——即使后面的字节早就到了，也不能越过缺口先解析。
 
-加密资产交易所常见的一条接入链是：应用把订单编码为 JSON，放进 WebSocket 帧，再由 TLS 加密，通过 TCP 发送。JSON 是 JavaScript Object Notation，以文本表示对象、数组和数值；WebSocket 在连接上划分消息和控制帧；传输层安全协议（Transport Layer Security，TLS）提供加密、完整性保护与对端认证。`wss://` 表示通过 TLS 保护的 WebSocket。不同交易所也有[二进制、FIX 等入口](HFT_Engineering_08_交易所协议.md)。
+客户端发送的 WebSocket 帧还要按协议使用掩码（服务器发来的帧不使用掩码，这是协议硬性规定）；加密由 TLS 负责。若连接协商了 `permessage-deflate` 扩展，接收链上还会增加解压步骤——用 CPU 换带宽，低延迟场景要权衡。[WebSocket 压缩扩展](https://www.rfc-editor.org/rfc/rfc7692)、[TCP 规范](https://www.rfc-editor.org/rfc/rfc9293.html)
 
-```text
-接收：网卡 → TCP 连续字节 → TLS 解密 → WebSocket 重组 → JSON 取字段 → 策略
-发送：网卡 ← TCP 待发字节 ← TLS 加密 ← WebSocket 封帧 ← JSON 编码 ← 订单
-         网络与队列         记录层             消息层          业务层
-```
+对于这类入口，本地优化可以减少协议和解析开销；但交易所选择的推送频率、服务端排队以及网络距离，仍决定消息何时能够到达。客户端更换网卡或使用内核旁路，改变的只是本机这一段。
 
-TLS 1.3 握手建立身份和密钥，记录层再把应用字节封装为带认证保护的数据。稳定连接主要支付记录封装、加解密和数据搬运成本；断线重连还要支付建连、握手与应用登录成本。会话恢复减少部分握手工作，零往返（Zero Round-Trip Time，0-RTT）早期数据允许握手尚未完成时发送应用数据，同时存在重放风险，涉及订单这类改变状态的请求时，只有接口和业务明确处理重放语义才适合使用。[TLS 1.3 规范](https://www.rfc-editor.org/rfc/rfc8446)
+### JSON 解析慢在哪，SIMD 怎么帮忙
 
-Linux 的内核 TLS（kernel TLS，kTLS）把记录层对称加解密放到内核，部分组合还能交由网卡卸载；握手和密钥管理仍由用户态 TLS 库负责。它附着在 Linux TCP socket 上。TCPDirect 的专用连接对象不具备这个内核 socket 的记录层，接入 TLS 时可由用户态 TLS 库通过自定义输入输出适配其字节流。保留普通内核 TCP socket 则是使用 kTLS 的直接路线。Onload 加速连接涉及另一套用户态 TCP 数据通路，使用 socket 名称并不足以证明 kTLS 已经生效，验证时查看连接是否加速以及 `/proc/net/tls_stat` 的会话计数。[Linux kTLS](https://docs.kernel.org/networking/tls.html)、[TCPDirect 接口](https://github.com/Xilinx-CNS/tcpdirect/tree/13acc6886e5cdc47c4a5bd5bdcba01fadc50d9e1/src/include/zf)
+JSON 易于查看，但解析器面对的是文本。例如 `"price":"123.4500"`，程序要先找到字段名和字符串边界，再把价格转换为可计算的数值；消息里还有对象、数组、转义字符和不同类型的值。逐字节判断字符类型、维护解析状态（现在在字符串里吗？这个引号是结束还是被转义？），会产生大量重复的分支判断——分支预测失败还会打断 CPU 流水线。
 
-WebSocket 帧包含长度、操作码和分片标志。客户端向服务器发送时，每个帧都带新的掩码键，对载荷逐字节异或；即便外面已经有 TLS，这项协议要求仍然存在。一个业务消息可以被分成多个帧，ping/pong 等控制帧也会穿插到连接中。解析器先处理帧结构与控制消息，再把完整业务消息交给策略。[WebSocket 规范](https://www.rfc-editor.org/rfc/rfc6455)
+SIMD（单指令多数据）允许一条指令同时处理多个数据元素。一个直观的比喻：标量指令像一个工人一次检查一个字符；256 位 SIMD 则像 **32 个工人站成一排，同时检查 32 个字节**。例如，一个 256 位向量可以装下 32 个字节，并对这些字节同时进行比较。simdjson 把这种能力用于 JSON 扫描：按块读取输入，用向量比较和查表同时识别引号、反斜杠、空白及 `{ } [ ] : ,` 等结构字符，再把结果压成位掩码——位掩码中的每一位对应输入里的一个字符位置，后续可以用少量位运算（而不是逐字节循环）处理整块结果，例如快速跳过字符串、定位逗号、建立结构索引，再按需解析字段。[simdjson 论文](https://arxiv.org/abs/1902.08318)
 
-若握手协商了 `permessage-deflate`，消息还会经过压缩和解压。它减少字节量，同时引入压缩状态和处理成本。选择是否启用时，比较的是目标消息尺寸、网络带宽和处理器开销；记录协商结果比只看客户端的默认配置更可靠。[WebSocket 压缩扩展](https://www.rfc-editor.org/rfc/rfc7692)
+![simdjson 扫描示意：并行分类字符，过滤字符串内的逗号，生成索引，再按需解析字段](assets/hft-06/simdjson-parse.png)
 
-JSON 解析中，字段查找、字符串处理和数值转换都可能占用时间。simdjson 的按需解析会先建立有助于定位结构的索引，再随应用读取执行相应解析，减少未使用字段的物化与对象构造。输入缓冲区的生命周期依然要覆盖读取过程。价格若表示为字符串 `"123.4500"`，可以按该品种的价格尺度转换为整数 1234500，避免先经过二进制浮点再换回定点；转换同时检查小数位、符号、整数溢出与合法价格步长。[simdjson On-Demand 设计](https://simdjson.org/api/3.0.0/md_doc_ondemand_design.html)
+如果是Crypto场景典型的WebSocket + JSON的场景，类似于simdjson的手段是一个非常有效的降低延迟的方法——因为这条链路上 TLS、文本解析这类"本机必做的工作"占比高，而它们恰好适合向量化和批量化处理。
 
-给这条链做预算时，可以记录“TCP 字节可用、TLS 明文可用、WebSocket 消息完整、业务字段就绪、订单编码完成、发送接受、硬件发出”几个时间。先对齐同一条消息，再计算各段与整条路径的分布；各段的 p99 相加，得不到整条链的 p99。
+## 延伸阅读
 
-## 8. 内部分发中的缺口、窗口与恢复
-
-增加一台行情分发机后，网络双方由自己控制。分发机接收交易所数据，再向几台策略服务器发送统一事件。为了让每个消费者重建一致的状态，可以给消息分配内部序号，并采用可靠有序传输。
-
-```text
-分发机                         接收方
-  N ──────────×                 期望 N
-  N+1 ───────────────────────→  保存 N+1，发现缺口
-      ←────── 缺口通知/确认 ──   暂停按序交付
-  N（重传）──────────────────→  补齐 N
-                                 交付 N，再交付 N+1
-```
-
-这里要付出的成本很具体：发送方保存可重传数据，接收方保存乱序数据，协议定时或根据反馈发起恢复。若不要求按序交付，也可以先消费后来的消息，但那会改变业务语义；订单簿增量依赖前面的状态，不能简单略过中间一次删除或数量更新。
-
-接收窗口表达接收方还可以容纳多少数据，防止把接收内存压满；拥塞窗口约束网络中未确认的数据规模，用于响应网络拥塞；发送节奏控制这些数据以什么间隔离开，避免允许的窗口一次突发出去；本地队列上限则限制尚未送入协议或设备的数据。四项配置对应四个不同位置。接收方很快而链路很窄时，仍会拥塞；链路空闲而业务线程卡住时，仍会耗尽接收窗口。
-
-KCP 是一个由应用驱动的可靠传输实现，可以承载在 UDP 上。应用把数据交给 `ikcp_send`，定期调用更新时间，再将输出回调中的包交给 UDP；收到 UDP 包后送回 `ikcp_input`。因此它的进展同时取决于网络反馈和应用调用频率。这里固定讨论源码提交 [`b1a7a210`](https://github.com/skywind3000/kcp/blob/b1a7a2101dcbb96017681a500d6b82bbe5a88766/ikcp.c)。
-
-`ikcp_nodelay(kcp, nodelay, interval, resend, nc)` 中，`nodelay` 改变重传时序，`interval` 设置周期性刷新间隔，`resend` 设置快速重传阈值，`nc` 控制是否跳过内置拥塞窗口。在没有安装自定义拥塞控制回调 `ccops` 时，`nc=1` 跳过内置拥塞窗口，发送窗口和远端接收窗口仍生效；安装了 `ccops` 后，代码仍纳入拥塞窗口约束。
-
-这份源码把 `interval` 限制在 10—5000 毫秒；启用 `nodelay` 后，默认最小重传超时为 30 毫秒。快速重传可在超时之前触发，但整体设计依赖毫秒级时钟和刷新机制。它适合评估跨区域云上行情中继等存在丢包的广域传输，不适合拿这些默认参数追求微秒级交易所入口延迟。关闭拥塞窗口后，还要控制发送节奏并测试竞争流：如果恢复通过增加注入量完成，拥塞链路上的其他流量会承担更多排队或损失。[KCP 固定版本源码](https://github.com/skywind3000/kcp/blob/b1a7a2101dcbb96017681a500d6b82bbe5a88766/ikcp.c)、[UDP 使用指南](https://www.rfc-editor.org/rfc/rfc8085)
-
-[Aeron](HFT_Engineering_07_开源项目解析.md) 的 UDP 传输也有序号与恢复。接收者发现缺口后发送否定确认（Negative Acknowledgement，NAK），要求补发相应区间；状态消息携带消费位置和接收窗口，发送方据此限制推进范围。发布者把数据写到本地日志缓冲区后，如果发送方或消费者推进不够快，本地发布接口会返回背压。[Aeron 传输协议](https://github.com/aeron-io/aeron/wiki/Transport-Protocol-Specification)
-
-TCP 仍是少量点对点有序流的基线。现代 TCP 支持选择性确认（Selective Acknowledgment，SACK），接收方可以描述已经收到的非连续区间，帮助发送方恢复缺口。比较 TCP、KCP 和 Aeron 时，固定消息大小、发送节奏、按序交付规则和慢消费者策略，再观察恢复时间、重传字节与竞争流表现，才知道某项收益来自实现效率还是不同的拥塞取舍。[TCP SACK 规范](https://www.rfc-editor.org/rfc/rfc2018)
-
-## 9. 自控集群中的 RDMA
-
-远程直接内存访问（Remote Direct Memory Access，RDMA）让网卡直接在两端已注册的内存之间搬运数据。典型流程是：应用注册内存并获得访问键，建立队列对（Queue Pair，QP），提交工作请求，网卡执行操作，应用从完成队列（Completion Queue，CQ）取回完成事件。内存注册把可访问区域和权限交给设备，QP 与 CQ 分别管理待执行任务及完成通知。[NVIDIA RDMA 编程指南](https://networking-docs.nvidia.com/doca/archive/3-5-0/rdma-aware-networks-programming-guide)
-
-双边 SEND/RECV 由接收方先发布可接收缓冲区；单边 READ/WRITE 使用远端地址与访问键读写注册内存。一次 WRITE 完成后，远端业务线程仍可能尚未读取新数据，所以业务还要约定发布标志、读取顺序与处理确认。把 RDMA 完成事件直接记为“策略已经处理”，会漏掉远端线程自己的排队。
-
-InfiniBand 使用专门的网络体系；基于融合以太网的 RDMA（RDMA over Converged Ethernet，RoCE）在以太网中提供相应能力，并依赖匹配的网络设计。这适用于双方可控的内部集群；本文使用的交易所 TCP/UDP 入口没有提供对应 RDMA 接口。AWS 的弹性结构适配器（Elastic Fabric Adapter，EFA）提供另一条支持操作系统旁路的实例间通路，EFA 设备流量限制在同一可用区和同一虚拟私有云内，可跨符合条件的子网；它的适用范围和 ENA Express 不同。[AWS EFA](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html)、[EFA 跨子网公告](https://aws.amazon.com/about-aws/whats-new/2024/07/elastic-fabric-adapter-cross-subnet-communication/)
-
-## 10. 公有云中的内部链路与交易所入口
-
-云中的 region 是地理区域，可用区（Availability Zone，AZ）是该区域内具有独立故障隔离设计的部署位置；虚拟私有云（Virtual Private Cloud，VPC）提供租户自己的虚拟网络。优化时先把两条线路分别画出来：
-
-```text
-内部：行情分发实例 ── 云内网络 ── 策略实例
-外部：策略实例 ── 公网或私有接入 ── 交易所入口 ── 交易所业务服务
-```
-
-AWS 的弹性网络适配器（Elastic Network Adapter，ENA）是实例使用的高性能网络接口。ENA Express 在满足条件的实例之间使用可扩展可靠数据报（Scalable Reliable Datagram，SRD）传输，通过多条云内路径分发数据并在接收端恢复顺序。2026 年 5 月起，它支持同一区域内跨可用区流量，仍有区域例外；双方都要采用支持的实例类型、启用对应协议的 Express 配置，路径也不能包含不受支持的中间设备。配置不满足条件时会回退为普通 ENA。[ENA Express 文档](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ena-express.html)、[跨 AZ 公告](https://aws.amazon.com/about-aws/whats-new/2026/05/ena-express-availability-zones/)
-
-ENA Express 关注的是拥塞下的吞吐与尾延迟。AWS 文档同时说明，低负载时中位延迟可能增加数十微秒；做小包交易链路测试时，同时看 p50 和 p99，而不能只看一种尾部指标。到交易所的外部连接，只有交易所一端及整条路径也符合条件，才会使用这项机制。
-
-云实例还受带宽、每秒包数和连接跟踪配额约束。一个很小的数据报，即使只消耗几十字节，也占用一次包处理额度。ENA 通过 `ethtool -S` 暴露下面的计数，超额时流量会被整形或丢弃：
-
-| 计数器 | 对应约束 |
-| --- | --- |
-| `bw_in_allowance_exceeded` | 入站带宽额度 |
-| `bw_out_allowance_exceeded` | 出站带宽额度 |
-| `pps_allowance_exceeded` | 每秒包数额度 |
-| `conntrack_allowance_exceeded` | 连接跟踪资源 |
-| `linklocal_allowance_exceeded` | 到链路本地服务的包速率额度 |
-
-应用看到延迟或缺口后，把这些计数器的前后差值与第 4 节的接收统计关联，就能判断是否撞到实例约束。安全组的连接跟踪会占用相关资源；AWS 对符合特定安全组规则的流量允许不跟踪，但部分服务或路径始终自动跟踪。调整时按实际通信规则与官方条件判断，而不是统一放宽安全组。[ENA 性能监控](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-network-performance-ena.html)、[安全组连接跟踪](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html)
-
-| 云平台 | 普通实例网络加速 | RDMA 类能力与范围 |
-| --- | --- | --- |
-| AWS | ENA；满足条件的双方可用 ENA Express | 支持机型上的 EFA，遵守 EFA 设备通信范围 |
-| Azure | Accelerated Networking，使用单根输入输出虚拟化减少虚拟交换处理 | 特定高性能计算机型提供 InfiniBand，按机型与部署要求组网 |
-| Google Cloud | gVNIC，即 Google Virtual NIC，支持对应机型的高速虚拟网卡接口 | Cloud RDMA 仅适用于支持的机型和专门网络配置 |
-
-对应能力以 [Azure Accelerated Networking](https://learn.microsoft.com/en-us/azure/virtual-network/accelerated-networking-overview)、[Azure InfiniBand](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/setup-infiniband)、[Google gVNIC](https://docs.cloud.google.com/compute/docs/networking/using-gvnic) 和 [Cloud RDMA](https://docs.cloud.google.com/compute/docs/instances/create-vm-with-rdma) 文档为准。
-
-组播也有独立限制。AWS Transit Gateway 组播文档明确提醒其可能不适合高频交易，并且不通过 Direct Connect、站点 VPN 等附件路由组播；Azure VNet 不支持原生组播；Google Cloud Multicast 已提供带准入名单的正式服务，受区域、机型和拓扑限制，且不通过 Cloud Interconnect 或 Cloud VPN 引入外部组播。把交易所组播转换为云内单播或内部广播，需要一台实际接收并转发行情的网关，它的位置和排队也进入延迟预算。[AWS 组播](https://docs.aws.amazon.com/vpc/latest/tgw/tgw-multicast-overview.html)、[Azure VNet FAQ](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq)、[Google Cloud Multicast](https://docs.cloud.google.com/vpc/docs/multicast/overview)
-
-## 11. 怎样决定是否替换收发接口
-
-接口替换的价值来自目标链路中已经识别出的成本。若主要延迟是云入口和交易所响应，先换原始包接口会带来大量协议实现工作，却很少触及主要等待；若行情密集到 socket 接收队列持续溢出，专用接收核心、批量读取或用户态收包就直接影响可处理输入量。
-
-| 当前条件 | 优先比较的方案 | 评估时保留的业务能力 |
-| --- | --- | --- |
-| 外部入口固定为 TCP/TLS，现有程序使用 socket | 调整 socket 基线、连接复用、TLS 与解析；有对应网卡再评估 Onload | 登录、加密、订单会话和恢复 |
-| 对端固定 TCP/UDP，有 Solarflare 设备且可修改事件循环 | TCPDirect 与调优后的内核路径 | 协议状态、定时推进、背压和重连 |
-| 高频原始 UDP 行情，愿意管理缓冲区 | AF_XDP、DPDK、`ef_vi` 或 `libexanic` | 通道识别、序号、双路合并与缺口处理 |
-| 自控点对点有序流 | TCP 与 Aeron | 相同消息交付与慢消费者策略 |
-| 自控广域中继，有可观察的丢包 | TCP、Aeron、不同拥塞设置的 KCP | 恢复期限、竞争流影响和队列上限 |
-| 自控机房或匹配云机型，适合注册内存通信 | RDMA 类方案 | 远端处理确认与故障后重新建立通信 |
-
-一份可用的结果记录同时给出消息尺寸、发送节奏、样本数、处理器占用、丢弃数、失联次数和恢复等待。延迟按消息标识关联到同一请求，再[计算 p50、p99、p99.9](HFT_Engineering_03_C++线程通信与性能测量.md)；p99 表示 99% 样本不超过该值。丢失的样本单独保留数量与超时规则，否则最差事件被删除后，尾延迟会显得更好。
-
-## 附录：设备实验复现指南
-
-本地完成了第 6 节的校验和一致性验证。当前环境是 Darwin arm64，没有 Linux 网卡驱动、AF_XDP 和 `tc netem`；收发性能、可靠传输和云网络的比较由以下设备实验测量。
-
-### A. 主机收发与缓冲区生命周期
-
-使用两台 Linux 机器和独立测试接口，先确认网卡型号、驱动、固件、队列数及时间戳能力。把 `eth1` 改为测试接口名，保存测试前后的完整输出；以下命令只读取状态。
-
-```bash
-uname -a
-ethtool -i eth1
-ethtool -l eth1
-ethtool -g eth1
-ethtool -c eth1
-ethtool -k eth1
-ethtool -T eth1
-ethtool -S eth1
-ip -s link show dev eth1
-nstat -az
-cat /proc/net/softnet_stat
-```
-
-让发送器以固定长度消息携带递增消息标识，接收端做相同字段提取和回送。UDP 先建立普通 `recvmsg` 基线，再比较非阻塞 `recvmmsg`、`SO_BUSY_POLL` 和一条 AF_XDP 或 DPDK 路径。原始帧方案由测试程序补齐相同以太网、IP、UDP 格式与校验，使用同一端到端消息语义。TCP 的对照则继续保留可靠字节流和相同消息切分规则，记录 `TCP_NODELAY` 与部分发送处理。
-
-分别测试稀疏小包、持续输入和突发输入。稀疏小包暴露中断与唤醒等待，持续输入观察处理能力和处理器占用，突发输入观察队列吸收与丢弃。保持消息尺寸不变，逐次只调整中断合并、批量上限或卸载开关中的一项，并在修改前保存原配置。发送与接收线程绑核，记录网卡及内存所在 NUMA 节点。忙轮询可以使用整颗核心，比较结果同时报告吞吐、延迟和处理器投入。
-
-为缓冲区分配单调递增的使用代数，在 RX 取得、转交 TX、TX 归还三个位置记录缓冲区编号和代数。AF_XDP 的 TX 后到 COMPLETION 前，缓冲区保持不可改写；DPDK 单独记录未被 `rte_eth_tx_burst` 接受的部分。开启故意慢处理后，观察是接收缓冲耗尽、ExaNIC 覆盖，还是协议栈背压，验证应用确实进入了预期恢复状态。
-
-单机往返时延可以用同一时钟测量；若报告单程延迟，先完成两端时钟校准。具备发送和接收硬件时间戳时，用消息标识关联软件事件与硬件事件。Solarflare 或 ExaNIC 实验再加入预热开关，分别测空闲后首包与持续发送，并确认预热没有产生额外业务包。
-
-### B. 丢包恢复、慢消费者与竞争流
-
-在隔离测试链路上，用 Linux 流量控制工具 `tc` 的网络仿真模块 `netem` 注入故障。下面三行分别建立三种测试条件，每次运行完整一组流量再进入下一种；操作会替换该测试接口的根 qdisc，先保存原配置。
-
-```bash
-sudo tc qdisc replace dev eth1 root netem delay 1ms loss 0.1%
-sudo tc qdisc replace dev eth1 root netem delay 1ms reorder 10% 50%
-sudo tc qdisc replace dev eth1 root netem delay 1ms loss 1%
-```
-
-这些值用于构造输入条件。TCP、Aeron 和 KCP 均运行同一组消息大小与发送节奏；KCP 至少比较 `ikcp_nodelay(kcp, 1, 10, 2, 0)` 和 `ikcp_nodelay(kcp, 1, 10, 2, 1)`，保持窗口大小、更新调用频率和本地队列上限一致，并记录是否安装 `ccops`。让接收业务线程间歇暂停，观察窗口关闭、队列增长和恢复过程。
-
-除了主流，再加入一条固定工作负载的竞争 TCP 流。分别记录缺口出现到补齐的时间、重传字节数、主流和竞争流的吞吐与延迟、队列最高水位。只有主流变快而竞争流明显恶化时，结论就包括这项资源分配变化。
-
-`netem` 修改经过该内核 qdisc 的流量。用户态直接控制网卡的收发路径可能完全绕过它，测旁路实现时改用中间 Linux 转发机、交换机故障注入或专用设备，并验证实际丢包位置。实验结束后恢复测试接口原来的 qdisc；若原来没有自定义根 qdisc，可删除测试项：
-
-```bash
-sudo tc qdisc del dev eth1 root
-```
-
-### C. 云内与外部连接
-
-同一对实例先在普通 ENA 下测试，再启用 ENA Express；记录实例类型、驱动、同 AZ 或跨 AZ、放置方式和实际生效计数。前后都采集 `ethtool -S`，尤其是 allowance 与 `ena_srd` 相关计数。只看控制台开关无法确认某条流量是否真正使用 SRD。
-
-交易所外部连接另建测试记录，使用允许的测试环境或只读行情入口采样。分别记录行情到达、解析完成与订单测试响应，标明入口地址、私有接入或公网路径、重连次数和应用协议限流。云内链路的测量结果填写在云内这一段，外部连接按自己的消息标识与完成点计算。
-
-## 参考资料
-
-1. Linux：[NAPI](https://docs.kernel.org/networking/napi.html)、[`sk_buff`](https://docs.kernel.org/networking/skbuff.html)、[网络设备接口](https://docs.kernel.org/networking/netdevices.html)、[网络栈扩展](https://docs.kernel.org/networking/scaling.html)、[分段卸载](https://docs.kernel.org/networking/segmentation-offloads.html)。
-2. Linux 接口：[socket](https://man7.org/linux/man-pages/man7/socket.7.html)、[send](https://man7.org/linux/man-pages/man2/send.2.html)、[recv](https://man7.org/linux/man-pages/man2/recv.2.html)、[网络统计](https://docs.kernel.org/networking/statistics.html)、[AF_XDP](https://docs.kernel.org/networking/af_xdp.html)。
-3. IETF：[TCP / RFC 9293](https://www.rfc-editor.org/rfc/rfc9293.html)、[UDP / RFC 768](https://www.rfc-editor.org/rfc/rfc768)、[IGMPv3 / RFC 3376](https://www.rfc-editor.org/rfc/rfc3376)、[TCP SACK / RFC 2018](https://www.rfc-editor.org/rfc/rfc2018)、[UDP 使用指南 / RFC 8085](https://www.rfc-editor.org/rfc/rfc8085)、[校验和增量更新 / RFC 1624](https://www.rfc-editor.org/rfc/rfc1624)。
-4. 物理线路与交换：[Corning 光纤参数](https://www.corning.com/media/worldwide/coc/documents/Fiber/product-information-sheets/PI-1424-AEN.pdf)、[Cisco 交换模式](https://www.cisco.com/c/en/us/td/docs/switches/datacenter/nexus3000/sw/layer2/7x/b_Cisco_Nexus_3000_Layer_2_Switching_Config_7x/b_Cisco_Nexus_3000_Layer_2_Switching_Config_7x_chapter_0101.pdf)、[Nasdaq 网络运营商条款](https://www.nasdaq.com/docs/network-operator-agreement)。
-5. 网卡与用户态栈：[Cisco ExaNIC Internals](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/smartnic/sw/user-guide/cisco-nexus-smartnic-user-guide/internals.html)、[libexanic `430e5eb3`](https://github.com/cisco/exanic-software/tree/430e5eb35d455b06e84ba8053b1456c86d3f21a2)、[Onload 用户指南](https://docs.amd.com/r/en-US/ug1586-onload-user/all)、[Onload `8171e929`](https://github.com/Xilinx-CNS/onload/tree/8171e9292b66c0f876f9aee9d31eed76ef441aca)、[TCPDirect `13acc688`](https://github.com/Xilinx-CNS/tcpdirect/tree/13acc6886e5cdc47c4a5bd5bdcba01fadc50d9e1)。
-6. 收发接口：[TCPDirect User Guide，Issue 9](https://www.amd.com/content/dam/amd/en/support/downloads/solarflare/onload/openonload/packages/SF-116303-CD-9_TCPDirect_User_Guide.pdf)、[ef_vi User Guide，Issue 10](https://www.amd.com/content/dam/amd/en/support/downloads/solarflare/onload/openonload/packages/SF-114063-CD-10_ef_vi_User_Guide.pdf)、[DPDK 25.11 PMD](https://doc.dpdk.org/guides-25.11/prog_guide/ethdev/ethdev.html)。
-7. 加密与封装：[TLS 1.3 / RFC 8446](https://www.rfc-editor.org/rfc/rfc8446)、[Linux kTLS](https://docs.kernel.org/networking/tls.html)、[WebSocket / RFC 6455](https://www.rfc-editor.org/rfc/rfc6455)、[压缩扩展 / RFC 7692](https://www.rfc-editor.org/rfc/rfc7692)、[simdjson On-Demand](https://simdjson.org/api/3.0.0/md_doc_ondemand_design.html)。
-8. 内部传输：[KCP `b1a7a210`](https://github.com/skywind3000/kcp/blob/b1a7a2101dcbb96017681a500d6b82bbe5a88766/ikcp.c)、[Aeron Transport Protocol](https://github.com/aeron-io/aeron/wiki/Transport-Protocol-Specification)、[NVIDIA RDMA 编程指南](https://networking-docs.nvidia.com/doca/archive/3-5-0/rdma-aware-networks-programming-guide)。
-9. AWS：[ENA Express](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ena-express.html)、[跨 AZ 公告](https://aws.amazon.com/about-aws/whats-new/2026/05/ena-express-availability-zones/)、[ENA 配额计数](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-network-performance-ena.html)、[连接跟踪](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html)、[EFA](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html)、[Transit Gateway Multicast](https://docs.aws.amazon.com/vpc/latest/tgw/tgw-multicast-overview.html)。
-10. Azure：[Accelerated Networking](https://learn.microsoft.com/en-us/azure/virtual-network/accelerated-networking-overview)、[InfiniBand](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/high-performance-compute/setup-infiniband)、[VNet FAQ](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq)。Google Cloud：[gVNIC](https://docs.cloud.google.com/compute/docs/networking/using-gvnic)、[Cloud RDMA](https://docs.cloud.google.com/compute/docs/instances/create-vm-with-rdma)、[Cloud Multicast](https://docs.cloud.google.com/vpc/docs/multicast/overview)。
+- 内核路径：[Linux NAPI](https://docs.kernel.org/networking/napi.html)、[网络栈扩展](https://docs.kernel.org/networking/scaling.html)、[socket 接口](https://man7.org/linux/man-pages/man7/socket.7.html)。
+- 用户态与硬件旁路：[TCPDirect](https://github.com/Xilinx-CNS/tcpdirect)、[Cisco ExaNIC](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/smartnic/sw/user-guide/cisco-nexus-smartnic-user-guide/internals.html)、[DPDK](https://doc.dpdk.org/guides/prog_guide/ethdev/ethdev.html)、[RDMA](https://networking-docs.nvidia.com/doca/archive/3-5-0/rdma-aware-networks-programming-guide)。
+- 消息与解析：[WebSocket RFC 6455](https://www.rfc-editor.org/rfc/rfc6455)、[simdjson 论文](https://arxiv.org/abs/1902.08318)、[simdjson On-Demand](https://github.com/simdjson/simdjson/blob/master/doc/ondemand_design.md)。

@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img">
+<title>普通 socket 的 TCP/UDP send 与 recv 完整路径</title>
+<style>
+text { font-family: "PingFang SC", "Heiti TC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill:#15243b; }
+.small { font-size:15px; fill:#475569; }
+.mid { font-size:17px; }
+.title { font-size:27px; font-weight:600; }
+.sub { font-size:16px; fill:#475569; }
+.box { rx:9; stroke-width:1.6; }
+.hdr { font-size:19px; font-weight:600; }
+.step { font-size:15px; fill:#1e3a5f; }
+</style>
+<defs>
+<marker id="cpu" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/></marker>
+<marker id="dma" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#ea580c"/></marker>
+<marker id="net" markerWidth="11" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#0f766e"/></marker>
+<marker id="wake" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#7c3aed"/></marker>
+</defs>
+
+<text x="36" y="42" class="title">普通 Linux socket：一条 64 字节订单从 send 到对端 recv 的完整路径</text>
+<text x="36" y="70" class="sub">蓝色 = CPU 在软件层之间传递（含两次载荷复制）；橙色 = 网卡 DMA 搬运；绿色 = 网络传输；紫色 = 唤醒。虚线分隔用户态与内核态。</text>
+
+<!-- ===== host A ===== -->
+<rect x="30" y="92" width="600" height="772" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" rx="12"/>
+<text x="50" y="122" class="hdr">发送端主机 A</text>
+
+<!-- user space A -->
+<rect x="50" y="138" width="560" height="206" fill="#eff6ff" stroke="#93b4f5" stroke-width="1.5" rx="9"/>
+<text x="66" y="166" class="hdr" fill="#1d4ed8">用户态（Ring 3）</text>
+
+<rect x="70" y="180" width="250" height="142" fill="#ffffff" stroke="#bfdbfe" class="box"/>
+<text x="195" y="208" text-anchor="middle" class="mid" font-weight="600">应用进程</text>
+<text x="195" y="234" text-anchor="middle" class="small">tx_buf[64]：订单字节</text>
+<text x="195" y="258" text-anchor="middle" class="small">send(fd, tx_buf, 64, 0)</text>
+<text x="195" y="282" text-anchor="middle" class="small">阻塞 / 非阻塞 / epoll</text>
+<text x="195" y="306" text-anchor="middle" class="small">同线程，仍可在同一 CPU 核上</text>
+
+<rect x="350" y="180" width="240" height="142" fill="#ffffff" stroke="#bfdbfe" class="box"/>
+<text x="470" y="208" text-anchor="middle" class="mid" font-weight="600">glibc / vDSO</text>
+<text x="470" y="234" text-anchor="middle" class="small">syscall 指令进入内核</text>
+<text x="470" y="258" text-anchor="middle" class="small">权限切换 + 固定开销</text>
+<text x="470" y="282" text-anchor="middle" class="small">fd → socket 查找在内核中</text>
+<text x="470" y="306" text-anchor="middle" class="small">send 返回 64 ≠ 已发出</text>
+
+<line x1="320" y1="251" x2="348" y2="251" stroke="#2563eb" stroke-width="2.5" marker-end="url(#cpu)"/>
+
+<!-- privilege boundary A -->
+<line x1="50" y1="356" x2="610" y2="356" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="596" y="350" text-anchor="end" class="small" fill="#64748b">用户态 / 内核态边界</text>
+
+<!-- kernel A -->
+<rect x="50" y="366" width="560" height="330" fill="#fff7ed" stroke="#f5b37a" stroke-width="1.5" rx="9"/>
+<text x="66" y="394" class="hdr" fill="#c2410c">内核态（Ring 0）——进程上下文或 softirq 上下文</text>
+
+<rect x="70" y="408" width="250" height="128" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="195" y="434" text-anchor="middle" class="mid" font-weight="600">系统调用层</text>
+<text x="195" y="458" text-anchor="middle" class="small">sock_sendmsg</text>
+<text x="195" y="480" text-anchor="middle" class="small">检查连接状态与发送缓冲</text>
+<text x="195" y="502" text-anchor="middle" class="small">阻塞则睡眠（发生调度）</text>
+<text x="195" y="524" text-anchor="middle" class="small">EAGAIN / 部分接受 40</text>
+
+<rect x="350" y="408" width="240" height="128" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="470" y="434" text-anchor="middle" class="mid" font-weight="600">① 发送载荷复制</text>
+<text x="470" y="458" text-anchor="middle" class="small">copy_to_user 反向：</text>
+<text x="470" y="480" text-anchor="middle" class="small">用户页 → 内核发送内存</text>
+<text x="470" y="502" text-anchor="middle" class="small">两次 CPU 复制中的第一次</text>
+<text x="470" y="524" text-anchor="middle" class="small">此后 tx_buf 可复用</text>
+
+<line x1="320" y1="472" x2="348" y2="472" stroke="#2563eb" stroke-width="2.5" marker-end="url(#cpu)"/>
+
+<rect x="70" y="552" width="244" height="128" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="192" y="578" text-anchor="middle" class="mid" font-weight="600">TCP/UDP → IP 协议栈</text>
+<text x="192" y="602" text-anchor="middle" class="small">序号、窗口、重传状态</text>
+<text x="192" y="624" text-anchor="middle" class="small">路由、ARP、分片/TSO</text>
+<text x="192" y="646" text-anchor="middle" class="small">qdisc 排队规则</text>
+<text x="192" y="668" text-anchor="middle" class="small">sk_buff 引用载荷，不每层复制</text>
+
+<rect x="346" y="552" width="244" height="128" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="468" y="578" text-anchor="middle" class="mid" font-weight="600">网卡驱动</text>
+<text x="468" y="602" text-anchor="middle" class="small">建立 DMA 映射 / IOMMU</text>
+<text x="468" y="624" text-anchor="middle" class="small">填发送描述符（地址、长度）</text>
+<text x="468" y="646" text-anchor="middle" class="small">MMIO 写门铃寄存器通知</text>
+<text x="468" y="668" text-anchor="middle" class="small">TX 环满则停止提交</text>
+
+<line x1="314" y1="616" x2="344" y2="616" stroke="#2563eb" stroke-width="2.5" marker-end="url(#cpu)"/>
+
+<!-- NIC A -->
+<rect x="50" y="710" width="560" height="136" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.5" rx="9"/>
+<text x="66" y="738" class="hdr" fill="#0f766e">网卡硬件（独立设备，不运行在任何 CPU 特权级）</text>
+<rect x="70" y="750" width="244" height="80" fill="#ffffff" stroke="#99f6e4" class="box"/>
+<text x="192" y="778" text-anchor="middle" class="mid" font-weight="600">② 发送 DMA</text>
+<text x="192" y="802" text-anchor="middle" class="small">经 PCIe 从主机内存读取</text>
+<text x="192" y="822" text-anchor="middle" class="small">描述符指向的 sk_buff 数据</text>
+<rect x="346" y="750" width="244" height="80" fill="#ffffff" stroke="#99f6e4" class="box"/>
+<text x="468" y="778" text-anchor="middle" class="mid" font-weight="600">卡上发送队列与卸载</text>
+<text x="468" y="802" text-anchor="middle" class="small">校验和 / TSO / CTPIO</text>
+<text x="468" y="822" text-anchor="middle" class="small">完成中断后驱动回收描述符</text>
+<line x1="314" y1="706" x2="344" y2="748" stroke="#ea580c" stroke-width="2.5" marker-end="url(#dma)"/>
+<line x1="192" y1="680" x2="192" y2="748" stroke="#ea580c" stroke-width="2.5" marker-end="url(#dma)"/>
+
+<!-- ===== wire ===== -->
+<rect x="636" y="430" width="168" height="120" rx="10" fill="#ecfdf5" stroke="#34d399" stroke-width="1.6"/>
+<text x="720" y="472" text-anchor="middle" class="mid" font-weight="600" fill="#047857">线路与交换机</text>
+<text x="720" y="498" text-anchor="middle" class="small">串行化 / 传播延迟</text>
+<text x="720" y="520" text-anchor="middle" class="small">存储转发或直通转发</text>
+<line x1="610" y1="790" x2="636" y2="510" stroke="#0f766e" stroke-width="3" marker-end="url(#net)"/>
+<line x1="804" y1="510" x2="830" y2="790" stroke="#0f766e" stroke-width="3" marker-end="url(#net)"/>
+<text x="720" y="420" text-anchor="middle" class="small" fill="#0f766e">以太网帧（含以太/IP/TCP 头）</text>
+
+<!-- ===== host B ===== -->
+<rect x="810" y="92" width="600" height="772" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5" rx="12"/>
+<text x="830" y="122" class="hdr">接收端主机 B</text>
+
+<!-- NIC B -->
+<rect x="830" y="138" width="560" height="136" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.5" rx="9"/>
+<text x="846" y="166" class="hdr" fill="#0f766e">网卡硬件</text>
+<rect x="850" y="178" width="244" height="80" fill="#ffffff" stroke="#99f6e4" class="box"/>
+<text x="972" y="206" text-anchor="middle" class="mid" font-weight="600">③ 接收 DMA</text>
+<text x="972" y="230" text-anchor="middle" class="small">把帧写入预先映射的</text>
+<text x="972" y="250" text-anchor="middle" class="small">RX 描述符接收缓冲区</text>
+<rect x="926" y="178" width="0" height="0"/>
+<rect x="1126" y="178" width="244" height="80" fill="#ffffff" stroke="#99f6e4" class="box"/>
+<text x="1248" y="206" text-anchor="middle" class="mid" font-weight="600">中断合并 / RSS</text>
+<text x="1248" y="230" text-anchor="middle" class="small">硬中断或 MSI-X</text>
+<text x="1248" y="250" text-anchor="middle" class="small">哈希分流到不同 RX 队列</text>
+
+<!-- boundary B -->
+<line x1="830" y1="292" x2="1390" y2="292" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 6"/>
+<text x="1374" y="286" text-anchor="end" class="small" fill="#64748b">内核态 / 用户态边界</text>
+
+<!-- kernel B -->
+<rect x="830" y="302" width="560" height="386" fill="#fff7ed" stroke="#f5b37a" stroke-width="1.5" rx="9"/>
+<text x="846" y="330" class="hdr" fill="#c2410c">内核态</text>
+
+<rect x="850" y="344" width="250" height="118" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="975" y="370" text-anchor="middle" class="mid" font-weight="600">硬中断 → NAPI 轮询</text>
+<text x="975" y="394" text-anchor="middle" class="small">softirq（或 ksoftirqd）</text>
+<text x="975" y="416" text-anchor="middle" class="small">按预算批量收包</text>
+<text x="975" y="438" text-anchor="middle" class="small">回收描述符、补充缓冲区</text>
+
+<rect x="1130" y="344" width="240" height="118" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="1250" y="370" text-anchor="middle" class="mid" font-weight="600">驱动 → sk_buff</text>
+<text x="1250" y="394" text-anchor="middle" class="small">引用已 DMA 写入的内存页</text>
+<text x="1250" y="416" text-anchor="middle" class="small">常见路径不再整包复制</text>
+<text x="1250" y="438" text-anchor="middle" class="small">驱动策略可能引入复制</text>
+
+<line x1="1100" y1="403" x2="1128" y2="403" stroke="#2563eb" stroke-width="2.5" marker-end="url(#cpu)"/>
+<line x1="972" y1="258" x2="972" y2="342" stroke="#ea580c" stroke-width="2.5" marker-end="url(#dma)"/>
+
+<rect x="850" y="478" width="250" height="118" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="975" y="504" text-anchor="middle" class="mid" font-weight="600">IP → TCP/UDP 协议栈</text>
+<text x="975" y="528" text-anchor="middle" class="small">校验、找连接、过滤</text>
+<text x="975" y="550" text-anchor="middle" class="small">TCP 排序、去重、乱序暂存</text>
+<text x="975" y="572" text-anchor="middle" class="small">数据进入 socket 接收队列</text>
+
+<rect x="1130" y="478" width="240" height="118" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="1250" y="504" text-anchor="middle" class="mid" font-weight="600">就绪通知</text>
+<text x="1250" y="528" text-anchor="middle" class="small">唤醒阻塞的 recv 线程</text>
+<text x="1250" y="550" text-anchor="middle" class="small">或让 epoll_wait 就绪</text>
+<text x="1250" y="572" text-anchor="middle" class="small">SO_BUSY_POLL 可绕过唤醒</text>
+
+<line x1="1100" y1="537" x2="1128" y2="537" stroke="#2563eb" stroke-width="2.5" marker-end="url(#cpu)"/>
+
+<rect x="850" y="612" width="520" height="58" fill="#ffffff" stroke="#fed7aa" class="box"/>
+<text x="1110" y="637" text-anchor="middle" class="mid" font-weight="600">④ 接收载荷复制：内核接收内存 → 用户 rx_buf（两次 CPU 复制中的第二次）</text>
+<text x="1110" y="659" text-anchor="middle" class="small">recv 返回实际字节数；可能是半包，也可能一次含多条消息（TCP 不保留 send 边界）</text>
+
+<!-- user B -->
+<rect x="830" y="704" width="560" height="142" fill="#eff6ff" stroke="#93b4f5" stroke-width="1.5" rx="9"/>
+<text x="846" y="732" class="hdr" fill="#1d4ed8">用户态（Ring 3）</text>
+<rect x="850" y="744" width="520" height="86" fill="#ffffff" stroke="#bfdbfe" class="box"/>
+<text x="1110" y="772" text-anchor="middle" class="mid" font-weight="600">应用进程：在自己的 rx_buf 中解析订单</text>
+<text x="1110" y="798" text-anchor="middle" class="small">应用读取与 TCP 确认可以先后不同：ACK 确认传输层收到，业务是否接受另由回报决定</text>
+<text x="1110" y="820" text-anchor="middle" class="small">UDP：一次读取一条数据报，缓冲区不足看 MSG_TRUNC</text>
+
+<line x1="1110" y1="670" x2="1110" y2="702" stroke="#2563eb" stroke-width="2.5" marker-end="url(#cpu)"/>
+<line x1="1250" y1="478" x2="1250" y2="478"/>
+<path d="M1250 478 C 1250 612, 1110 600, 1110 610" fill="none" stroke="#7c3aed" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#wake)"/>
+
+<!-- legend -->
+<rect x="30" y="876" width="1380" height="0" />
+</svg>

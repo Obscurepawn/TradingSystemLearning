@@ -346,7 +346,7 @@ std::optional<std::uint32_t> parse_good(std::string_view field) {
 }
 ```
 
-这里省掉的是解析前的字符串副本。消息生产端还有一种常见复制：先序列化到临时 buffer，再复制入队。队列提供[预留接口](HFT_Engineering_03_C++线程通信与性能测量.md#hft03-1-7)后，序列化器就可以直接填写目标区域，完成后发布。
+这里省掉的是解析前的字符串副本。消息生产端还有一种常见复制：先序列化到临时 buffer，再复制入队。队列提供[预留接口](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_03_C%2B%2B%E7%BA%BF%E7%A8%8B%E9%80%9A%E4%BF%A1%E4%B8%8E%E6%80%A7%E8%83%BD%E6%B5%8B%E9%87%8F.md#hft03-1-7)后，序列化器就可以直接填写目标区域，完成后发布。
 
 <a id="hft02-2-4"></a>
 ### 2.4 返回值优化（NRVO）与隐式移动
@@ -786,9 +786,9 @@ bool try_flush_consumed_event(ConsumedEvent& event) noexcept {
 
 示例在入口检查 CPUID 特性；热路径中可在初始化时选好实现，省去逐事件检查。清除指令和屏障构成这项优化的额外成本。
 
-清除应放在数据的最后一次使用之后。有下游继续读取，或多个对象共用一条行时，清除会迫使后续访问重新取数。对[环形队列](HFT_Engineering_03_C++线程通信与性能测量.md#hft03-1-3)来说，消费者发布读游标就归还了槽位，清除应安排在这之前。
+清除应放在数据的最后一次使用之后。有下游继续读取，或多个对象共用一条行时，清除会迫使后续访问重新取数。对[环形队列](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_03_C%2B%2B%E7%BA%BF%E7%A8%8B%E9%80%9A%E4%BF%A1%E4%B8%8E%E6%80%A7%E8%83%BD%E6%B5%8B%E9%87%8F.md#hft03-1-3)来说，消费者发布读游标就归还了槽位，清除应安排在这之前。
 
-流数据持续挤占缓存时，清除已读完的缓存行可以给频繁访问的表腾出空间；缓存空间充足时，额外清除反而可能拖慢处理。清除指令、脏行写回和屏障本身也有开销。若把这些操作放在结束时间戳之后，[业务计时](HFT_Engineering_03_C++线程通信与性能测量.md#hft03-3-1)就会漏掉这部分成本。
+流数据持续挤占缓存时，清除已读完的缓存行可以给频繁访问的表腾出空间；缓存空间充足时，额外清除反而可能拖慢处理。清除指令、脏行写回和屏障本身也有开销。若把这些操作放在结束时间戳之后，[业务计时](https://github.com/Obscurepawn/TradingSystemLearning/blob/26f74936c47b06b0fd0e85e37020ed7a01484946/hft/HFT_Engineering_03_C%2B%2B%E7%BA%BF%E7%A8%8B%E9%80%9A%E4%BF%A1%E4%B8%8E%E6%80%A7%E8%83%BD%E6%B5%8B%E9%87%8F.md#hft03-3-1)就会漏掉这部分成本。
 
 <a id="execution"></a>
 
