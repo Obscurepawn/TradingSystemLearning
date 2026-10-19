@@ -19,7 +19,7 @@
 
 普通 Linux 程序通过 socket 调用 `send()`、`recv()`。TCP 提供可靠、有序的字节流，UDP 提供数据报传输，两者都可以通过 socket 使用。下面这张图左侧是发送，从应用向下读到网卡；右侧是接收，从网卡向上读到应用。
 
-![Linux 网络栈：TCP/UDP 收发流程概览（左发送右接收，含队列与阻塞/丢包点）](assets/hft-06/network_stack_overview.png)
+![Linux 网络栈：TCP/UDP 收发流程概览（左发送右接收，含队列与阻塞/丢包点）](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/e1a13d0410c2b03463ea6adf436e5335d53ea679/hft/assets/hft-06/network_stack_overview.png)
 
 对照这张图，一次典型的发送是：应用调用 `send()` → 数据复制进内核缓冲区 → TCP/UDP 加传输层头 → IP 层加 IP 头、查路由、过防火墙 → 填 MAC 头 → 进入网卡发送队列 → 网卡通过 DMA 取走数据并发到线上。接收方向相反：网卡把帧 DMA 进内存 → 中断通知 CPU → 内核软中断收包、逐层剥头 → 数据挂到 socket 的接收队列 → 应用调用 `recv()` 复制走。
 
@@ -366,7 +366,7 @@ memset(buf, 'X', sizeof(buf));  // 收到完成通知后才允许复用
 - **SQPOLL 模式**：一个内核线程主动轮询提交环，应用连提交操作都不用陷入内核；本质也是拿一个核的空转换延迟。
 - **零拷贝发送**：`SEND_ZC` 操作的完成通知统一从完成环返回，和 MSG_ZEROCOPY 解决同一个复制问题，但通知机制更统一。
 
-![io_uring 与传统 epoll+socket 对比：共享 SQ/CQ 环批量提交、直接读完成，但下半段内核协议栈相同](assets/hft-06/io-uring-vs-socket.png)
+![io_uring 与传统 epoll+socket 对比：共享 SQ/CQ 环批量提交、直接读完成，但下半段内核协议栈相同](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/e1a13d0410c2b03463ea6adf436e5335d53ea679/hft/assets/hft-06/io-uring-vs-socket.png)
 
 **必须先澄清的边界：io_uring 不是内核旁路。** 从 NAPI 软中断、IP/防火墙到 TCP/UDP 协议处理，下半段与传统 socket **完全一样**，接收方向的 payload 拷贝也依然存在。它省掉的是系统调用边界、fd/缓冲的重复准备和睡眠唤醒；因此它与中断合并、忙轮询、RSS 绑核是**叠加**关系，与 DPDK、Onload 这类用户态旁路是不同层次的技术。[io_uring 接口](https://man7.org/linux/man-pages/man7/io_uring.7.html)
 
@@ -404,7 +404,7 @@ while (running) {
 
 ExaNIC 是 Cisco Nexus SmartNIC 的原名。它的设计哲学是**卡上尽量不缓存**，把到达的数据分块 DMA 到主机接收环；应用通过 `libexanic` 轮询并直接读取这些内存。支持的接口还允许在整帧到齐前先处理已经到达的部分，重叠线路接收与解析工作（网卡还在收后半帧，CPU 已经开始解析前半帧）。发送则可以由应用写入映射的卡上发送缓冲区，再触发网卡发送。[Cisco ExaNIC Internals](https://www.cisco.com/c/en/us/td/docs/dcn/nexus3550/smartnic/sw/user-guide/cisco-nexus-smartnic-user-guide/internals.html)
 
-![ExaNIC/libexanic：分块 DMA 进接收环，应用用户态轮询直读、边收边解析](assets/hft-06/bypass-exanic.png)
+![ExaNIC/libexanic：分块 DMA 进接收环，应用用户态轮询直读、边收边解析](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/e1a13d0410c2b03463ea6adf436e5335d53ea679/hft/assets/hft-06/bypass-exanic.png)
 
 它的关键在于减少缓存等待和搬运核间通信。代价也要清楚：应用接管帧解析，也要跟上接收环的推进速度，否则旧数据会被新数据覆盖（环形缓冲没有人为你排队）；提前解析时，还要等完整帧的有效性结果（比如校验和），再决定是否采用这条消息，不能只解析了一半就下单。`libexanic` 的原始帧接口适合直接处理行情包，完整的 TCP 连接仍由额外的协议栈维护。
 
@@ -412,7 +412,7 @@ ExaNIC 是 Cisco Nexus SmartNIC 的原名。它的设计哲学是**卡上尽量�
 
 数据平面开发套件（Data Plane Development Kit，DPDK）通过轮询模式驱动（Poll Mode Driver，PMD）在用户态收发包——没有中断，线程永远在轮询队列。网卡把数据 DMA 到预先准备的内存池，应用取得描述报文的 `mbuf`，完成处理后回收，或者转交发送队列。它把轮询、批量收发、内存池和核心分工组织在一起，减少逐包中断、临时分配和通用内核处理成本。[DPDK PMD](https://doc.dpdk.org/guides/prog_guide/ethdev/ethdev.html)
 
-![DPDK/PMD：专用核心上死循环轮询收发环，mbuf 取自预分配内存池，热路径无中断无内核](assets/hft-06/bypass-dpdk.png)
+![DPDK/PMD：专用核心上死循环轮询收发环，mbuf 取自预分配内存池，热路径无中断无内核](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/e1a13d0410c2b03463ea6adf436e5335d53ea679/hft/assets/hft-06/bypass-dpdk.png)
 
 DPDK 适合可分配专用核心、需要高包速率的行情接收和分发。要注意边界：它提供的是**包处理框架**（拿到的是原始以太网帧），TCP 的建连、重传和流控仍要由附加协议栈完成；它也要求独占 CPU 核心和网卡，不能和内核网络栈混用同一张卡。批量取包时，一次取走当前队列里的多个包可以减少开销；但主动等队列凑满才处理，会增加低流量时的等待——低延迟场景应当"有多少处理多少"，而不是"凑一批再动"。
 
@@ -420,7 +420,7 @@ DPDK 适合可分配专用核心、需要高包速率的行情接收和分发。
 
 远程直接内存访问（Remote Direct Memory Access，RDMA）把通信区域预先注册给网卡，应用提交发送、读取或写入请求，由网卡执行传输，再通过完成队列报告结果。在硬件 RDMA 路径中，数据可以直接从一端的应用内存到另一端的应用内存，减少内核缓冲区复制，并由网卡承担相应传输协议工作。[NVIDIA RDMA 编程指南](https://networking-docs.nvidia.com/doca/archive/3-5-0/rdma-aware-networks-programming-guide)
 
-![RDMA：内存注册后由 RNIC 搬运，单边读写数据直达远端应用内存，远端 CPU 不执行接收调用](assets/hft-06/bypass-rdma.png)
+![RDMA：内存注册后由 RNIC 搬运，单边读写数据直达远端应用内存，远端 CPU 不执行接收调用](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/e1a13d0410c2b03463ea6adf436e5335d53ea679/hft/assets/hft-06/bypass-rdma.png)
 
 单边读写尤其直观：远端应用先注册内存并授予访问权限，之后一次远程读/写可以由网卡完成，无须远端业务线程逐次执行接收调用——数据像被"隔空放"进了对方内存。但要区分两个时间点：**本地传输完成 ≠ 远端业务处理完成**，业务线程仍负责消费数据和维护状态。RDMA 更适合双方可控、硬件与网络匹配的内部集群（例如机房内各服务之间）；交易所只提供 TCP/WebSocket 入口时，客户端无法单方面把连接改成 RDMA。
 
@@ -434,7 +434,7 @@ Solarflare 的软件接口可以按应用愿意承担多少工作来理解：
 | TCPDirect | 用更精简的功能和专用接口实现用户态 TCP/UDP | 改造事件循环，由应用主动推进协议处理，并使用直接访问缓冲区等能力 |
 | `ef_vi` | 暴露更接近网卡的帧与事件接口 | 应用取得原始帧，自行安排上层协议和业务处理 |
 
-![Solarflare 三档接口对比：Onload / TCPDirect / ef_vi，及 TCPDirect reactor 热路径与 CTPIO](assets/hft-06/bypass-solarflare.png)
+![Solarflare 三档接口对比：Onload / TCPDirect / ef_vi，及 TCPDirect reactor 热路径与 CTPIO](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/e1a13d0410c2b03463ea6adf436e5335d53ea679/hft/assets/hft-06/bypass-solarflare.png)
 
 Solarflare TCPDirect 是其中面向低延迟应用的用户态 TCP/UDP 协议栈。关键收发操作绕过内核，线上仍然使用标准 TCP/UDP 报文，对端可以继续使用普通网络接口（旁路是本机的事，交换机和对端无感知）。应用在同一线程中推进网络、解析行情和计算策略，可以减少系统调用、线程唤醒及缓冲区复制。[TCPDirect 项目说明](https://github.com/Xilinx-CNS/tcpdirect)
 
@@ -475,7 +475,7 @@ Solarflare TCPDirect 是其中面向低延迟应用的用户态 TCP/UDP 协议�
 
 `wss://` 还使用传输层安全协议（Transport Layer Security，TLS）加密连接。JSON 则负责表达行情里的品种、价格、数量等业务字段。下面把建连过程和一条行情的接收过程放在同一张图中。
 
-![WebSocket 原理：建立连接、升级协议、订阅与持续推送，以及接收端的逐层解析](assets/hft-06/websocket-message-flow.png)
+![WebSocket 原理：建立连接、升级协议、订阅与持续推送，以及接收端的逐层解析](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/e1a13d0410c2b03463ea6adf436e5335d53ea679/hft/assets/hft-06/websocket-message-flow.png)
 
 ### 一次 recv() 的三种"不对齐"
 
@@ -495,7 +495,7 @@ JSON 易于查看，但解析器面对的是文本。例如 `"price":"123.4500"`
 
 SIMD（单指令多数据）允许一条指令同时处理多个数据元素。一个直观的比喻：标量指令像一个工人一次检查一个字符；256 位 SIMD 则像 **32 个工人站成一排，同时检查 32 个字节**。例如，一个 256 位向量可以装下 32 个字节，并对这些字节同时进行比较。simdjson 把这种能力用于 JSON 扫描：按块读取输入，用向量比较和查表同时识别引号、反斜杠、空白及 `{ } [ ] : ,` 等结构字符，再把结果压成位掩码——位掩码中的每一位对应输入里的一个字符位置，后续可以用少量位运算（而不是逐字节循环）处理整块结果，例如快速跳过字符串、定位逗号、建立结构索引，再按需解析字段。[simdjson 论文](https://arxiv.org/abs/1902.08318)
 
-![simdjson 扫描示意：并行分类字符，过滤字符串内的逗号，生成索引，再按需解析字段](assets/hft-06/simdjson-parse.png)
+![simdjson 扫描示意：并行分类字符，过滤字符串内的逗号，生成索引，再按需解析字段](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/e1a13d0410c2b03463ea6adf436e5335d53ea679/hft/assets/hft-06/simdjson-parse.png)
 
 如果是Crypto场景典型的WebSocket + JSON的场景，类似于simdjson的手段是一个非常有效的降低延迟的方法——因为这条链路上 TLS、文本解析这类"本机必做的工作"占比高，而它们恰好适合向量化和批量化处理。
 
