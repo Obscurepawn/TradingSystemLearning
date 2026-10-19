@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900">
+<title>MEV 交易流水线</title><desc>订单流输入经搜索者、relay、构建者、MEV-Boost 到验证者</desc>
+<style>text {font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+<marker id="red" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#dc2626"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="900" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827" >以太坊 PBS / MEV-Boost 流水线（机制图，不含攻击步骤）</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >订单流进入搜索者构造 bundle，经 relay 交给构建者竞价，MEV-Boost 提交给验证者提议区块。</text>
+<rect x="90" y="150" width="340" height="96" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="260" y="190" font-size="19" font-weight="600" text-anchor="middle" style="fill:#2563eb" >公开 mempool</text>
+<text x="260" y="222" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >待打包交易全网可见</text>
+<rect x="470" y="150" width="340" height="96" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640" y="190" font-size="19" font-weight="600" text-anchor="middle" style="fill:#059669" >Flashbots Protect</text>
+<text x="640" y="222" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >私有 mempool，隐藏待打包交易</text>
+<rect x="850" y="150" width="340" height="96" rx="10" fill="#ecfeff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1020" y="190" font-size="19" font-weight="600" text-anchor="middle" style="fill:#2563eb" >MEV-Share</text>
+<text x="1020" y="222" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >选择性共享交易信息并分成返还</text>
+<path d="M 260,246 L 260,300 L 640,300 L 640,330" fill="none" stroke="#9ca3af" stroke-width="2" marker-end="url(#gray)"/>
+<path d="M 640,246 L 640,330" fill="none" stroke="#9ca3af" stroke-width="2" marker-end="url(#gray)"/>
+<path d="M 1020,246 L 1020,300 L 640,300" fill="none" stroke="#9ca3af" stroke-width="2"/>
+<rect x="470" y="330" width="340" height="96" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640" y="370" font-size="19" font-weight="600" text-anchor="middle" style="fill:#111827" >搜索者 Searcher</text>
+<text x="640" y="402" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >聚合机会、构造 bundle（一组有序交易）</text>
+<rect x="470" y="470" width="340" height="96" rx="10" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640" y="510" font-size="19" font-weight="600" text-anchor="middle" style="fill:#111827" >Relay（中继）</text>
+<text x="640" y="542" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >转发 bundle / 区块，过滤无效交易</text>
+<rect x="470" y="610" width="340" height="96" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640" y="650" font-size="19" font-weight="600" text-anchor="middle" style="fill:#111827" >构建者 Builder</text>
+<text x="640" y="682" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >竞价建块，向验证者出售区块空间</text>
+<rect x="470" y="750" width="340" height="96" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640" y="790" font-size="19" font-weight="600" text-anchor="middle" style="fill:#111827" >MEV-Boost → 验证者 Validator</text>
+<text x="640" y="822" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >离链 PBS：提议 / 签名区块</text>
+<path d="M 640,426 L 640,470" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<path d="M 640,566 L 640,610" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<path d="M 640,706 L 640,750" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="900" y="330" width="290" height="150" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="920" y="368" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >EIP-1559 费用拆分</text>
+<text x="920" y="408" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >base fee：动态调整并销毁（burn）</text>
+<text x="920" y="444" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >priority fee：归验证者，竞价在此展开</text>
+<rect x="900" y="560" width="290" height="286" rx="10" fill="#ecfeff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="920" y="598" font-size="18" font-weight="600" text-anchor="start" style="fill:#2563eb" >L2 排序器分支（无公开 mempool）</text>
+<text x="920" y="638" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >单一 Sequencer 接收、排队、排序交易</text>
+<text x="920" y="678" font-size="15" font-weight="400" text-anchor="start" style="fill:#374151" >·  FCFS：按到达时间（新链默认）</text>
+<text x="920" y="714" font-size="15" font-weight="400" text-anchor="start" style="fill:#374151" >·  PGA：按 priority fee 提升等待队列</text>
+<text x="920" y="750" font-size="14" font-weight="400" text-anchor="start" style="fill:#6b7280" >   （Arbitrum One 当前采用）</text>
+<text x="920" y="786" font-size="15" font-weight="400" text-anchor="start" style="fill:#374151" >·  Timeboost：拍卖快速通道，其余 FCFS</text>
+<rect x="48" y="858" width="1184" height="30" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="880" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >三明治 / 抢跑等攻击型 MEV 仅作风险与合规对象说明，本图不提供操作步骤；其法律地位各辖区不同。</text>
+</svg>

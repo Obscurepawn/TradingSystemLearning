@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900">
+<title>跨期价差与隐含订单簿</title><desc>implied-in 由两腿合成价差，implied-out 由价差加一腿合成直接报价</desc>
+<style>text {font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+<marker id="red" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#dc2626"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="900" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827" >跨期价差：原生价差簿与 implied-in / implied-out 隐含流动性</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >CME Globex 式结构：两腿直接报价可合成隐含价差；价差加一条腿可合成另一条腿的隐含直接报价（数字为示意）。</text>
+<rect x="60" y="190" width="330" height="250" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="225.0" y="228" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >近月腿簿（直接合约 M1）</text>
+<line x1="80" y1="246" x2="370" y2="246" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="84" y="268" width="282" height="44" rx="5" fill="#fff7ed" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="100" y="296" font-size="17" font-weight="600" text-anchor="start" style="fill:#ea580c" >卖一 100.06 × 60（示意）</text>
+<rect x="84" y="336" width="282" height="44" rx="5" fill="#f0fdf4" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="100" y="364" font-size="17" font-weight="600" text-anchor="start" style="fill:#059669" >买一 100.05 × 80（示意）</text>
+<text x="225.0" y="412" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >直接挂单 · 真实成交</text>
+<rect x="890" y="190" width="330" height="250" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1055.0" y="228" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >远月腿簿（直接合约 M2）</text>
+<line x1="910" y1="246" x2="1200" y2="246" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="914" y="268" width="282" height="44" rx="5" fill="#fff7ed" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="930" y="296" font-size="17" font-weight="600" text-anchor="start" style="fill:#ea580c" >卖一 100.32 × 40（示意）</text>
+<rect x="914" y="336" width="282" height="44" rx="5" fill="#f0fdf4" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="930" y="364" font-size="17" font-weight="600" text-anchor="start" style="fill:#059669" >买一 100.30 × 50（示意）</text>
+<text x="1055.0" y="412" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >直接挂单 · 真实成交</text>
+<rect x="430" y="190" width="420" height="250" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="228" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >原生价差簿（日历价差合约）</text>
+<line x1="450" y1="246" x2="830" y2="246" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="454" y="268" width="372" height="44" rx="5" fill="#fff7ed" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="470" y="296" font-size="17" font-weight="600" text-anchor="start" style="fill:#ea580c" >价差卖一 +0.27 × 30（示意）</text>
+<rect x="454" y="336" width="372" height="44" rx="5" fill="#f0fdf4" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="470" y="364" font-size="17" font-weight="600" text-anchor="start" style="fill:#059669" >价差买一 +0.24 × 45（示意）</text>
+<text x="640.0" y="412" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >原生价差单一笔原子成交 · 无腿风险</text>
+<text x="640" y="158" font-size="17" font-weight="600" text-anchor="middle" style="fill:#2563eb" >implied-in：两腿直接报价 → 合成隐含价差报价（非真实挂单，整档 tick 取整）</text>
+<path d="M 390,315 L 430,315" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<path d="M 890,315 L 850,315" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<text x="640" y="500" font-size="17" font-weight="600" text-anchor="middle" style="fill:#ea580c" >implied-out：价差 + 一条腿 → 合成另一条腿的隐含直接报价</text>
+<rect x="250" y="522" width="360" height="56" rx="8" fill="#fff7ed" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="430" y="557" font-size="17" font-weight="600" text-anchor="middle" style="fill:#ea580c" >隐含近月报价 = 价差 + 远月腿</text>
+<rect x="670" y="522" width="360" height="56" rx="8" fill="#fff7ed" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="850" y="557" font-size="17" font-weight="600" text-anchor="middle" style="fill:#ea580c" >隐含远月报价 = 价差 + 近月腿</text>
+<path d="M 560,440 L 452,522" fill="none" stroke="#ea580c" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#orange)"/>
+<path d="M 720,440 L 828,522" fill="none" stroke="#ea580c" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#orange)"/>
+<rect x="48" y="640" width="1184" height="210" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="676" font-size="20" font-weight="600" text-anchor="start" style="fill:#111827" >国内对照：无原生价差簿 → 套利 / 组合指令</text>
+<text x="66" y="712" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >·  大商所：同品种跨期套利指令，套利报价 = 近月申报价 − 远月申报价，撮合系统按规定比例同时成交。</text>
+<text x="66" y="748" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >·  郑商所：只报价差不报两腿价格，价差优先、时间优先，远近月同时成交且数量相等。</text>
+<text x="66" y="784" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >·  上期所：套利（跨期 / 跨品种）需申请套利持仓额度；盘中可享组合保证金优惠（期货跨期按高腿单边收取）。</text>
+<text x="66" y="820" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >·  隐含流动性不是真实挂单：直接腿成交 / 撤单会实时改变合成报价，看到的“深度”会波动。</text>
+</svg>

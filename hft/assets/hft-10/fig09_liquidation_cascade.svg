@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900">
+<title>强平瀑布循环</title><desc>标记价触发、保险基金、ADL 与自我强化循环</desc>
+<style>text {font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+<marker id="red" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#dc2626"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="900" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827" >强平瀑布：触发 → 承接 → ADL → 打穿盘口 → 下一批</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >机制图；合规行为仅为压力出清后被动承接流动性，不预测、不诱导强平。</text>
+<rect x="60" y="170" width="200" height="120" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="160" y="214" font-size="18" font-weight="600" text-anchor="middle" style="fill:#2563eb" >① 标记价触及强平价</text>
+<text x="160" y="250" font-size="14" font-weight="400" text-anchor="middle" style="fill:#6b7280" >10x 多头 P0=60,000</text>
+<text x="160" y="276" font-size="14" font-weight="400" text-anchor="middle" style="fill:#6b7280" >强平价 ≈ 54,000（近似）</text>
+<rect x="300" y="170" width="200" height="120" rx="10" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="400" y="214" font-size="18" font-weight="600" text-anchor="middle" style="fill:#111827" >② 系统强制市价卖出</text>
+<text x="400" y="250" font-size="14" font-weight="400" text-anchor="middle" style="fill:#6b7280" >代偿系统替账户平仓</text>
+<rect x="540" y="170" width="200" height="120" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640" y="214" font-size="18" font-weight="600" text-anchor="middle" style="fill:#059669" >③ 保险基金承接</text>
+<text x="640" y="250" font-size="14" font-weight="400" text-anchor="middle" style="fill:#6b7280" >先由保险基金吸收亏损</text>
+<rect x="780" y="170" width="200" height="120" rx="10" fill="#fffbeb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="880" y="214" font-size="18" font-weight="600" text-anchor="middle" style="fill:#ea580c" >④ 不足则 ADL</text>
+<text x="880" y="250" font-size="14" font-weight="400" text-anchor="middle" style="fill:#6b7280" >自动减仓盈利最高杠杆对手</text>
+<rect x="1020" y="170" width="200" height="120" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1120" y="214" font-size="18" font-weight="600" text-anchor="middle" style="fill:#ea580c" >⑤ 市价单打穿盘口</text>
+<text x="1120" y="250" font-size="14" font-weight="400" text-anchor="middle" style="fill:#6b7280" >盘口变薄，价格下一档档下移</text>
+<path d="M 260,230 L 300,230" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<path d="M 500,230 L 540,230" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<path d="M 740,230 L 780,230" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<path d="M 980,230 L 1020,230" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<path d="M 1120,290 C 1120,345 160,345 160,290" fill="none" stroke="#ea580c" stroke-width="2.3" stroke-dasharray="8 6" marker-end="url(#orange)"/>
+<rect x="380" y="356" width="520" height="36" rx="8" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.2"/>
+<text x="640" y="381" font-size="18" font-weight="600" text-anchor="middle" style="fill:#ea580c" >价格下移触发下一批账户强平，形成自我强化的瀑布</text>
+<rect x="60" y="440" width="560" height="220" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="82" y="478" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >三种价格口径</text>
+<text x="82" y="518" font-size="17" font-weight="600" text-anchor="start" style="fill:#111827" >最新价：</text>
+<text x="180" y="518" font-size="16" font-weight="400" text-anchor="start" style="fill:#374151" >最近一笔成交价，用于成交撮合</text>
+<text x="82" y="564" font-size="17" font-weight="600" text-anchor="start" style="fill:#111827" >指数价：</text>
+<text x="180" y="564" font-size="16" font-weight="400" text-anchor="start" style="fill:#374151" >多所现货加权 / 中位数参考价，防单所插针</text>
+<text x="82" y="610" font-size="17" font-weight="600" text-anchor="start" style="fill:#111827" >标记价：</text>
+<text x="180" y="610" font-size="16" font-weight="400" text-anchor="start" style="fill:#374151" >指数 + 资金调整 / EMA 平滑，计算未实现盈亏并触发强平</text>
+<text x="82" y="636" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >风控以标记价为准，区分“标记价触发”与“最新价插针”。</text>
+<rect x="700" y="440" width="490" height="220" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="722" y="478" font-size="18" font-weight="600" text-anchor="start" style="fill:#059669" >公开事件节点（机制背景）</text>
+<text x="722" y="522" font-size="16" font-weight="400" text-anchor="start" style="fill:#374151" >·  2021-05-19：BTC 当日最大回撤约 33.9%，</text>
+<text x="742" y="550" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >出现交易 / API 中断，散户无法平仓或追加保证金</text>
+<text x="722" y="594" font-size="16" font-weight="400" text-anchor="start" style="fill:#374151" >·  2025-10-10/11：约 190 亿美元杠杆仓位</text>
+<text x="742" y="622" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >被自动强平（CoinGlass 口径，IMF 报告记载）</text>
+<rect x="48" y="720" width="1184" height="96" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="756" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >保险基金先承接强平仓位；基金不足触发 ADL，按盈利比例 × 有效杠杆排序，平掉最盈利、最高杠杆的对手方。</text>
+<text x="66" y="792" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >极端波动中流动性撤回快，被动承接报价必须能秒级撤销；自身承接仓在二次下杀中可能被套，ADL 也可能平掉自身盈利仓。</text>
+</svg>

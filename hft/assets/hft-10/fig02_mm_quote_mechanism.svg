@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="860" viewBox="0 0 1280 860">
+<title>Avellaneda-Stoikov 报价机制</title><desc>库存 q 通过保留价使整组报价偏移</desc>
+<style>text {font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+<marker id="red" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#dc2626"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="860" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827" >Avellaneda–Stoikov：库存把整组报价从保留价偏移（skew）</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >示例：s=100.00，γ=0.1，σ=2.0，T−t=1.0，q=2；总价差 1.6908（风险项 0.40 + 流动性项 1.2908），半价差 0.8454。</text>
+<text x="60" y="246" font-size="19" font-weight="600" text-anchor="start" style="fill:#6b7280" >对照 q=0（对称）</text>
+<line x1="430" y1="240" x2="1030" y2="240" fill="none" stroke="#9ca3af" stroke-width="2" stroke-dasharray="8 6"/>
+<line x1="430" y1="226" x2="430" y2="254" fill="none" stroke="#9ca3af" stroke-width="2"/>
+<line x1="730" y1="226" x2="730" y2="254" fill="none" stroke="#6b7280" stroke-width="2"/>
+<line x1="1030" y1="226" x2="1030" y2="254" fill="none" stroke="#9ca3af" stroke-width="2"/>
+<text x="430" y="282" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280" >买单 99.1546</text>
+<text x="730" y="282" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280" >中间价 / 保留价 100.00</text>
+<text x="1030" y="282" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280" >卖单 100.8454</text>
+<text x="60" y="396" font-size="19" font-weight="600" text-anchor="start" style="fill:#2563eb" >当前 q=+2（多头 2 单位）</text>
+<rect x="296.9933333333344" y="414" width="732.6800000000001" height="32" rx="6" fill="#eff6ff" stroke="none" stroke-width="0"/>
+<line x1="296.9933333333344" y1="408" x2="296.9933333333344" y2="452" fill="none" stroke="#059669" stroke-width="3"/>
+<line x1="663.3333333333345" y1="408" x2="663.3333333333345" y2="452" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-dasharray="6 4"/>
+<line x1="1010.0000000000009" y1="408" x2="1010.0000000000009" y2="452" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="4 4"/>
+<line x1="1029.6733333333345" y1="408" x2="1029.6733333333345" y2="452" fill="none" stroke="#ea580c" stroke-width="3"/>
+<text x="663.3333333333345" y="396" font-size="18" font-weight="600" text-anchor="middle" style="fill:#2563eb" >保留价 r=99.2</text>
+<text x="1041.6733333333345" y="396" font-size="18" font-weight="600" text-anchor="start" style="fill:#ea580c" >卖单 p^a=100.0454</text>
+<text x="296.9933333333344" y="476" font-size="18" font-weight="600" text-anchor="middle" style="fill:#059669" >买单 p^b=98.3546</text>
+<text x="1010.0000000000009" y="476" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280" >中间价 s=100.00</text>
+<line x1="296.9933333333344" y1="508" x2="1010.0000000000009" y2="508" fill="none" stroke="#059669" stroke-width="1.8" marker-end="url(#green)"/>
+<text x="653.4966666666677" y="532" font-size="16" font-weight="400" text-anchor="middle" style="fill:#059669" >δ^b=1.6454（λ^b≈0.085，避免继续买入）</text>
+<line x1="1010.0000000000009" y1="368" x2="1029.6733333333345" y2="368" fill="none" stroke="#ea580c" stroke-width="1.8" marker-end="url(#orange)"/>
+<text x="1180" y="364" font-size="16" font-weight="400" text-anchor="end" style="fill:#ea580c" >δ^a=0.0454（λ^a≈0.93，主动减库存）</text>
+<line x1="296.9933333333344" y1="562" x2="1029.6733333333345" y2="562" fill="none" stroke="#111827" stroke-width="1.8"/>
+<line x1="296.9933333333344" y1="554" x2="296.9933333333344" y2="570" fill="none" stroke="#111827" stroke-width="1.8"/>
+<line x1="1029.6733333333345" y1="554" x2="1029.6733333333345" y2="570" fill="none" stroke="#111827" stroke-width="1.8"/>
+<text x="663.3333333333345" y="592" font-size="18" font-weight="600" text-anchor="middle" style="fill:#111827" >总价差 1.6908（半价差 0.8454，与 q 无关）</text>
+<line x1="230" y1="640" x2="1140" y2="640" fill="none" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#gray)"/>
+<text x="1140" y="628" font-size="16" font-weight="400" text-anchor="end" style="fill:#6b7280" >价格 →</text>
+<rect x="60" y="690" width="560" height="92" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="80" y="726" font-size="17" font-weight="600" text-anchor="start" style="fill:#059669" >q &gt; 0（多头）：r &lt; s，整组报价左移 → 卖单贴近、买单推远</text>
+<text x="80" y="758" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >方向：优先卖出减库存，不再加仓。</text>
+<rect x="660" y="690" width="560" height="92" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="680" y="726" font-size="17" font-weight="600" text-anchor="start" style="fill:#ea580c" >q &lt; 0（空头）：r &gt; s，整组报价右移 → 买单贴近、卖单推远</text>
+<text x="680" y="758" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >方向：优先买回补库存。</text>
+<rect x="48" y="812" width="1184" height="36" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="836" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >价差宽度由风险项 γσ²(T−t) 与流动性项 (2/γ)ln(1+γ/k) 决定；库存只通过 r=s−qγσ²(T−t) 平移整组报价。两行位置为示意缩放。</text>
+</svg>

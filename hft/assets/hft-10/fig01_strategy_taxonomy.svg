@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1080" viewBox="0 0 1280 1080">
+<title>高频交易策略分类图谱</title><desc>六大策略家族与底部合规红线</desc>
+<style>text {font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+<marker id="red" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#dc2626"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="1080" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827" >高频交易策略：分类图谱</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >按利润来源分组；合规红线单独置于底部，不属于任何策略。</text>
+<rect x="470" y="116" width="340" height="62" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="640" y="154" font-size="22" font-weight="600" text-anchor="middle" style="fill:#111827" >高频交易策略</text>
+<line x1="640" y1="178" x2="640" y2="216" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="224" y1="216" x2="1056" y2="216" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="224" y1="216" x2="224" y2="250" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="640" y1="216" x2="640" y2="250" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="1056" y1="216" x2="1056" y2="250" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="640" y1="216" x2="640" y2="600" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="224" y1="600" x2="1056" y2="600" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="224" y1="600" x2="224" y2="630" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="640" y1="600" x2="640" y2="630" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<line x1="1056" y1="600" x2="1056" y2="630" fill="none" stroke="#9ca3af" stroke-width="1.8"/>
+<rect x="48" y="250" width="352" height="340" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="224.0" y="292" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >做市 Market Making</text>
+<line x1="72" y1="312" x2="376" y2="312" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="68" y="326" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="224.0" y="350" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >A-S 库存风险报价（保留价偏移）</text>
+<rect x="68" y="376" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="224.0" y="400" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >GLFT 渐近闭式解 · 库存上限</text>
+<rect x="68" y="426" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="224.0" y="450" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >Cartea–Jaimungal 运行库存惩罚</text>
+<rect x="68" y="476" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="224.0" y="500" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >期权做市（理论价 / IV 曲面 / Greeks）</text>
+<rect x="464" y="250" width="352" height="340" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="292" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >套利 Arbitrage</text>
+<line x1="488" y1="312" x2="792" y2="312" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="484" y="326" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="640.0" y="350" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >期现套利：正向 / 反向持有</text>
+<rect x="484" y="376" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="640.0" y="400" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >跨期套利：日历价差</text>
+<rect x="484" y="426" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="640.0" y="450" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >ETF 申赎套利（IOPV 折溢价）</text>
+<rect x="484" y="476" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="640.0" y="500" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >跨所 · 延迟套利（旧报价狙击）</text>
+<rect x="484" y="526" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="640.0" y="550" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >外汇三角套利</text>
+<rect x="880" y="250" width="352" height="340" rx="10" fill="#fffbeb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1056.0" y="292" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >统计相对价值</text>
+<line x1="904" y1="312" x2="1208" y2="312" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="900" y="326" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="1056.0" y="350" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >配对交易（Pairs）</text>
+<rect x="900" y="376" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="1056.0" y="400" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >协整 · OU 均值回归 · z-score</text>
+<rect x="900" y="426" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="1056.0" y="450" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >领先—滞后 lead-lag</text>
+<rect x="48" y="630" width="352" height="340" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="224.0" y="672" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >短期信号 / 方向</text>
+<line x1="72" y1="692" x2="376" y2="692" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="68" y="706" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="224.0" y="730" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >OFI 订单流不平衡</text>
+<rect x="68" y="756" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="224.0" y="780" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >队列不平衡（Queue Imbalance）</text>
+<rect x="68" y="806" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="224.0" y="830" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >事件 · 机器可读新闻驱动</text>
+<rect x="464" y="630" width="352" height="340" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640.0" y="672" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >费用结构</text>
+<line x1="488" y1="692" x2="792" y2="692" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="484" y="706" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="640.0" y="730" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >maker-taker：maker 领返佣</text>
+<rect x="484" y="756" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="640.0" y="780" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >inverted（taker-maker）</text>
+<rect x="484" y="806" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="640.0" y="830" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >展示价 vs 净价 · 路由选择</text>
+<rect x="880" y="630" width="352" height="340" rx="10" fill="#ecfeff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1056.0" y="672" font-size="20" font-weight="600" text-anchor="middle" style="fill:#111827" >加密 / DeFi</text>
+<line x1="904" y1="692" x2="1208" y2="692" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<rect x="900" y="706" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="1056.0" y="730" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >永续资金费率 carry</text>
+<rect x="900" y="756" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="1056.0" y="780" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >CEX 做市</text>
+<rect x="900" y="806" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="1056.0" y="830" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >DEX-CEX · AMM 套利</text>
+<rect x="900" y="856" width="312" height="38" rx="5" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="1056.0" y="880" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >MEV 风险（三明治 · 抢跑）</text>
+<rect x="48" y="1000" width="1184" height="68" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2" stroke-dasharray="10 6"/>
+<text x="66" y="1030" font-size="19" font-weight="600" text-anchor="start" style="fill:#b91c1c" >合规红线（违规行为，不是策略）：幌骗 spoofing · 分层 layering · 动量点火 momentum ignition · 报价填充 quote stuffing</text>
+<text x="66" y="1056" font-size="16" font-weight="400" text-anchor="start" style="fill:#b91c1c" >以成交前撤单、制造虚假供需或超高报撤流量诱导他人交易；受刑事 / 行政追责（DOJ / CFTC / SEC / 交易所监控）。</text>
+</svg>

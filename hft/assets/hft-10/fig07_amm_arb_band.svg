@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820">
+<title>AMM 含费无套利带与 LVR</title><desc>常数乘积池价在费率带内漂移，带外套利推回边界</desc>
+<style>text {font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+<marker id="red" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#dc2626"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="820" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827" >x·y=k AMM：含费无套利带、套利回归与 LVR</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >外部参考价与池价偏离超过含费边际价差才触发套利；带内扣费后无利可图，池价可漂移。</text>
+<rect x="514.0" y="230" width="252.42000000000155" height="140" rx="0" fill="#f3f4f6" stroke="none" stroke-width="0"/>
+<line x1="640.0" y1="210" x2="640.0" y2="390" fill="none" stroke="#6b7280" stroke-width="1.8" stroke-dasharray="6 5"/>
+<text x="640.0" y="196" font-size="17" font-weight="600" text-anchor="middle" style="fill:#6b7280" >CEX 参考价 P_ext = 5000</text>
+<line x1="514.0" y1="230" x2="514.0" y2="370" fill="none" stroke="#059669" stroke-width="2"/>
+<line x1="766.4200000000016" y1="230" x2="766.4200000000016" y2="370" fill="none" stroke="#059669" stroke-width="2"/>
+<text x="514.0" y="396" font-size="16" font-weight="600" text-anchor="middle" style="fill:#059669" >下界 γP ≈ 4985.0</text>
+<text x="766.4200000000016" y="396" font-size="16" font-weight="600" text-anchor="middle" style="fill:#059669" >上界 P/γ ≈ 5015.05</text>
+<circle cx="640.0" cy="300.0" r="7" fill="#2563eb" stroke="#fff" stroke-width="2"/>
+<text x="640.0" y="276" font-size="16" font-weight="600" text-anchor="middle" style="fill:#2563eb" >池价 P0 = x/y = 5,000</text>
+<rect x="530.0" y="326" width="220" height="30" rx="6" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.2"/>
+<text x="640.0" y="347" font-size="16" font-weight="600" text-anchor="middle" style="fill:#111827" >无套利带：池价可漂移</text>
+<circle cx="388.0" cy="300.0" r="7" fill="#ea580c" stroke="#fff" stroke-width="2"/>
+<text x="388.0" y="276" font-size="16" font-weight="600" text-anchor="middle" style="fill:#ea580c" >池价 4970（带外）</text>
+<path d="M 400.0,300 L 502.0,300" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#orange)"/>
+<text x="388.0" y="344" font-size="15" font-weight="400" text-anchor="middle" style="fill:#ea580c" >套利买入池 → 推回下界</text>
+<circle cx="892.0" cy="300.0" r="7" fill="#ea580c" stroke="#fff" stroke-width="2"/>
+<text x="892.0" y="276" font-size="16" font-weight="600" text-anchor="middle" style="fill:#ea580c" >池价 5030（带外）</text>
+<path d="M 880.0,300 L 778.4200000000016,300" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#orange)"/>
+<text x="892.0" y="344" font-size="15" font-weight="400" text-anchor="middle" style="fill:#ea580c" >套利卖出池 → 推回上界</text>
+<rect x="90" y="470" width="560" height="240" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="112" y="508" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >常数乘积与含费边界</text>
+<text x="112" y="548" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >不变量 x·y = k；投入 Δx，扣费后入池 γΔx</text>
+<text x="112" y="584" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >Δy = y − k / (x + γΔx)，γ = 0.997（v2 费 0.30%）</text>
+<text x="112" y="620" font-size="17" font-weight="600" text-anchor="start" style="fill:#2563eb" >无套利带宽 ≈ [γP_ext, P_ext/γ]</text>
+<text x="112" y="656" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >示例：P0=5000、γ=0.997 → [4985.0, 5015.0]，带内套利扣费后无利可图</text>
+<rect x="700" y="470" width="490" height="240" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="722" y="508" font-size="18" font-weight="600" text-anchor="start" style="fill:#059669" >LVR（loss-versus-rebalancing）</text>
+<text x="722" y="548" font-size="17" font-weight="600" text-anchor="start" style="fill:#111827" >单位池价值瞬时 LVR 损耗率 = σ²/8</text>
+<text x="722" y="584" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >示例：σ = 5%/日 → σ²/8 = 3.125 bp/日</text>
+<text x="722" y="620" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >LP P&amp;L ≈ 手续费收入 − LVR；</text>
+<text x="722" y="652" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >对冲只转移市场风险，不能消除 LVR。</text>
+<rect x="48" y="756" width="1184" height="44" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="784" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >带宽由边际价格 P_pool/γ 与 γ·P_pool 推出；成交量大小另需按不变量求解（Angeris 等）。</text>
+</svg>

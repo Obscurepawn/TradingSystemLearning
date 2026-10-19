@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="880" viewBox="0 0 1280 880">
+<title>价格层队列位置价值</title><desc>队首与队尾的成交概率和逆向选择对比</desc>
+<style>text {font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+<marker id="red" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#dc2626"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="880" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827" >同一价位的队列位置：队首 vs 队尾</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >价格—时间优先（FIFO）下，位置决定轮到概率；成交时价格是否已向不利方向移动，决定逆向选择成本。</text>
+<text x="60" y="216" font-size="19" font-weight="600" text-anchor="start" style="fill:#111827" >队列</text>
+<rect x="150" y="180" width="78" height="58" rx="5" fill="#dcfce7" stroke="#86efac" stroke-width="1.5"/>
+<text x="189.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第1位</text>
+<rect x="230" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="269.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第2位</text>
+<rect x="310" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="349.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第3位</text>
+<rect x="390" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="429.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第4位</text>
+<rect x="470" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="509.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第5位</text>
+<rect x="550" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="589.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第6位</text>
+<rect x="630" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="669.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第7位</text>
+<rect x="710" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="749.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第8位</text>
+<rect x="790" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="829.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第9位</text>
+<rect x="870" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="909.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第10位</text>
+<rect x="950" y="180" width="78" height="58" rx="5" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="989.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第11位</text>
+<rect x="1030" y="180" width="78" height="58" rx="5" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1069.0" y="216" font-size="15" font-weight="400" text-anchor="middle" style="fill:#6b7280" >第12位</text>
+<text x="150" y="164" font-size="17" font-weight="600" text-anchor="start" style="fill:#059669" >队首（Front）：先轮到</text>
+<text x="1032" y="164" font-size="17" font-weight="600" text-anchor="end" style="fill:#ea580c" >队尾（Back）：最后轮到</text>
+<path d="M 189.0,250 L 189.0,272" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#green)"/>
+<text x="189.0" y="300" font-size="16" font-weight="600" text-anchor="middle" style="fill:#059669" >我方在队首</text>
+<path d="M 1069.0,250 L 1069.0,272" fill="none" stroke="#ea580c" stroke-width="2.3" marker-end="url(#orange)"/>
+<text x="1069.0" y="300" font-size="16" font-weight="600" text-anchor="middle" style="fill:#ea580c" >我方在队尾</text>
+<rect x="60" y="360" width="560" height="300" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="340.0" y="402" font-size="20" font-weight="600" text-anchor="middle" style="fill:#059669" >队首（Front of Queue）</text>
+<line x1="84" y1="420" x2="596" y2="420" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<text x="88" y="460" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >成交概率：</text>
+<text x="190" y="460" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >高：前方等待少，主动单先消化到自己</text>
+<text x="88" y="508" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >逆向选择：</text>
+<text x="190" y="508" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >小：价格不利移动前已轮到，或来得及撤单</text>
+<text x="88" y="556" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >静态项：</text>
+<text x="190" y="556" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >赚买卖价差的概率高，逆向选择损失少</text>
+<text x="88" y="604" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >动态项：</text>
+<text x="190" y="604" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >锁定队列位置的期权价值高</text>
+<rect x="660" y="360" width="560" height="300" rx="10" fill="#fff7ed" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="940.0" y="402" font-size="20" font-weight="600" text-anchor="middle" style="fill:#ea580c" >队尾（Back of Queue）</text>
+<line x1="684" y1="420" x2="1196" y2="420" fill="none" stroke="#d1d5db" stroke-width="1.2"/>
+<text x="688" y="460" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >成交概率：</text>
+<text x="790" y="460" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >低：需先消化前方全部数量才轮到</text>
+<text x="688" y="508" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >逆向选择：</text>
+<text x="790" y="508" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >大：轮到时价格常已向不利方向移动</text>
+<text x="688" y="556" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >静态项：</text>
+<text x="790" y="556" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >价差捕获被逆向选择抵消，净贡献低</text>
+<text x="688" y="604" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >动态项：</text>
+<text x="790" y="604" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >队列位置的期权价值低</text>
+<rect x="48" y="720" width="1184" height="120" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="756" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >Moallemi–Yuan 队列位置价值 = 静态项（赚价差 vs 承担逆向选择）+ 动态项（锁定队列位置的期权价值）；大 tick 股票的队列价值可与整个买卖价差同量级。</text>
+<text x="66" y="788" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >队前量 / 队后量、对手深度与库存共同决定撤单概率（Dahlström–Hagströmer–Nordén，OMXS30 实证）；位置是撤单决策的输入，不是静态常数。</text>
+<text x="66" y="820" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >以上价值拆分以 FIFO 价格—时间优先为前提；比例撮合市场（部分加密深池）位置逻辑不同。</text>
+</svg>

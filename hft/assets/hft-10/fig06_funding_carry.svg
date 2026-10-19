@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="880" viewBox="0 0 1280 880">
+<title>永续资金费率与 cash-and-carry</title><desc>资金费流向与 clamp 锚定</desc>
+<style>text {font-family: "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif; fill:#111827;}</style>
+<defs>
+<marker id="blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#2563eb"/></marker>
+<marker id="gray" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#6b7280"/></marker>
+<marker id="green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#ea580c"/></marker>
+<marker id="red" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#dc2626"/></marker>
+</defs>
+<rect x="0" y="0" width="1280" height="880" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="48" y="48" font-size="28" font-weight="600" text-anchor="start" style="fill:#111827" >永续资金费率：锚定机制与现货多头 + 永续空头 carry</text>
+<text x="48" y="80" font-size="17" font-weight="400" text-anchor="start" style="fill:#6b7280" >永续无到期日，靠多空之间定期支付的 funding 把价格锚到现货指数；正向市场（合约溢价、F&gt;0）收资金费。</text>
+<rect x="90" y="160" width="340" height="156" rx="10" fill="#f0fdf4" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="260" y="200" font-size="20" font-weight="600" text-anchor="middle" style="fill:#059669" >现货多头（Buy Spot）</text>
+<text x="260" y="238" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >买入 1 BTC = 60,000 USDT</text>
+<text x="260" y="272" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280" >现货价格暴露被永续腿对冲</text>
+<rect x="850" y="160" width="340" height="156" rx="10" fill="#eff6ff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="1020" y="200" font-size="20" font-weight="600" text-anchor="middle" style="fill:#2563eb" >永续空头（Short Perp）</text>
+<text x="1020" y="238" font-size="17" font-weight="400" text-anchor="middle" style="fill:#374151" >卖出等额 1 BTC（名义对冲）</text>
+<text x="1020" y="272" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280" >F&gt;0 时作为空头收取资金费</text>
+<rect x="470" y="160" width="340" height="156" rx="10" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="640" y="196" font-size="18" font-weight="600" text-anchor="middle" style="fill:#111827" >资金费流向（每结算周期）</text>
+<text x="640" y="234" font-size="16" font-weight="400" text-anchor="middle" style="fill:#059669" >F&gt;0：永续多头付 → 永续空头（本组合收）</text>
+<text x="640" y="266" font-size="16" font-weight="400" text-anchor="middle" style="fill:#ea580c" >F&lt;0：永续空头付 → 永续多头（本组合付）</text>
+<text x="640" y="298" font-size="16" font-weight="400" text-anchor="middle" style="fill:#6b7280" >Funding Fee = 仓位价值 × F</text>
+<path d="M 430,238 L 470,238" fill="none" stroke="#059669" stroke-width="2.3" marker-end="url(#green)"/>
+<path d="M 850,238 L 810,238" fill="none" stroke="#2563eb" stroke-width="2.3" marker-end="url(#blue)"/>
+<rect x="90" y="380" width="560" height="330" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="110" y="416" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >clamp 锚定：F = P + clamp(I−P, +c, −c)，c = 0.05%</text>
+<rect x="310.0" y="450.0" width="200.00000000000006" height="190.0" rx="0" fill="#f3f4f6" stroke="none" stroke-width="0"/>
+<line x1="210" y1="640.0" x2="210" y2="450.0" fill="none" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#gray)"/>
+<line x1="210" y1="640" x2="610" y2="640" fill="none" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#gray)"/>
+<text x="610" y="666" font-size="15" font-weight="400" text-anchor="end" style="fill:#6b7280" >溢价指数 P − I</text>
+<text x="202" y="440.0" font-size="15" font-weight="400" text-anchor="end" style="fill:#6b7280" >F</text>
+<path d="M 210.0,604.4 L 310.0,604.4 L 510.0,485.6 L 610.0,485.6" fill="none" stroke="#2563eb" stroke-width="2.6"/>
+<line x1="310.0" y1="640.0" x2="310.0" y2="450.0" fill="none" stroke="#e5e7eb" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="510.00000000000006" y1="640.0" x2="510.00000000000006" y2="450.0" fill="none" stroke="#e5e7eb" stroke-width="1.2" stroke-dasharray="4 4"/>
+<text x="260.0" y="594.375" font-size="14" font-weight="400" text-anchor="middle" style="fill:#6b7280" >−c = −0.05%</text>
+<text x="560.0" y="475.625" font-size="14" font-weight="400" text-anchor="middle" style="fill:#6b7280" >+c = +0.05%</text>
+<text x="410.0" y="533.0" font-size="15" font-weight="400" text-anchor="middle" style="fill:#2563eb" >带内 F 钉在 I</text>
+<rect x="700" y="380" width="490" height="330" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="722" y="418" font-size="18" font-weight="600" text-anchor="start" style="fill:#111827" >示例（静态折算）：F = +0.01%/8h</text>
+<text x="722" y="462" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >每 8h 资金费 = 60,000 × 0.0001 = 6.00 USDT</text>
+<text x="722" y="498" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >每日 = 6.00 × 3 = 18.00 USDT（3 次结算）</text>
+<text x="722" y="534" font-size="17" font-weight="400" text-anchor="start" style="fill:#374151" >全年 = 18.00 × 365 = 6,570 USDT</text>
+<text x="722" y="570" font-size="17" font-weight="600" text-anchor="start" style="fill:#059669" >年化 ≈ 6,570 / 60,000 = 10.95%</text>
+<text x="722" y="618" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >未计买卖价差、taker 费、资金占用与基差回归盈亏；</text>
+<text x="722" y="648" font-size="15" font-weight="400" text-anchor="start" style="fill:#6b7280" >F 转负时本组合改为支付，carry 转为成本。</text>
+<rect x="48" y="760" width="1184" height="76" rx="10" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="66" y="792" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >永续没有到期日、不保证向现货收敛，收益是持续的资金费流而非到期强制收敛；F 每分钟 / 每周期重算并随溢价漂移。</text>
+<text x="66" y="822" font-size="16" font-weight="400" text-anchor="start" style="fill:#6b7280" >跨所资金差：A 所开空收高 F_A、B 所开多付低 F_B，两腿名义额相等对冲方向，赚净差；F_A 收敛到 F_B 后机会消失。</text>
+</svg>
