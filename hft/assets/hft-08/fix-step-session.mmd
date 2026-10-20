@@ -1,0 +1,26 @@
+---
+title: FIX / STEP 会话建立、序号同步与断线重连
+---
+sequenceDiagram
+    participant C as 客户 OMS（Initiator）
+    participant G as 网关 / Acceptor
+    Note over C,G: 每个方向各维护持久化的 NextNumOut / NextNumIn
+    C->>G: 建立 TCP，首条必须是 Logon(35=A)<br/>34=本地出向序号 108=心跳秒 141=Y 仅重置新会话
+    alt 序号相等
+        G-->>C: Logon(35=A) 确认，HeartBtInt 以网关回值为准
+    else 来包序号低于期望
+        G-->>C: Logout(35=5) 并断开
+    else 来包序号高于期望（有缺口）
+        G-->>C: Logon(35=A) 确认
+        G->>C: ResendRequest(35=2)<br/>7=BeginSeqNo 16=EndSeqNo(0 表示到尾)
+        C-->>G: 原消息重放，逐条带 43=Y(PossDupFlag)<br/>心跳等无重放价值的消息用 SequenceReset(35=4) 123=Y 跳过
+    end
+    Note over C,G: 会话已建立，可发业务消息（如 35=D 新单）
+    loop 空闲保活
+        C->>G: Heartbeat(35=0)；必要时 TestRequest(35=1) 强制对端回心跳
+    end
+    Note over C,G: 任一方 2 个 HeartBtInt 内没收到任何消息即判定断线
+    Note over C,G: 网络断开（不重置序号）
+    C->>G: 重连后 Logon(35=A)，34 仍取持久化的下一个序号
+    G->>C: ResendRequest(35=2) 补断线期间的执行报告
+    C-->>G: 重放或 GapFill 补齐，业务层用 ClOrdID 去重，不盲目重发订单

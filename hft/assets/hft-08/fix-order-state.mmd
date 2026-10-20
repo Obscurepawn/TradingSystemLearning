@@ -1,0 +1,21 @@
+---
+title: 一笔限价单在本地台账里的状态机（FIX / STEP 语义）
+---
+stateDiagram-v2
+    [*] --> 生成意图: 策略决定下单
+    生成意图 --> 已发未确认: 发 NewOrderSingle 35=D，本地持久化 ClOrdID
+    已发未确认 --> 已受理: ExecutionReport 35=8，OrdStatus=0 新确认
+    生成意图 --> 被拒: Reject / Order Reject（前置检查不过）
+    已发未确认 --> 已发未确认: 超时只查询，不重发同 ClOrdID
+    已受理 --> 部分成交: 35=8，OrdStatus=1，LeavesQty 仍大于 0
+    已受理 --> 全部成交: 35=8，OrdStatus=2，LeavesQty=0
+    部分成交 --> 部分成交: 继续成交，按 ExecID 去重
+    部分成交 --> 全部成交: 最后一笔，LeavesQty=0
+    已受理 --> 待撤: 发 OrderCancelRequest 35=F，OrigClOrdID=原 ClOrdID
+    部分成交 --> 待撤: 对剩余量发 35=F
+    待撤 --> 已撤销: 35=8，OrdStatus=4
+    待撤 --> 已受理: 撤单被拒（OrdStatus 回到可交易）
+    待撤 --> 部分成交: 撤单与成交竞争，先成交一部分
+    全部成交 --> [*]
+    已撤销 --> [*]
+    被拒 --> [*]
