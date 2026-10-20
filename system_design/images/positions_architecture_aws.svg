@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1630" viewBox="0 0 1400 1630" font-family="-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif">
+<title>分布式持仓服务总体架构（按 AWS 服务分组）</title>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4B5563"/></marker></defs>
+<rect width="1400" height="1630" fill="#FFFFFF"/>
+<rect x="90" y="18" width="1270" height="130" rx="10" fill="#FAFAFA" stroke="#9CA3AF" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="104" y="36" font-size="13.5" fill="#6B7280" font-weight="600" text-anchor="start" dominant-baseline="middle">上游系统（不在 AWS 内）</text>
+<rect x="200" y="222" width="800" height="148" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="986" y="240" font-size="13.5" fill="#334155" font-weight="600" text-anchor="end" dominant-baseline="middle">接入层 · Amazon MSK + Amazon EKS</text>
+<rect x="560" y="430" width="480" height="135" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="574" y="448" font-size="13.5" fill="#334155" font-weight="600" text-anchor="start" dominant-baseline="middle">事件日志 · Amazon MSK</text>
+<rect x="1080" y="430" width="280" height="135" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="1094" y="448" font-size="13.5" fill="#334155" font-weight="600" text-anchor="start" dominant-baseline="middle">对账 · Amazon EKS + Athena</text>
+<rect x="300" y="620" width="810" height="175" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="314" y="638" font-size="13.5" fill="#334155" font-weight="600" text-anchor="start" dominant-baseline="middle">计算层 · Amazon EKS（EC2 节点）</text>
+<rect x="1140" y="640" width="220" height="135" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="1154" y="658" font-size="13.5" fill="#334155" font-weight="600" text-anchor="start" dominant-baseline="middle">Amazon DynamoDB</text>
+<rect x="560" y="850" width="480" height="125" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="574" y="868" font-size="13.5" fill="#334155" font-weight="600" text-anchor="start" dominant-baseline="middle">权威输出 · Amazon MSK</text>
+<rect x="1140" y="850" width="220" height="125" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="1154" y="868" font-size="13.5" fill="#334155" font-weight="600" text-anchor="start" dominant-baseline="middle">Amazon S3</text>
+<rect x="200" y="1040" width="520" height="500" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="214" y="1058" font-size="13.5" fill="#334155" font-weight="600" text-anchor="start" dominant-baseline="middle">查询支路 · EKS + ElastiCache + DynamoDB + NLB</text>
+<rect x="760" y="1040" width="600" height="500" rx="10" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="7 5"/>
+<text x="1346" y="1058" font-size="13.5" fill="#334155" font-weight="600" text-anchor="end" dominant-baseline="middle">账户汇总支路 · Amazon EKS + Amazon MSK</text>
+<rect x="120" y="50" width="220" height="80" rx="8" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="230.0" y="80.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">OMS</text>
+<text x="230.0" y="100.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">Transactional Outbox</text>
+<rect x="420" y="50" width="220" height="80" rx="8" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="530.0" y="80.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">交易所 / 券商网关</text>
+<text x="530.0" y="100.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">FIX</text>
+<rect x="720" y="50" width="260" height="80" rx="8" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="850.0" y="80.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">调度 / 运营系统</text>
+<text x="850.0" y="100.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">交易日切换、拆股合股</text>
+<rect x="1110" y="50" width="220" height="80" rx="8" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="1220.0" y="80.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Drop Copy</text>
+<text x="1220.0" y="100.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">交易所的独立成交副本</text>
+<rect x="250" y="262" width="270" height="86" rx="8" fill="#FFF5E8" stroke="#E39B3F" stroke-width="1.5"/>
+<text x="385.0" y="285.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">raw topics</text>
+<text x="385.0" y="305.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">按上游会话分区</text>
+<text x="385.0" y="325.0" font-size="11.5" fill="#B4691A" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon MSK</text>
+<rect x="640" y="262" width="320" height="86" rx="8" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.5"/>
+<text x="800.0" y="285.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Normalizer</text>
+<text x="800.0" y="305.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">序号去重 / 缺口检测 / 标的映射</text>
+<text x="800.0" y="325.0" font-size="11.5" fill="#2F64A3" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon EKS</text>
+<rect x="630" y="462" width="340" height="86" rx="8" fill="#FFF5E8" stroke="#E39B3F" stroke-width="1.5"/>
+<text x="800.0" y="485.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">trading-events</text>
+<text x="800.0" y="505.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">唯一事实来源 · 按 (account, instrument) 分区</text>
+<text x="800.0" y="525.0" font-size="11.5" fill="#B4691A" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon MSK · 跨 AZ 多副本 · Tiered Storage</text>
+<rect x="1110" y="462" width="220" height="86" rx="8" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.5"/>
+<text x="1220.0" y="485.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">对账</text>
+<text x="1220.0" y="505.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">日内 / 日终对账</text>
+<text x="1220.0" y="525.0" font-size="11.5" fill="#2F64A3" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon EKS · Athena</text>
+<rect x="340" y="660" width="250" height="100" rx="8" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.5"/>
+<text x="465.0" y="690.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Hot standby（另一 AZ）</text>
+<text x="465.0" y="710.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">只追到已提交 offset，不输出</text>
+<text x="465.0" y="730.0" font-size="11.5" fill="#2F64A3" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon EKS</text>
+<rect x="640" y="660" width="320" height="100" rx="8" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.5"/>
+<text x="800.0" y="690.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Position Engine（主）</text>
+<text x="800.0" y="710.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">每分区 single writer · 内存状态</text>
+<text x="800.0" y="730.0" font-size="11.5" fill="#2F64A3" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon EKS StatefulSet · EC2</text>
+<rect x="1165" y="672" width="170" height="86" rx="8" fill="#EAF7EF" stroke="#4FA36D" stroke-width="1.5"/>
+<text x="1250.0" y="695.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">选主 lease</text>
+<text x="1250.0" y="715.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">条件写</text>
+<text x="1250.0" y="735.0" font-size="11.5" fill="#2E7D4F" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon DynamoDB</text>
+<rect x="640" y="876" width="320" height="86" rx="8" fill="#FFF5E8" stroke="#E39B3F" stroke-width="1.5"/>
+<text x="800.0" y="899.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">position-updates</text>
+<text x="800.0" y="919.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">唯一权威输出 · compacted</text>
+<text x="800.0" y="939.0" font-size="11.5" fill="#B4691A" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon MSK</text>
+<rect x="1165" y="876" width="170" height="86" rx="8" fill="#EAF7EF" stroke="#4FA36D" stroke-width="1.5"/>
+<text x="1250.0" y="899.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">快照 / 归档</text>
+<text x="1250.0" y="919.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">Object Lock</text>
+<text x="1250.0" y="939.0" font-size="11.5" fill="#2E7D4F" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon S3</text>
+<rect x="300" y="1080" width="300" height="86" rx="8" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.5"/>
+<text x="450.0" y="1103.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Projector</text>
+<text x="450.0" y="1123.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">按 (generation, version) 条件写</text>
+<text x="450.0" y="1143.0" font-size="11.5" fill="#2F64A3" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon EKS</text>
+<rect x="300" y="1245" width="300" height="86" rx="8" fill="#EAF7EF" stroke="#4FA36D" stroke-width="1.5"/>
+<text x="450.0" y="1268.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">读模型</text>
+<text x="450.0" y="1288.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">Redis 缓存 + DynamoDB 持久化</text>
+<text x="450.0" y="1308.0" font-size="11.5" fill="#2E7D4F" font-weight="600" text-anchor="middle" dominant-baseline="middle">ElastiCache · DynamoDB</text>
+<rect x="300" y="1420" width="300" height="86" rx="8" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.5"/>
+<text x="450.0" y="1443.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Query API</text>
+<text x="450.0" y="1463.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">按请求选择一致性等级</text>
+<text x="450.0" y="1483.0" font-size="11.5" fill="#2F64A3" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon EKS + NLB</text>
+<rect x="940" y="1080" width="320" height="86" rx="8" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.5"/>
+<text x="1100.0" y="1103.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Repartitioner</text>
+<text x="1100.0" y="1123.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">按 account 重分区</text>
+<text x="1100.0" y="1143.0" font-size="11.5" fill="#2F64A3" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon EKS</text>
+<rect x="940" y="1195" width="320" height="78" rx="8" fill="#FFF5E8" stroke="#E39B3F" stroke-width="1.5"/>
+<text x="1100.0" y="1224.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">by-account 流</text>
+<text x="1100.0" y="1244.0" font-size="11.5" fill="#B4691A" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon MSK</text>
+<rect x="940" y="1310" width="320" height="86" rx="8" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.5"/>
+<text x="1100.0" y="1333.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Account Aggregator</text>
+<text x="1100.0" y="1353.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">按账户汇总持仓</text>
+<text x="1100.0" y="1373.0" font-size="11.5" fill="#2F64A3" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon EKS</text>
+<rect x="940" y="1420" width="320" height="86" rx="8" fill="#FFF5E8" stroke="#E39B3F" stroke-width="1.5"/>
+<text x="1100.0" y="1443.0" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">account-summary</text>
+<text x="1100.0" y="1463.0" font-size="12.5" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">账户汇总 · compacted</text>
+<text x="1100.0" y="1483.0" font-size="11.5" fill="#B4691A" font-weight="600" text-anchor="middle" dominant-baseline="middle">Amazon MSK</text>
+<path d="M 230 130 L 330 262" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="266" y="194" font-size="12" fill="#374151" font-weight="normal" text-anchor="end" dominant-baseline="middle">订单请求</text>
+<path d="M 530 130 L 410 262" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="494" y="186" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">交易所回报</text>
+<text x="494" y="203" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">成交 / bust / correct</text>
+<path d="M 850 130 L 500 262" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="748" y="180" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">交易日切换 / 拆股合股</text>
+<text x="748" y="197" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">每个分区各写一条</text>
+<path d="M 520 305 L 640 305" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<path d="M 800 348 L 800 462" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="812" y="392" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">标准化事件</text>
+<text x="812" y="409" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">+ watermark：数据完整到哪一刻</text>
+<path d="M 1300 130 L 1300 462" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1288" y="288" font-size="12" fill="#374151" font-weight="normal" text-anchor="end" dominant-baseline="middle">按 (venue, exec_id)</text>
+<text x="1288" y="305" font-size="12" fill="#374151" font-weight="normal" text-anchor="end" dominant-baseline="middle">逐字段比对</text>
+<path d="M 970 505 L 1110 505" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<path d="M 800 548 L 800 660" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="812" y="600" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">按分区顺序消费</text>
+<path d="M 660 548 L 560 660" fill="none" stroke="#4B5563" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<text x="588" y="590" font-size="12" fill="#374151" font-weight="normal" text-anchor="end" dominant-baseline="middle">跟随消费</text>
+<path d="M 960 710 L 1165 715" fill="none" stroke="#4B5563" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+<text x="972" y="694" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">主备通过 lease 选主</text>
+<path d="M 800 760 L 800 876" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="812" y="806" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">持仓变更 + 进度记录</text>
+<text x="812" y="823" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">与输入 offset 同一事务提交</text>
+<path d="M 960 748 L 1165 905" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1120" y="818" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">提交边界的快照</text>
+<path d="M 700 962 L 700 1123 L 600 1123" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<path d="M 900 962 L 900 1123 L 940 1123" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<path d="M 450 1166 L 450 1245" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<path d="M 450 1331 L 450 1420" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<path d="M 1100 1166 L 1100 1195" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1112" y="1180" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">同一账户落到同一分区</text>
+<path d="M 1100 1273 L 1100 1310" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<path d="M 1100 1396 L 1100 1420" fill="none" stroke="#4B5563" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1112" y="1407" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">多空敞口 / 在途挂单 / 已实现盈亏</text>
+<path d="M 740 760 L 740 820 L 160 820 L 160 1463 L 300 1463" fill="none" stroke="#4B5563" stroke-width="1.6" stroke-dasharray="2 4" marker-end="url(#ah)"/>
+<text x="172" y="900" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">STRONG / CAUSAL 读</text>
+<text x="172" y="917" font-size="12" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">直连引擎 leader</text>
+<rect x="200" y="1573" width="44" height="24" rx="5" fill="#F8FAFC" stroke="#475569" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="254" y="1585" font-size="12.5" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">虚线框：该层部署所用的 AWS 服务</text>
+<rect x="560" y="1575" width="30" height="20" rx="4" fill="#EAF2FC" stroke="#4F86C6" stroke-width="1.4"/>
+<text x="600" y="1585" font-size="12.5" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">计算组件</text>
+<rect x="730" y="1575" width="30" height="20" rx="4" fill="#FFF5E8" stroke="#E39B3F" stroke-width="1.4"/>
+<text x="770" y="1585" font-size="12.5" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">Kafka topic</text>
+<rect x="900" y="1575" width="30" height="20" rx="4" fill="#EAF7EF" stroke="#4FA36D" stroke-width="1.4"/>
+<text x="940" y="1585" font-size="12.5" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">存储 / 数据库</text>
+<rect x="1070" y="1575" width="30" height="20" rx="4" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="1.4"/>
+<text x="1110" y="1585" font-size="12.5" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">外部系统</text>
+<path d="M 1240 1585 L 1290 1585" stroke="#4B5563" stroke-width="1.6" stroke-dasharray="2 4" marker-end="url(#ah)"/>
+<text x="1298" y="1585" font-size="12.5" fill="#374151" font-weight="normal" text-anchor="start" dominant-baseline="middle">同步读</text>
+</svg>

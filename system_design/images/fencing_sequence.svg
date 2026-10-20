@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="860" viewBox="0 0 1000 860" font-family="-apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif">
+<title>Position Engine fencing 时序：standby B 接管分区 17 后，旧主实例 A 的提交被拒绝</title>
+<defs><marker id="m-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#475569"/></marker><marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2563EB"/></marker><marker id="m-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#DC2626"/></marker><marker id="m-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#D97706"/></marker><marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#16A34A"/></marker><marker id="m-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#94A3B8"/></marker></defs>
+<rect width="1000" height="860" fill="#FFFFFF"/>
+<text x="500.0" y="22" font-size="15" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Position Engine 分区 17 的主备切换</text>
+<text x="500.0" y="44" font-size="12.5" fill="#475569" font-weight="normal" text-anchor="middle" dominant-baseline="middle">A、B 是负责同一个分区的两个引擎实例，共用 transactional.id = pos-engine-17</text>
+<rect x="16" y="66" width="308" height="66" rx="10" fill="none" stroke="#2563EB" stroke-width="1.4" stroke-dasharray="6 4"/>
+<rect x="79.4" y="57.0" width="181.3" height="18" fill="#FFFFFF"/>
+<text x="170" y="66" font-size="12" fill="#2563EB" font-weight="600" text-anchor="middle" dominant-baseline="middle">Position Engine（分区 17）</text>
+<line x1="95" y1="124" x2="95" y2="812" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="245" y1="124" x2="245" y2="812" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="395" y1="124" x2="395" y2="812" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="555" y1="124" x2="555" y2="812" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="720" y1="124" x2="720" y2="812" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="900" y1="124" x2="900" y2="812" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="25.0" y="74" width="140" height="50" rx="8" fill="#FEF2F2" stroke="#F87171" stroke-width="1.5"/>
+<text x="95" y="93" font-size="14" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">引擎旧主实例 A</text>
+<text x="95" y="112" font-size="12" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">原 leader，epoch 7</text>
+<rect x="175.0" y="74" width="140" height="50" rx="8" fill="#EFF6FF" stroke="#60A5FA" stroke-width="1.5"/>
+<text x="245" y="93" font-size="14" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">引擎 standby B</text>
+<text x="245" y="112" font-size="12" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">另一个 AZ</text>
+<rect x="325.0" y="74" width="140" height="50" rx="8" fill="#F0FDF4" stroke="#4ADE80" stroke-width="1.5"/>
+<text x="395" y="93" font-size="14" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">DynamoDB</text>
+<text x="395" y="112" font-size="12" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">lease 表</text>
+<rect x="475.0" y="74" width="160" height="50" rx="8" fill="#FFF7ED" stroke="#FB923C" stroke-width="1.5"/>
+<text x="555" y="93" font-size="14" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">Kafka 事务协调者</text>
+<text x="555" y="112" font-size="12" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">维护 producer epoch</text>
+<rect x="650.0" y="74" width="140" height="50" rx="8" fill="#FFFBEB" stroke="#F59E0B" stroke-width="1.5"/>
+<text x="720" y="93" font-size="14" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">position-updates</text>
+<text x="720" y="112" font-size="12" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">分区 17</text>
+<rect x="830.0" y="74" width="140" height="50" rx="8" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5"/>
+<text x="900" y="93" font-size="14" fill="#111827" font-weight="600" text-anchor="middle" dominant-baseline="middle">下游消费者</text>
+<text x="900" y="112" font-size="12" fill="#4B5563" font-weight="normal" text-anchor="middle" dominant-baseline="middle">read_committed</text>
+<line x1="98" y1="165" x2="717" y2="165" stroke="#475569" stroke-width="1.6" marker-end="url(#m-gray)"/>
+<rect x="281.4" y="144.8" width="252.2" height="18.5" fill="#FFFFFF"/>
+<text x="407.5" y="154" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">① 事务 T1 写入中（epoch 7，尚未提交）</text>
+<rect x="3.0" y="192" width="184" height="30" rx="6" fill="#FFF7ED" stroke="#FDBA74"/>
+<text x="95" y="207" font-size="12" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">② A 卡在 GC，lease 未续约</text>
+<line x1="248" y1="255" x2="392" y2="255" stroke="#2563EB" stroke-width="1.6" marker-end="url(#m-blue)"/>
+<rect x="261.0" y="234.8" width="118.0" height="18.5" fill="#FFFFFF"/>
+<text x="320.0" y="244" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">③ 条件写 owner=B</text>
+<line x1="392" y1="288" x2="248" y2="288" stroke="#94A3B8" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#m-muted)"/>
+<rect x="245.9" y="267.8" width="148.2" height="18.5" fill="#FFFFFF"/>
+<text x="320.0" y="277" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">成功，B 成为新 leader</text>
+<line x1="248" y1="332" x2="552" y2="332" stroke="#2563EB" stroke-width="1.6" marker-end="url(#m-blue)"/>
+<rect x="276.4" y="311.8" width="247.2" height="18.5" fill="#FFFFFF"/>
+<text x="400.0" y="321" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">④ initTransactions(pos-engine-17)</text>
+<rect x="432.0" y="357" width="246" height="30" rx="6" fill="#FFF7ED" stroke="#FDBA74"/>
+<text x="555" y="372" font-size="12" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">⑤ epoch 7 → 8，作废 A 未提交的 T1</text>
+<line x1="14" y1="405" x2="986" y2="405" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="8 5"/>
+<rect x="14.0" y="396.0" width="268.4" height="18" fill="#FFFFFF"/>
+<text x="18" y="405" font-size="12" fill="#DC2626" font-weight="600" text-anchor="start" dominant-baseline="middle">fence 生效：此后带 epoch 7 的请求一律被拒</text>
+<line x1="558" y1="438" x2="717" y2="438" stroke="#D97706" stroke-width="1.6" marker-end="url(#m-orange)"/>
+<rect x="555.1" y="417.8" width="164.8" height="18.5" fill="#FFFFFF"/>
+<text x="637.5" y="427" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">⑥ 写入 T1 的 abort 标记</text>
+<line x1="552" y1="472" x2="248" y2="472" stroke="#94A3B8" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#m-muted)"/>
+<rect x="312.0" y="451.8" width="176.0" height="18.5" fill="#FFFFFF"/>
+<text x="400.0" y="461" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">返回：producer epoch = 8</text>
+<rect x="114.0" y="495" width="262" height="30" rx="6" fill="#EFF6FF" stroke="#93C5FD"/>
+<text x="245" y="510" font-size="12" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">⑦ 读已提交 offset C，恢复并重放到 C</text>
+<line x1="248" y1="558" x2="717" y2="558" stroke="#2563EB" stroke-width="1.6" marker-end="url(#m-blue)"/>
+<rect x="323.1" y="537.8" width="318.8" height="18.5" fill="#FFFFFF"/>
+<text x="482.5" y="547" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">⑧ 事务 T2：从 C+1 继续处理，提交成功（epoch 8）</text>
+<rect x="3.0" y="587" width="184" height="30" rx="6" fill="#FFF7ED" stroke="#FDBA74"/>
+<text x="95" y="602" font-size="12" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">⑨ A 醒来，继续提交 T1</text>
+<line x1="98" y1="650" x2="552" y2="650" stroke="#475569" stroke-width="1.6" marker-end="url(#m-gray)"/>
+<rect x="221.5" y="629.8" width="207.0" height="18.5" fill="#FFFFFF"/>
+<text x="325.0" y="639" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">commitTransaction（epoch 7）</text>
+<line x1="552" y1="688" x2="98" y2="688" stroke="#DC2626" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#m-red)"/>
+<rect x="204.8" y="667.8" width="240.5" height="18.5" fill="#FFFFFF"/>
+<text x="325.0" y="677" font-size="12.5" fill="#DC2626" font-weight="600" text-anchor="middle" dominant-baseline="middle">ProducerFenced：epoch 已过期，拒绝</text>
+<rect x="0.0" y="717" width="190" height="30" rx="6" fill="#FEF2F2" stroke="#FCA5A5"/>
+<text x="95" y="732" font-size="12" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">⑩ 停止读写，重启后当 standby</text>
+<line x1="723" y1="784" x2="897" y2="784" stroke="#16A34A" stroke-width="1.6" marker-end="url(#m-green)"/>
+<rect x="739.5" y="763.8" width="141.0" height="18.5" fill="#FFFFFF"/>
+<text x="810.0" y="773" font-size="12.5" fill="#1F2937" font-weight="normal" text-anchor="middle" dominant-baseline="middle">⑪ 只交付 T2，跳过 T1</text>
+<text x="500" y="842" font-size="12" fill="#64748B" font-weight="normal" text-anchor="middle" dominant-baseline="middle">注：epoch 数值为示例。A 的提交和 B 的 initTransactions 由协调者串行处理，只会有一个先生效。</text>
+</svg>
