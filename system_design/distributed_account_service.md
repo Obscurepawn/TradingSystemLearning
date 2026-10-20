@@ -165,7 +165,9 @@ Normalizer、Repartitioner、Account Aggregator 也用 Kafka 事务做 consume-p
 
 常见的写法是引擎写 `position-updates` 之前先确认自己还持有这个分区的 lease。问题出在确认和写入之间的空档：A 刚确认 lease 有效，就进入一次 10 秒的 GC；这期间 lease 过期，B 接管并开始写；A 醒来后不会再确认一次，直接把手里那批数据写出去。这时两个引擎实例在同时写 `position-updates` 的同一个分区，下游看到的持仓会重复或错乱。
 
-只要是"先检查、再写"，这个空档就一定存在，把 lease 调短只能让它变小。下游按 epoch 过滤也挡不住：新主还没输出任何东西时，下游见过的最大 epoch 仍然是旧主的。所以检查必须放在写入发生的那一刻，由存储端来做，直接拒绝旧写者的请求。这就是 fencing。
+只要是"先检查、再写"，这个空档就一定存在，把 lease 调短只能让它变小。
+
+要做到确保旧实例一定无法写入，就需要用到MKS的fencing能力：每次 producer 启动并调用 initTransactions()，kafka 协调者就把 epoch 加 1。这样同一个 transactional.id 的旧 producer 手里的 epoch 就过期了，它之后的写和提交都会收到 ProducerFencedException
 
 ### 5.2 选主和隔离分开
 
