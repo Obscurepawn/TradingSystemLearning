@@ -1,0 +1,21 @@
+---
+title: Binance 本地订单簿：先订后拍、序号对齐与缺口重建
+---
+sequenceDiagram
+    participant L as 本地订单簿
+    participant W as WebSocket diff 流
+    participant R as REST 深度快照
+    L->>W: 先订阅 depth，到达事件先缓存不应用
+    L->>R: 再请求一次深度快照
+    R-->>L: 返回快照，含最后更新号 S 与各档买卖盘
+    Note over L: 丢弃结束号早于 S 的缓存旧事件
+    Note over L: 找到第一条与 S 相邻、能接上的事件作为起点
+    L->>L: 安装快照为初始簿，应用起点事件，游标记为其结束号
+    loop 此后每条 diff depth
+        W-->>L: 推送更新区间、起始号到结束号、以及买卖盘绝对量
+        alt 区间紧跟上一条之后，连续
+            L->>L: 按价位覆盖数量，数量为零则删档，推进游标
+        else 区间与上一条之间出现缺口
+            L->>L: 冻结并停用该簿，重新取快照再走一遍对齐
+        end
+    end

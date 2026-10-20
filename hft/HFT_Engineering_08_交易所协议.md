@@ -253,9 +253,56 @@ Hyperliquid 运行在自有 L1 上，交易请求统一 POST 到 /exchange，bod
 
 断线恢复要按具体协议核对订单和成交，不能把网关响应统一解释为“仅接受请求”：Hyperliquid 的同步订单响应就可以包含 `resting`、`filled` 或 `error`，HTTP 200 本身不足以判断成交。客户端按 `clientId`、`cloid` 或场所订单号关联请求、推送和查询结果，重复出现的成交只入账一次。Hyperliquid 的 nonce 还承担防重放功能，已使用的值会被拒绝；请求超时后先查原订单结果，只有业务上确实要提交另一笔操作时才生成新请求，直接换 nonce 重发相同买单可能造成重复成交。[Hyperliquid 响应结构](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint)、[nonce 规则](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets)
 
-### 4.6 中心化交易所的 WebSocket 行情数据流
+### 4.6 中心化交易所的 WebSocket 行情与执行回报（Binance 现货）
 
-作为对照，中心化交易所（以 Binance 现货为例）用 WebSocket 推公开深度行情、用 Restful API 取快照。初始化必须先启动订阅再请求快照，否则快照形成之后、本地开始接收之前的增量会丢失。快照带 lastUpdateId，随后的 diff depth 消息用 U、u 标出更新区间，里面每个价位给的是新的绝对数量（不是累加），数量为 0 表示删除该档；连续性被打断（U 越过本地游标）就冻结该簿、重新取快照衔接。私有执行报告里 c 是客户订单号、i 是场所订单号、l 是本次成交量、z 是累计成交量，本次只按 l 入账，z 用于核对，重连查询和推送里重复出现的同一笔成交只记一次。
+作为对照，中心化交易所（以 Binance 现货为例）行情和交易都用 JSON：公开深度行情走 WebSocket 推送，完整快照走 RESTful API 拉取，私有订单回报走需要鉴权的用户数据流。前面那些看不懂的 `U`、`u`、`c`、`l`、`z` 不是新协议概念，只是 JSON 里为了省字节用的单字母字段名，先看原始报文再逐个对上含义就清楚了。
+
+先看公开行情。一条 diff depth（深度增量）推送长这样：
+
+```json
+{
+  "e": "depthUpdate",
+  "E": 1578965423000,
+  "s": "BTCUSDT",
+  "U": 157,
+  "u": 160,
+  "b": [ ["186.40", "1.20"], ["186.30", "0.00"] ],
+  "a": [ ["186.50", "0.80"] ]
+}
+```
+
+字段逐个对应：`e` 是事件类型（depthUpdate 深度变更），`E` 是事件时间，`s` 是交易对；`U` 是这批变更覆盖区间的第一个更新号，`u` 是这批变更覆盖区间的最后一个更新号；`b`（bids）是发生变化的买盘、`a`（asks）是发生变化的卖盘，每个元素是 `[价格, 数量]` 的二元数组。两个要点：价格和数量都用字符串而不是浮点数，是为了避免十进制小数在二进制浮点里的精度问题；数量给的是该价位变更后的**绝对新数量**，不是“在原来基础上加多少”，所以 `"186.30"` 这一档数量给 `"0.00"` 就表示把这个价位整档删掉，而不是减成负数。
+
+完整簿不是推出来的，要先用 REST 拉一次快照，快照的关键字段是 `lastUpdateId`（记成 S，表示这份簿在更新号 S 时刻的状态）：
+
+```json
+{
+  "lastUpdateId": 160,
+  "bids": [ ["186.40", "2.00"], ["186.30", "0.50"] ],
+  "asks": [ ["186.50", "1.00"], ["186.60", "0.70"] ]
+}
+```
+
+本地把“快照 + 之后的增量”拼成实时簿，难点是增量从哪一条开始接才不漏不重。初始化必须**先开 WebSocket 订阅、再请求 REST 快照**：先开流并把这段时间到达的增量全部缓存起来（此时还不知道基线，不能直接往簿上改），拿到快照 S 之后再从缓存里挑出与 S 相邻的那条作为起点。官方对齐规则是：先丢弃缓存里 `u ≤ S` 的旧事件（这些变化已经包含在快照里）；要应用的第一条事件必须同时满足 `U ≤ S+1` 且 `u ≥ S+1`，即它的区间跨过快照的下一个位置；装好快照、应用这条起点事件后，把本地游标更新为它的 `u`。此后每来一条新事件，都要求它的 `U` 正好等于上一条的 `u + 1` 才应用并推进游标；一旦 `U > 上一条 u + 1`，说明中间漏了更新，本地簿已经无法靠后续增量补回，必须立刻冻结这份簿、重新“订阅—拉快照—对齐”整套重来。
+
+[![先订阅并缓存增量、再取快照、丢弃旧事件，按 U/u 找到与快照相邻的起点；之后逐事件校验连续，发现缺口就冻结重建](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/main/hft/assets/hft-08/binance-book-sync.png)](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/main/hft/assets/hft-08/binance-book-sync.png)
+
+用一组数字串一遍：快照 S=100；缓存里先来一条 `U=98,u=99`，因为 `u ≤ 100` 直接丢弃；下一条 `U=100,u=101` 同时满足 `100 ≤ 101` 和 `101 ≥ 101`，它就是起点，应用后游标=101；再来 `U=102,u=103`，`102 = 101+1` 连续，应用后游标=103；若之后直接收到 `U=106,u=107`，期望值是 104，`106 > 104`，更新号 104、105 丢了，立即重建。这套“快照定基线、增量带区间号、连续性断了就重拍快照”的思路，和前面 Nasdaq 的 GLIMPSE、CME 的 Market Recovery 是同一个模式，只是序号从二进制字段换成了 JSON 里的 `U/u`。
+
+再看私有执行报告。订单状态变化通过用户数据流推一条 `executionReport`，和订单相关的字段同样是短字母：
+
+```json
+{
+  "e": "executionReport", "s": "BTCUSDT",
+  "c": "x-LOCAL-7788", "i": 4293153,
+  "x": "TRADE", "X": "PARTIALLY_FILLED",
+  "S": "BUY", "p": "186.40", "q": "1.00",
+  "l": "0.40", "z": "0.40", "L": "186.40", "t": 88124,
+  "T": 1578965423000
+}
+```
+
+对应到前面各场所的同一套概念：`c`（clientOrderId）是客户下单时自带的订单号，作用等于 FIX 的 ClOrdID；`i`（orderId）是平台分配的场所订单号；`x` 是本次执行类型、`X` 是订单当前状态（NEW/PARTIALLY_FILLED/FILLED/CANCELED 等）；`l`（last executed quantity）是**这一次**成交的数量，`L` 是本次成交价，`z`（cumulative filled）是截至现在的累计成交量，`t`（trade ID）是这笔成交的编号。入账只按本次量 `l` 累加，绝不能直接用累计量 `z`：一笔 1.00 的买单分两次成交，第一笔 `l=0.40,z=0.40`、第二笔 `l=0.60,z=1.00`，按 `l` 加总正好 1.00，若按 `z` 记就变成 0.40+1.00=1.40。`z` 只用来在重连或对账时核对“我本地累计的量和平台是否一致”；去重则以成交编号 `t` 为准——断线重连后的查询结果和实时推送可能重复返回同一笔成交，同一个 `t` 只入账一次。这与 FIX 里用 ExecID、深交所用成交记录号去重完全是一回事。
 
 ## 5. 各类市场的协议与完成点对比
 
@@ -297,7 +344,7 @@ Hyperliquid 运行在自有 L1 上，交易请求统一 POST 到 /exchange，bod
 21. [Hyperliquid Exchange Endpoint](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint)：order/cancel action、nonce 与签名。
 22. [Hyperliquid Nonces and API Wallets](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets)：每地址 nonce 窗口。
 23. [Hyperliquid WebSocket Subscriptions](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions)：l2Book、orderUpdates、userFills。
-24. [Binance Spot WebSocket Streams](https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md)：lastUpdateId、U/u 区间与绝对量覆盖。
+24. [Binance Spot Diff Book Depth Streams](https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams/diff-book-depth-streams)（[GitHub 版](https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md)）：lastUpdateId、U/u 区间、绝对量覆盖与本地簿对齐步骤；[User Data Streams](https://developers.binance.com/docs/binance-spot-api-docs/user-data-stream)：executionReport 的 c/i/x/X/l/z/L/t 字段。
 25. [Coinbase Markets Trading Rules](https://www.coinbase.com/legal/trading_rules) 与 [Exchange Matching Engine](https://docs.cdp.coinbase.com/exchange/concepts/matching-engine)：余额占用、订单撮合、账户余额结算和订单状态。
 26. [Coinbase Exchange 充值流程](https://help.coinbase.com/en/exchange/crypto-transfers/depositing-to-coinbase-exchange)：链上转入平台地址与账户充值。
 27. [How Uniswap Works](https://developers.uniswap.org/docs/get-started/concepts/how-uniswap-works) 与 [Understanding Swaps](https://developers.uniswap.org/docs/get-started/concepts/traders/swaps)：LP、资金池、费用、兑换执行与输入输出约束。
