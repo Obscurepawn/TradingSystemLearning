@@ -6,7 +6,7 @@
 <line x1="70" y1="246" x2="1210" y2="246" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3 4"/>
 <text x="70" y="240" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="start">理想位置：</text>
 <rect x="180" y="150" width="240" height="56" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="2" opacity="1.0"/>
-<text x="300" y="176" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#dc2626" text-anchor="middle">请求 N（元凶，处理越限）</text>
+<text x="300" y="176" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#dc2626" text-anchor="middle">请求 N（元凶，处理超标）</text>
 <text x="300" y="196" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#dc2626" text-anchor="middle">+ 同步快照成本 C</text>
 <rect x="436" y="150" width="80" height="56" rx="6" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6" opacity="1.0"/>
 <text x="476" y="183" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#c2410c" text-anchor="middle">N+1</text>
@@ -35,7 +35,7 @@
 <text x="220" y="338" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#15243b" text-anchor="start">1M pps、C = 5µs  →  约 5 个无辜请求被拖慢；利用率 ρ 越接近 1，排空越慢，污染被放大</text>
 <text x="70" y="404" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="17" font-weight="600" fill="#059669" text-anchor="start">✓ 热核上只做纳秒四件事：写 ring → 比阈值 → 一次原子 store → 保存寄存器/TSC</text>
 <rect x="180" y="436" width="150" height="52" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="2" opacity="1.0"/>
-<text x="255" y="460" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#dc2626" text-anchor="middle">请求 N 越限</text>
+<text x="255" y="460" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#dc2626" text-anchor="middle">请求 N 超标</text>
 <text x="255" y="480" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#dc2626" text-anchor="middle">原子发布 ~5ns</text>
 <rect x="346" y="436" width="72" height="52" rx="6" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.4" opacity="1.0"/>
 <text x="382" y="468" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">N+1</text>
@@ -47,6 +47,6 @@
 <text x="634" y="468" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">N+4</text>
 <rect x="720" y="430" width="470" height="64" rx="9" fill="#f0fdf4" stroke="#6ee7b7" stroke-width="1.6" opacity="1.0"/>
 <text x="744" y="456" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#059669" text-anchor="start">栈回溯、符号化、压缩、落盘、全量 PMU 读取</text>
-<text x="744" y="480" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#15243b" text-anchor="start">全部 offload 到遥测核；会消失的现场靠常驻 tracepoint 自己留痕</text>
+<text x="744" y="480" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#15243b" text-anchor="start">全部 offload 到监控核；会消失的现场靠常驻 tracepoint 自己留痕</text>
 <line x1="334" y1="462" x2="714" y2="462" stroke="#059669" stroke-width="2" marker-end="url(#ah)"/>
 </svg>

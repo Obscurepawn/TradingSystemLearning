@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
 <rect x="0" y="0" width="1280" height="720" fill="#ffffff"/>
 <text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">常驻黑匣子 + 阈值快照：保证那一次一定被录下来</text>
-<text x="44" y="80" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">热路径上只允许做纳秒级的四件事；冻结现场、回溯、落盘全部交给独立的遥测核</text>
+<text x="44" y="80" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">热路径上只允许做纳秒级的四件事；冻结现场、回溯、落盘全部交给独立的监控核</text>
 <rect x="60" y="130" width="168" height="60" rx="9" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6" opacity="1.0"/>
 <text x="144.0" y="168" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#2563eb" text-anchor="middle">RX 收包</text>
 <line x1="232" y1="160.0" x2="258" y2="160.0" stroke="#2563eb" stroke-width="2" marker-end="url(#ah)"/>
@@ -48,7 +48,7 @@
 <line x1="838" y1="220" x2="660" y2="300" stroke="#dc2626" stroke-width="1.4" stroke-dasharray="5 4"/>
 <text x="660" y="286" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#dc2626" text-anchor="middle">热线程立即去处理下一请求，不等任何东西</text>
 <rect x="852" y="300" width="388" height="320" rx="12" fill="#f0fdf4" stroke="#6ee7b7" stroke-width="1.8" opacity="1.0"/>
-<text x="1046.0" y="334" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#059669" text-anchor="middle">遥测核（独立物理核，SCHED_FIFO 低优先级）</text>
+<text x="1046.0" y="334" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#059669" text-anchor="middle">监控核（独立物理核，SCHED_FIFO 低优先级）</text>
 <text x="876" y="376" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">① 轮询原子标志 / eventfd 被唤醒</text>
 <text x="876" y="420" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">② write trace_marker：seq + 裸 TSC</text>
 <text x="876" y="464" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">③ echo 1 &gt; snapshot：内核原子交换缓冲指针</text>

@@ -272,7 +272,7 @@ def fig_three_layers():
 # ---------------------------------------------------------------- fig 5
 def fig_flight_recorder():
     s = Svg(1280, 720, "常驻黑匣子 + 阈值快照：保证那一次一定被录下来",
-            "热路径上只允许做纳秒级的四件事；冻结现场、回溯、落盘全部交给独立的遥测核")
+            "热路径上只允许做纳秒级的四件事；冻结现场、回溯、落盘全部交给独立的监控核")
     stages = ["RX 收包", "解析", "决策", "风控", "TX 发单"]
     bx, by, bw, h, gap = 60, 130, 168, 60, 34
     for i, st_ in enumerate(stages):
@@ -312,7 +312,7 @@ def fig_flight_recorder():
     # telemetry core
     tx, ty, tw, th = 852, 300, 388, 320
     s.rect(tx, ty, tw, th, GREEN_BG, GREEN_BD, 1.8, rx=12)
-    s.text(tx + tw / 2, ty + 34, "遥测核（独立物理核，SCHED_FIFO 低优先级）", 16, True, GREEN, "middle")
+    s.text(tx + tw / 2, ty + 34, "监控核（独立物理核，SCHED_FIFO 低优先级）", 16, True, GREEN, "middle")
     steps = [
         "① 轮询原子标志 / eventfd 被唤醒",
         "② write trace_marker：seq + 裸 TSC",
@@ -343,7 +343,7 @@ def fig_head_of_line():
     s.text(70, ideal_y - 6, "理想位置：", 12, color=MUTED)
     # N extended
     s.rect(180, y, 240, 56, RED_BG, RED, 2, rx=6)
-    s.text(300, y + 26, "请求 N（元凶，处理越限）", 14, True, RED, "middle")
+    s.text(300, y + 26, "请求 N（元凶，处理超标）", 14, True, RED, "middle")
     s.text(300, y + 46, "+ 同步快照成本 C", 13, color=RED, anchor="middle")
     # delayed followers
     for i, lab in enumerate(["N+1", "N+2", "N+3", "N+4"]):
@@ -366,7 +366,7 @@ def fig_head_of_line():
     s.text(70, 404, "✓ 热核上只做纳秒四件事：写 ring → 比阈值 → 一次原子 store → 保存寄存器/TSC", 17, True, GREEN)
     y2 = 436
     s.rect(180, y2, 150, 52, RED_BG, RED, 2, rx=6)
-    s.text(255, y2 + 24, "请求 N 越限", 14, True, RED, "middle")
+    s.text(255, y2 + 24, "请求 N 超标", 14, True, RED, "middle")
     s.text(255, y2 + 44, "原子发布 ~5ns", 12, color=RED, anchor="middle")
     for i, lab in enumerate(["N+1", "N+2", "N+3", "N+4"]):
         x = 346 + i * 84
@@ -374,7 +374,7 @@ def fig_head_of_line():
         s.text(x + 36, y2 + 32, lab, 14, True, BLUE, "middle")
     s.rect(720, y2 - 6, 470, 64, GREEN_BG, GREEN_BD, 1.6, rx=9)
     s.text(744, y2 + 20, "栈回溯、符号化、压缩、落盘、全量 PMU 读取", 14, True, GREEN)
-    s.text(744, y2 + 44, "全部 offload 到遥测核；会消失的现场靠常驻 tracepoint 自己留痕", 13, color=INK)
+    s.text(744, y2 + 44, "全部 offload 到监控核；会消失的现场靠常驻 tracepoint 自己留痕", 13, color=INK)
     s.arrow(334, y2 + 26, 714, y2 + 26, GREEN, 2)
     s.save("jitter-06-head-of-line-blocking")
 
