@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="540" viewBox="0 0 1280 540">
+<rect x="0" y="0" width="1280" height="540" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">为什么 profiler 永远抓不到那一下</text>
+<text x="44" y="80" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">采样是抽签：尖峰只活 40µs，而探针一毫秒才路过一次，撞上它的概率和它本身的概率一样低</text>
+<text x="70" y="168" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="17" font-weight="600" fill="#15243b" text-anchor="start">请求流</text>
+<text x="70" y="190" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">2µs / 次</text>
+<rect x="180" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="197" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="214" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="231" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="248" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="265" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="282" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="299" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="316" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="333" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="350" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="367" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="384" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="401" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="418" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="435" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="452" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="469" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="486" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="503" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="520" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="537" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="554" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="571" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="588" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="605" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="622" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="639" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="741" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="758" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="775" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="792" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="809" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="826" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="843" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="860" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="877" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="894" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="911" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="928" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="945" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="962" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="979" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="996" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1013" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1030" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1047" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1064" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1081" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1098" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1115" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1132" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1149" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="1166" y="175" width="13" height="34" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1" opacity="1.0"/>
+<rect x="652" y="169" width="96" height="46" rx="4" fill="#fef2f2" stroke="#dc2626" stroke-width="2" opacity="1.0"/>
+<text x="700" y="159" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#dc2626" text-anchor="middle">40µs 尖峰</text>
+<text x="700" y="241" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#dc2626" text-anchor="middle">约 5 万次请求里才有一次（时间轴已压缩）</text>
+<line x1="180" y1="261" x2="1180" y2="261" stroke="#64748b" stroke-width="1.2"/>
+<text x="70" y="325" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="17" font-weight="600" fill="#15243b" text-anchor="start">profiler</text>
+<text x="70" y="347" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">~1ms 采一次</text>
+<line x1="230" y1="296" x2="230" y2="356" stroke="#7c3aed" stroke-width="2"/>
+<path d="M224,348 L230,360 L236,348 Z" fill="#7c3aed"/>
+<text x="230" y="382" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#7c3aed" text-anchor="middle">采样</text>
+<line x1="350" y1="296" x2="350" y2="356" stroke="#7c3aed" stroke-width="2"/>
+<path d="M344,348 L350,360 L356,348 Z" fill="#7c3aed"/>
+<text x="350" y="382" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#7c3aed" text-anchor="middle">采样</text>
+<line x1="470" y1="296" x2="470" y2="356" stroke="#7c3aed" stroke-width="2"/>
+<path d="M464,348 L470,360 L476,348 Z" fill="#7c3aed"/>
+<text x="470" y="382" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#7c3aed" text-anchor="middle">采样</text>
+<line x1="590" y1="296" x2="590" y2="356" stroke="#7c3aed" stroke-width="2"/>
+<path d="M584,348 L590,360 L596,348 Z" fill="#7c3aed"/>
+<text x="590" y="382" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#7c3aed" text-anchor="middle">采样</text>
+<line x1="830" y1="296" x2="830" y2="356" stroke="#7c3aed" stroke-width="2"/>
+<path d="M824,348 L830,360 L836,348 Z" fill="#7c3aed"/>
+<text x="830" y="382" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#7c3aed" text-anchor="middle">采样</text>
+<line x1="950" y1="296" x2="950" y2="356" stroke="#7c3aed" stroke-width="2"/>
+<path d="M944,348 L950,360 L956,348 Z" fill="#7c3aed"/>
+<text x="950" y="382" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#7c3aed" text-anchor="middle">采样</text>
+<line x1="1070" y1="296" x2="1070" y2="356" stroke="#7c3aed" stroke-width="2"/>
+<path d="M1064,348 L1070,360 L1076,348 Z" fill="#7c3aed"/>
+<text x="1070" y="382" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#7c3aed" text-anchor="middle">采样</text>
+<line x1="652" y1="290" x2="748" y2="290" stroke="#dc2626" stroke-width="1.6"/>
+<text x="700" y="282" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#dc2626" text-anchor="middle">尖峰存活窗口</text>
+<text x="590" y="272" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">最近的一次采样也差了 0.4ms</text>
+<rect x="180" y="430" width="1000" height="74" rx="10" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1.4" opacity="1.0"/>
+<text x="210" y="462" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="start">采样间隔 1ms  ≫  尖峰宽度 40µs：它落在你采样间隔里的概率不到 4%；</text>
+<text x="210" y="490" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="400" fill="#15243b" text-anchor="start">就算真撞上了，等你看到报表、attach 上去，那次抖动早就结束了——案发现场只存在于它发生的那几十微秒</text>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="500" viewBox="0 0 1280 500">
+<rect x="0" y="0" width="1280" height="500" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">一个经典签名：TSC 在走，CPU 计数器停了</text>
+<text x="44" y="80" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">HLT/MWAIT 进 C-state 深睡时，所有 UNHALTED 事件冻结而 TSC 不停；醒过来还要交一笔退出税</text>
+<text x="70" y="168" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="start">TSC</text>
+<text x="70" y="192" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="start">（墙上时间）</text>
+<rect x="150" y="150" width="1000" height="40" rx="8" fill="#f0fdf4" stroke="#059669" stroke-width="2" opacity="1.0"/>
+<line x1="150.0" y1="150" x2="150.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="250.0" y1="150" x2="250.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="350.0" y1="150" x2="350.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="450.0" y1="150" x2="450.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="550.0" y1="150" x2="550.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="650.0" y1="150" x2="650.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="750.0" y1="150" x2="750.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="850.0" y1="150" x2="850.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="950.0" y1="150" x2="950.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="1050.0" y1="150" x2="1050.0" y2="190" stroke="#059669" stroke-width="1"/>
+<line x1="1150.0" y1="150" x2="1150.0" y2="190" stroke="#059669" stroke-width="1"/>
+<text x="1134" y="175" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#059669" text-anchor="end">连续、单调，谁也停不下来</text>
+<text x="70" y="308" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="start">UNHALTED</text>
+<text x="70" y="332" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="start">cycles/ref-cycles</text>
+<rect x="150" y="290" width="450" height="40" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2" opacity="1.0"/>
+<rect x="760" y="290" width="390" height="40" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2" opacity="1.0"/>
+<rect x="600" y="290" width="160" height="40" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="2" opacity="1.0"/>
+<text x="680.0" y="315" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#c2410c" text-anchor="middle">halt：HLT/MWAIT 进入 C1~C6</text>
+<text x="170" y="315" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#2563eb" text-anchor="start">正常执行，计数器走</text>
+<text x="1130" y="315" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#2563eb" text-anchor="end">中断唤醒，计数器恢复</text>
+<line x1="760" y1="356" x2="760" y2="392" stroke="#dc2626" stroke-width="1.6"/>
+<line x1="730" y1="392" x2="790" y2="392" stroke="#dc2626" stroke-width="1.6"/>
+<text x="760" y="414" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#dc2626" text-anchor="middle">唤醒/退出税</text>
+<text x="760" y="438" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#dc2626" text-anchor="middle">C1 退出 ~1µs；C6/CC6 深睡可达几~几十 µs</text>
+<rect x="150" y="60" width="0" height="0" rx="8" fill="#fff" stroke="#fff" stroke-width="1.5" opacity="1.0"/>
+<text x="640" y="96" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="middle">两条时间线之间的缺口 = 这一次抖动的铁证（vCPU 被宿主机拿走时签名相同，靠 %st 与 sched_switch 区分）</text>
+<text x="150" y="470" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="start">注：PAUSE 指令不是 halt；忙轮询 + intel_idle.max_cstate=1 + idle=poll 可以在 guest 内防住自己主动睡过去的那一类</text>
+</svg>

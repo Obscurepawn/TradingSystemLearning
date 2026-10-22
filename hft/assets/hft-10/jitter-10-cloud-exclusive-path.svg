@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="680" viewBox="0 0 1280 680">
+<rect x="0" y="0" width="1280" height="680" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">上了公有云，先要想清楚自己买到的是几级独占</text>
+<text x="44" y="80" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">云上的目标从“消灭抖动”退化为：量化它 → 分清我的问题还是云的问题 → 用选型规避</text>
+<rect x="90" y="520" width="200" height="92" rx="10" fill="#ffffff" stroke="#fca5a5" stroke-width="2" opacity="1.0"/>
+<text x="190.0" y="554" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="middle">t 系列突发型</text>
+<text x="190.0" y="580" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="middle">可超卖、credit 限速、可跨核重调度</text>
+<text x="190.0" y="506" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="#fca5a5" text-anchor="middle">低延迟直接排除</text>
+<path d="M296,512 L309,550" fill="none" stroke="#2563eb" stroke-width="2"/>
+<path d="M299,544 l12,2 l-6,11 z" fill="#2563eb"/>
+<rect x="315" y="450" width="200" height="92" rx="10" fill="#ffffff" stroke="#fdba74" stroke-width="2" opacity="1.0"/>
+<text x="415.0" y="484" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="middle">固定性能 VM</text>
+<text x="415.0" y="510" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="middle">vCPU = 专用物理超线程，不抢核</text>
+<text x="415.0" y="436" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="#fdba74" text-anchor="middle">仍有 SMT 兄弟干扰 + hypervisor</text>
+<path d="M521,442 L534,480" fill="none" stroke="#2563eb" stroke-width="2"/>
+<path d="M524,474 l12,2 l-6,11 z" fill="#2563eb"/>
+<rect x="540" y="380" width="200" height="92" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="2" opacity="1.0"/>
+<text x="640.0" y="414" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="middle">固定 VM + 关 SMT</text>
+<text x="640.0" y="440" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="middle">启动参数 ThreadsPerCore=1，</text>
+<text x="640.0" y="459" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="middle">价格不变</text>
+<text x="640.0" y="366" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="#93c5fd" text-anchor="middle">1 vCPU = 1 整个物理核，性价比甜点</text>
+<path d="M746,372 L759,410" fill="none" stroke="#2563eb" stroke-width="2"/>
+<path d="M749,404 l12,2 l-6,11 z" fill="#2563eb"/>
+<rect x="765" y="310" width="200" height="92" rx="10" fill="#ffffff" stroke="#c4b5fd" stroke-width="2" opacity="1.0"/>
+<text x="865.0" y="344" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="middle">Dedicated Host / Instance</text>
+<text x="865.0" y="370" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="middle">整机单租户（合规 / BYOL 为主）</text>
+<text x="865.0" y="296" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="#c4b5fd" text-anchor="middle">hypervisor 仍在，对抖动增量有限</text>
+<path d="M971,302 L984,340" fill="none" stroke="#2563eb" stroke-width="2"/>
+<path d="M974,334 l12,2 l-6,11 z" fill="#2563eb"/>
+<rect x="990" y="240" width="200" height="92" rx="10" fill="#ffffff" stroke="#6ee7b7" stroke-width="2" opacity="1.0"/>
+<text x="1090.0" y="274" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="middle">.metal 裸金属</text>
+<text x="1090.0" y="300" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="middle">OS 直跑硬件，无 hypervisor</text>
+<text x="1090.0" y="226" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="#6ee7b7" text-anchor="middle">无 steal/VM-Exit，C/P-state、PMU 全可控</text>
+<line x1="70" y1="560" x2="70" y2="150" stroke="#15243b" stroke-width="1.8"/>
+<path d="M64,162 L70,146 L76,162 Z" fill="#15243b"/>
+<text x="46" y="176" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#15243b" text-anchor="start">抖动控制力</text>
+<text x="46" y="198" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="400" fill="#64748b" text-anchor="start">（成本也越高）</text>
+<line x1="70" y1="614" x2="1230" y2="614" stroke="#15243b" stroke-width="1.8"/>
+<text x="1230" y="642" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#15243b" text-anchor="end">独占级别 →</text>
+<rect x="200" y="104" width="880" height="40" rx="9" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1.4" opacity="1.0"/>
+<text x="640" y="130" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="middle">即使在普通 VM：rdtsc 通常透传可用；rdpmc/PT 要看机型和权限——vPMU 缺失时快路径直接落入 2~9µs 的 read()</text>
+</svg>

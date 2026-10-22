@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="860" viewBox="0 0 1280 860">
+<rect x="0" y="0" width="1280" height="860" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">拿到 ΔT 之后，怎么给这一次抖动定罪</text>
+<text x="44" y="80" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">ΔT(TSC) 只有一个数，但它的构成有四种；用相邻边界的计数器差分把它们区分开</text>
+<rect x="340" y="104" width="600" height="76" rx="12" fill="#f8fafc" stroke="#15243b" stroke-width="1.8" opacity="1.0"/>
+<text x="640" y="136" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="20" font-weight="600" fill="#15243b" text-anchor="middle">这一次 ΔT(TSC) 变大</text>
+<text x="640" y="164" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="middle">= 用户态执行 + 内核态(fault/IRQ/syscall) + 被切走时间 + halt/虚拟化时间</text>
+<rect x="44" y="220" width="1192" height="108" rx="11" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.7" opacity="1.0"/>
+<rect x="44" y="220" width="14" height="108" rx="11" fill="#2563eb" stroke="#2563eb" stroke-width="0" opacity="1.0"/>
+<text x="84" y="258" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#2563eb" text-anchor="start">观测：Δinstructions 明显增大</text>
+<text x="720" y="258" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="17" font-weight="600" fill="#2563eb" text-anchor="start">→ 路径变长：多干了活</text>
+<text x="84" y="292" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">数据相关冷分支、异常分支、fault 处理指令</text>
+<line x1="640" y1="180" x2="640" y2="220" stroke="#93c5fd" stroke-width="1.2"/>
+<line x1="640" y1="220" x2="58" y2="220" stroke="#93c5fd" stroke-width="1.2"/>
+<rect x="44" y="346" width="1192" height="108" rx="11" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.7" opacity="1.0"/>
+<rect x="44" y="346" width="14" height="108" rx="11" fill="#7c3aed" stroke="#7c3aed" stroke-width="0" opacity="1.0"/>
+<text x="84" y="384" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#7c3aed" text-anchor="start">观测：inst 正常，cycles:u 增大 + LLC-miss 高</text>
+<text x="720" y="384" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="17" font-weight="600" fill="#7c3aed" text-anchor="start">→ 微架构停顿：在等硬件</text>
+<text x="84" y="418" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">内存/缓存、分支预测失败、NUMA 远端访问</text>
+<line x1="640" y1="180" x2="640" y2="346" stroke="#c4b5fd" stroke-width="1.2"/>
+<line x1="640" y1="346" x2="58" y2="346" stroke="#c4b5fd" stroke-width="1.2"/>
+<rect x="44" y="472" width="1192" height="108" rx="11" fill="#fff7ed" stroke="#fdba74" stroke-width="1.7" opacity="1.0"/>
+<rect x="44" y="472" width="14" height="108" rx="11" fill="#c2410c" stroke="#c2410c" stroke-width="0" opacity="1.0"/>
+<text x="84" y="510" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#c2410c" text-anchor="start">观测：cycles:u 不动，内核时间变长，minflt +1</text>
+<text x="720" y="510" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="17" font-weight="600" fill="#c2410c" text-anchor="start">→ 内核介入</text>
+<text x="84" y="544" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">minor/major page fault、系统调用、内核线程</text>
+<line x1="640" y1="180" x2="640" y2="472" stroke="#fdba74" stroke-width="1.2"/>
+<line x1="640" y1="472" x2="58" y2="472" stroke="#fdba74" stroke-width="1.2"/>
+<rect x="44" y="598" width="1192" height="108" rx="11" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.7" opacity="1.0"/>
+<rect x="44" y="598" width="14" height="108" rx="11" fill="#dc2626" stroke="#dc2626" stroke-width="0" opacity="1.0"/>
+<text x="84" y="636" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#dc2626" text-anchor="start">观测：TSC 照走，ref-cycles 停走（出现缺口）</text>
+<text x="720" y="636" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="17" font-weight="600" fill="#dc2626" text-anchor="start">→ off-core：核被拿走了</text>
+<text x="84" y="670" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">被抢占、vCPU 被 host deschedule、halt 进 C-state、SMI</text>
+<line x1="640" y1="180" x2="640" y2="598" stroke="#fca5a5" stroke-width="1.2"/>
+<line x1="640" y1="598" x2="58" y2="598" stroke="#fca5a5" stroke-width="1.2"/>
+<rect x="44" y="724" width="1192" height="108" rx="11" fill="#f0fdf4" stroke="#6ee7b7" stroke-width="1.7" opacity="1.0"/>
+<rect x="44" y="724" width="14" height="108" rx="11" fill="#059669" stroke="#059669" stroke-width="0" opacity="1.0"/>
+<text x="84" y="762" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#059669" text-anchor="start">观测：core-cycles / ref-cycles 比例下降</text>
+<text x="720" y="762" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="17" font-weight="600" fill="#059669" text-anchor="start">→ 降频</text>
+<text x="84" y="796" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">AVX-512 license、温度/功耗墙、云上频率被限</text>
+<line x1="640" y1="180" x2="640" y2="724" stroke="#6ee7b7" stroke-width="1.2"/>
+<line x1="640" y1="724" x2="58" y2="724" stroke="#6ee7b7" stroke-width="1.2"/>
+<text x="640" y="842" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#64748b" text-anchor="middle">注意计数器是单调累计的：必须每个边界都读、相邻请求差分复用，等触发了才第一次读，拿到的会是横跨几万次请求的区间</text>
+</svg>

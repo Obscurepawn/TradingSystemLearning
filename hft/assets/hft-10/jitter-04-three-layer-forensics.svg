@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700">
+<rect x="0" y="0" width="1280" height="700" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">一套三层取证体系：从进程内一路问到物理链路</text>
+<text x="44" y="80" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">每层只回答自己能回答的问题，成本模型也完全不同；关键是三层共用同一个时间基</text>
+<rect x="44" y="112" width="1192" height="168" rx="12" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6" opacity="1.0"/>
+<rect x="44" y="112" width="150" height="168" rx="12" fill="#2563eb" stroke="#2563eb" stroke-width="0" opacity="1.0"/>
+<text x="119" y="188" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#ffffff" text-anchor="middle">应用层</text>
+<text x="119" y="218" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="middle" text-anchor="start">每请求固定</text>
+<text x="119" y="236" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="middle" text-anchor="start">纳秒级</text>
+<text x="222" y="152" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• rdtscp 分段打点（RX→解析→决策→风控→TX）</text>
+<text x="222" y="184" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• per-thread 无锁 Ring 黑匣子 + HdrHistogram</text>
+<text x="222" y="216" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• rdpmc 计数器差分：指令/周期/缓存缺失</text>
+<text x="222" y="262" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#2563eb" text-anchor="start">回答：慢了多少？慢在哪一类：多干活、等内存、进内核，还是被切走了？</text>
+<rect x="44" y="294" width="1192" height="168" rx="12" fill="#f0fdf4" stroke="#6ee7b7" stroke-width="1.6" opacity="1.0"/>
+<rect x="44" y="294" width="150" height="168" rx="12" fill="#059669" stroke="#059669" stroke-width="0" opacity="1.0"/>
+<text x="119" y="370" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#ffffff" text-anchor="middle">内核层</text>
+<text x="119" y="400" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="middle" text-anchor="start">关闭≈0</text>
+<text x="119" y="418" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="middle" text-anchor="start">事件时 50–200ns/条</text>
+<text x="222" y="334" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• rtla timerlat / osnoise、hwlat_detector</text>
+<text x="222" y="366" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• ftrace tracepoint：fault / sched_switch / irq</text>
+<text x="222" y="398" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• perf（短窗体检）/ eBPF</text>
+<text x="222" y="444" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#059669" text-anchor="start">回答：具体元凶是谁：fault 打在哪个地址、CPU 切给了谁、是哪个 IRQ、关中断关了多久？</text>
+<rect x="44" y="476" width="1192" height="168" rx="12" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6" opacity="1.0"/>
+<rect x="44" y="476" width="150" height="168" rx="12" fill="#c2410c" stroke="#c2410c" stroke-width="0" opacity="1.0"/>
+<text x="119" y="552" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#ffffff" text-anchor="middle">物理 / 网络层</text>
+<text x="119" y="582" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="middle" text-anchor="start">对被测</text>
+<text x="119" y="600" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="12" font-weight="600" fill="middle" text-anchor="start">主机零负载</text>
+<text x="222" y="516" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• 光分路器 TAP + FPGA 抓包卡（纳秒硬件时间戳）</text>
+<text x="222" y="548" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• 低延迟网卡 + kernel bypass（ef_vi / DPDK）</text>
+<text x="222" y="580" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">• 云上：Nitro PTP 硬件时钟 + 纳秒硬件包时间戳</text>
+<text x="222" y="626" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#c2410c" text-anchor="start">回答：独立第三方事实：这个包到底几点几分到的网卡？嫌疑人不能给自己作证</text>
+<rect x="44" y="660" width="1192" height="34" rx="9" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1.4" opacity="1.0"/>
+<text x="640" y="683" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#15243b" text-anchor="middle">统一时间基：机内全部用 TSC（ftrace 设 trace_clock=x86-tsc）  ·  跨机用 PTP + PPS/GPS Grandmaster  ·  云上用 Nitro PHC —— 三层证据才能对齐到同一条时间线</text>
+</svg>
