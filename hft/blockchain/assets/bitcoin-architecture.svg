@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1020" viewBox="0 0 1440 1020" role="img" aria-labelledby="title desc">
+  <title id="title">Bitcoin：从签名交易到各节点认可的账本</title>
+  <desc id="desc">钱包构造并签名交易，通过相邻节点在点对点网络中传播。各节点拥有自己的内存池。矿工在本地选择交易，加入 coinbase，构造包含前一区块哈希和 Merkle 根的区块，尝试工作量证明。找到区块后再次通过点对点网络传播。每个全节点分别验证区块与交易，只在有效分支中选择累计工作最大的链，并将本地 UTXO 状态与所选链同步。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#34536c"/></marker>
+    <marker id="arrow-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#ac7015"/></marker>
+    <style>
+      text{font-family:"Noto Sans CJK SC","Microsoft YaHei","PingFang SC",Arial,sans-serif;fill:#18334b}
+      .title{font-size:34px;font-weight:700}.subtitle{font-size:19px;fill:#52697b}.heading{font-size:23px;font-weight:700}
+      .body{font-size:19px}.small{font-size:16px;fill:#52697b}.mono{font-family:"Noto Sans Mono CJK SC",Consolas,monospace;font-size:17px}
+      .panel{fill:#f6f9fc;stroke:#ccd9e3;stroke-width:1.5}.card{fill:#fff;stroke:#cedae3;stroke-width:1.5}
+      .line{fill:none;stroke:#34536c;stroke-width:2.5;marker-end:url(#arrow)}
+      .goldline{fill:none;stroke:#ac7015;stroke-width:2.5;marker-end:url(#arrow-gold)}
+    </style>
+  </defs>
+  <rect width="1440" height="1020" fill="#fff"/>
+  <rect x="54" y="49" width="7" height="37" rx="3" fill="#d6982e"/>
+  <text x="78" y="79" class="title">Bitcoin：从签名交易到各节点认可的账本</text>
+  <text x="78" y="115" class="subtitle">交易靠签名授权，历史靠工作量排序，规则由每个全节点检查。</text>
+
+  <rect x="54" y="160" width="288" height="215" rx="18" class="panel"/>
+  <text x="78" y="204" class="heading">钱包</text>
+  <text x="78" y="244" class="body">选择可花费的 UTXO</text>
+  <text x="78" y="280" class="body">指定收款与找零输出</text>
+  <text x="78" y="316" class="body">用私钥签名</text>
+  <text x="78" y="350" class="small">私钥留在签名设备中</text>
+
+  <rect x="420" y="160" width="570" height="215" rx="18" class="panel"/>
+  <text x="444" y="204" class="heading">P2P 网络</text>
+  <path d="M574 269H615M755 269H796" stroke="#8ba1b2" stroke-width="2.5"/>
+  <rect x="444" y="232" width="130" height="75" rx="12" class="card"/>
+  <rect x="625" y="232" width="130" height="75" rx="12" class="card"/>
+  <rect x="806" y="232" width="160" height="75" rx="12" class="card"/>
+  <text x="509" y="263" text-anchor="middle" class="body">全节点 A</text>
+  <text x="509" y="289" text-anchor="middle" class="small">本地 mempool</text>
+  <text x="690" y="263" text-anchor="middle" class="body">全节点 B</text>
+  <text x="690" y="289" text-anchor="middle" class="small">本地 mempool</text>
+  <text x="886" y="263" text-anchor="middle" class="body">更多邻居…</text>
+  <text x="886" y="289" text-anchor="middle" class="small">各自验证、转发</text>
+  <text x="444" y="345" class="small">交易与区块在邻居之间传播，内存池由各节点维护。</text>
+
+  <rect x="1080" y="160" width="306" height="215" rx="18" fill="#fff8ec" stroke="#e5cfaa" stroke-width="1.5"/>
+  <text x="1104" y="204" class="heading">矿工（含全节点）</text>
+  <text x="1104" y="249" class="body">接收并验证交易</text>
+  <text x="1104" y="286" class="body">从自己的 mempool 选交易</text>
+  <text x="1104" y="336" class="small">每位矿工独立构造候选区块</text>
+  <path d="M342 269H420" class="line"/>
+  <text x="381" y="249" text-anchor="middle" class="small">签名交易</text>
+  <path d="M990 269H1080" class="line"/>
+  <text x="1035" y="249" text-anchor="middle" class="small">转发交易</text>
+
+  <rect x="1080" y="450" width="306" height="450" rx="18" fill="#fff8ec" stroke="#e5cfaa" stroke-width="1.5"/>
+  <text x="1104" y="493" class="heading">构造区块并挖矿</text>
+  <rect x="1104" y="518" width="258" height="79" rx="11" fill="#fff" stroke="#e5cfaa"/>
+  <text x="1122" y="549" class="body">交易列表</text>
+  <text x="1122" y="576" class="mono">coinbase + tx1 + tx2 …</text>
+  <path d="M1233 597V628" class="goldline"/>
+  <rect x="1104" y="632" width="258" height="114" rx="11" fill="#fff" stroke="#e5cfaa"/>
+  <text x="1122" y="662" class="body">区块头</text>
+  <text x="1122" y="690" class="small">前一区块哈希 · Merkle 根</text>
+  <text x="1122" y="718" class="small">目标值编码 · 时间 · nonce …</text>
+  <path d="M1233 746V777" class="goldline"/>
+  <rect x="1104" y="781" width="258" height="91" rx="11" fill="#f2ddb8"/>
+  <text x="1233" y="815" text-anchor="middle" class="heading">工作量证明（PoW）</text>
+  <text x="1233" y="847" text-anchor="middle" class="mono">Hash(区块头) ≤ target</text>
+  <path d="M1233 375V450" class="goldline"/>
+  <path d="M1362 827H1410V405H1241" fill="none" stroke="#ac7015" stroke-width="2.5"/>
+  <path d="M1225 405H930V375" class="goldline"/>
+  <rect x="1005" y="389" width="195" height="30" fill="#fff"/>
+  <text x="1102" y="411" text-anchor="middle" class="small">找到区块 → 广播给邻居</text>
+
+  <rect x="420" y="450" width="570" height="450" rx="18" class="panel"/>
+  <text x="444" y="493" class="heading">每个全节点独立执行</text>
+  <rect x="444" y="518" width="522" height="95" rx="12" class="card"/>
+  <circle cx="476" cy="551" r="17" fill="#e2edf5"/>
+  <text x="476" y="558" text-anchor="middle" class="body">1</text>
+  <text x="508" y="558" class="body">完整验证区块与交易</text>
+  <text x="508" y="589" class="small">PoW、难度、Merkle 根、签名、双花、金额规则…</text>
+  <path d="M705 613V644" class="line"/>
+  <rect x="444" y="648" width="522" height="95" rx="12" class="card"/>
+  <circle cx="476" cy="681" r="17" fill="#e2edf5"/>
+  <text x="476" y="688" text-anchor="middle" class="body">2</text>
+  <text x="508" y="688" class="body">比较有效分支的累计工作</text>
+  <text x="508" y="719" class="small">选择工作最多的一支；无效区块不进入候选链</text>
+  <path d="M705 743V774" class="line"/>
+  <rect x="444" y="778" width="522" height="95" rx="12" fill="#e9f5f1" stroke="#a6cfc1"/>
+  <circle cx="476" cy="811" r="17" fill="#c6e6db"/>
+  <text x="476" y="818" text-anchor="middle" class="body">3</text>
+  <text x="508" y="818" class="body">让本地状态跟随所选链</text>
+  <text x="508" y="849" class="small">发生重组时，先撤销旧分支，再应用新分支</text>
+  <path d="M705 375V450" class="line"/>
+  <rect x="647" y="398" width="116" height="28" fill="#fff"/>
+  <text x="705" y="418" text-anchor="middle" class="small">收到新区块</text>
+
+  <rect x="54" y="450" width="288" height="450" rx="18" fill="#f1f8f5" stroke="#bfd8ce" stroke-width="1.5"/>
+  <text x="78" y="493" class="heading">各节点的本地状态</text>
+  <text x="78" y="538" class="body">当前认可的链</text>
+  <path d="M105 579H292" stroke="#31856f" stroke-width="3"/>
+  <rect x="78" y="557" width="54" height="44" rx="7" fill="#daeee6" stroke="#75ad98"/>
+  <rect x="161" y="557" width="54" height="44" rx="7" fill="#daeee6" stroke="#75ad98"/>
+  <rect x="244" y="557" width="54" height="44" rx="7" fill="#a7d6c4" stroke="#4c947a"/>
+  <text x="105" y="585" text-anchor="middle" class="small">…</text>
+  <text x="188" y="585" text-anchor="middle" class="small">区块</text>
+  <text x="271" y="585" text-anchor="middle" class="small">链尖</text>
+  <path d="M188 601L230 632" stroke="#b5c2cc" stroke-width="2" stroke-dasharray="5 4"/>
+  <text x="231" y="646" class="small">旧分支</text>
+  <rect x="78" y="685" width="240" height="119" rx="12" fill="#fff" stroke="#bfd8ce"/>
+  <text x="98" y="722" class="heading">UTXO 集合</text>
+  <text x="98" y="754" class="small">删除已花费输出</text>
+  <text x="98" y="781" class="small">加入新产生的未花费输出</text>
+  <text x="78" y="850" class="small">状态对应本节点所选的链尖</text>
+  <path d="M444 825H342" class="line"/>
+  <rect x="358" y="787" width="52" height="28" fill="#fff"/>
+  <text x="384" y="807" text-anchor="middle" class="small">更新</text>
+
+  <line x1="54" y1="942" x2="1386" y2="942" stroke="#dce5ec"/>
+  <text x="54" y="977" class="small">图中展示角色与处理过程。同一参与者可以同时运行钱包、全节点和挖矿设备；每个节点维护自己的验证结果。</text>
+</svg>

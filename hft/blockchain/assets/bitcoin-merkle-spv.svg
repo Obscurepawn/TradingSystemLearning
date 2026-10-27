@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="790" viewBox="0 0 1280 790" role="img" aria-labelledby="title desc">
+  <title id="title">Merkle 树与 SPV 包含证明</title>
+  <desc id="desc">四笔交易 tx0、tx1、tx2、tx3 的哈希构成 Merkle 树叶子。轻节点持有交易 tx2，计算 h2，再从证明中取得右兄弟 h3 与上层左兄弟 h01，依次计算 h23 和 Merkle 根。把所得根与已验证工作量及难度的区块头中的 Merkle 根比较，就能验证此交易被该区块的 Merkle 根承诺。证明只检查包含关系，不检查所有交易的有效性。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#267b64"/></marker>
+    <style>
+      text{font-family:"Noto Sans CJK SC","Microsoft YaHei","PingFang SC",Arial,sans-serif;fill:#18334b}
+      .title{font-size:31px;font-weight:700}.subtitle{font-size:18px;fill:#52697b}.heading{font-size:22px;font-weight:700}
+      .body{font-size:18px}.small{font-size:16px;fill:#52697b}.mono{font-family:"Noto Sans Mono CJK SC",Consolas,monospace;font-size:18px}
+      .branch{fill:none;stroke:#a9bac7;stroke-width:2}.path{fill:none;stroke:#267b64;stroke-width:3;marker-end:url(#arrow)}
+      .node{fill:#f4f7fa;stroke:#c5d3de;stroke-width:1.5}.proof{fill:#fff1d7;stroke:#d3a454;stroke-width:2}.calc{fill:#e6f4ee;stroke:#71b29b;stroke-width:2}
+    </style>
+  </defs>
+  <rect width="1280" height="790" fill="#fff"/>
+  <rect x="48" y="43" width="7" height="36" rx="3" fill="#d6982e"/>
+  <text x="72" y="72" class="title">Merkle 树：用一条哈希路径证明交易在区块里</text>
+  <text x="72" y="108" class="subtitle">以四笔交易为例，验证 tx2 只需要两个兄弟哈希：h3 与 h01。</text>
+
+  <rect x="48" y="145" width="755" height="482" rx="18" fill="#f9fbfc" stroke="#d4dfe7"/>
+  <rect x="842" y="145" width="390" height="482" rx="18" fill="#f6f9fc" stroke="#d4dfe7"/>
+  <text x="866" y="187" class="heading">轻节点已有与收到的数据</text>
+  <rect x="866" y="213" width="342" height="62" rx="10" class="calc"/>
+  <text x="885" y="251" class="body">已有：tx2 → 自己计算 h2</text>
+  <rect x="866" y="294" width="342" height="96" rx="10" class="proof"/>
+  <text x="885" y="328" class="body">收到的 Merkle 路径</text>
+  <text x="885" y="361" class="mono">[(h3, RIGHT), (h01, LEFT)]</text>
+  <text x="866" y="430" class="heading">按左右顺序计算</text>
+  <text x="866" y="468" class="mono">h23 = H(h2 || h3)</text>
+  <text x="866" y="506" class="mono">root = H(h01 || h23)</text>
+  <line x1="866" y1="530" x2="1208" y2="530" stroke="#d4dfe7"/>
+  <text x="866" y="563" class="body">将 root 与区块头中的根比较</text>
+  <text x="866" y="593" class="small">区块头链还要验证链接、难度与 PoW</text>
+
+  <path d="M154 494L250 386M346 494L250 386M518 494L614 386M710 494L614 386M250 332L432 251M614 332L432 251" class="branch"/>
+  <path d="M518 494L600 393" class="path"/>
+  <path d="M614 332L450 257" class="path"/>
+  <path d="M710 494L632 395" fill="none" stroke="#c18a2e" stroke-width="2.5"/>
+  <path d="M250 332L413 258" fill="none" stroke="#c18a2e" stroke-width="2.5"/>
+
+  <rect x="312" y="194" width="240" height="65" rx="12" class="calc"/>
+  <text x="432" y="221" text-anchor="middle" class="body">Merkle root</text>
+  <text x="432" y="246" text-anchor="middle" class="mono">H(h01 || h23)</text>
+  <rect x="159" y="332" width="182" height="61" rx="11" class="proof"/>
+  <text x="250" y="357" text-anchor="middle" class="mono">h01</text>
+  <text x="250" y="382" text-anchor="middle" class="small">上层左兄弟哈希</text>
+  <rect x="523" y="332" width="182" height="61" rx="11" class="calc"/>
+  <text x="614" y="357" text-anchor="middle" class="mono">h23</text>
+  <text x="614" y="382" text-anchor="middle" class="small">H(h2 || h3)</text>
+  <rect x="96" y="494" width="116" height="52" rx="10" class="node"/>
+  <rect x="288" y="494" width="116" height="52" rx="10" class="node"/>
+  <rect x="460" y="494" width="116" height="52" rx="10" class="calc"/>
+  <rect x="652" y="494" width="116" height="52" rx="10" class="proof"/>
+  <text x="154" y="527" text-anchor="middle" class="mono">h0</text>
+  <text x="346" y="527" text-anchor="middle" class="mono">h1</text>
+  <text x="518" y="527" text-anchor="middle" class="mono">h2</text>
+  <text x="710" y="527" text-anchor="middle" class="mono">h3</text>
+  <text x="154" y="580" text-anchor="middle" class="body">tx0</text>
+  <text x="346" y="580" text-anchor="middle" class="body">tx1</text>
+  <text x="518" y="580" text-anchor="middle" class="body" font-weight="700">tx2</text>
+  <text x="710" y="580" text-anchor="middle" class="body">tx3</text>
+  <text x="518" y="606" text-anchor="middle" class="small">要验证的交易</text>
+  <text x="710" y="606" text-anchor="middle" class="small">右兄弟哈希</text>
+
+  <rect x="48" y="661" width="20" height="20" rx="4" class="calc"/>
+  <text x="79" y="678" class="small">本地计算</text>
+  <rect x="205" y="661" width="20" height="20" rx="4" class="proof"/>
+  <text x="236" y="678" class="small">证明提供</text>
+  <rect x="362" y="661" width="20" height="20" rx="4" class="node"/>
+  <text x="393" y="678" class="small">无需下载的子树内容</text>
+  <text x="48" y="720" class="small">H 表示双 SHA-256，|| 表示按顺序拼接。叶子 hi 为交易的 txid（使用内部字节序）。</text>
+  <text x="48" y="753" class="small">Merkle 路径证明包含关系；全节点另行检查交易是否满足签名、金额和双花等规则。</text>
+</svg>

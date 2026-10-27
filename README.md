@@ -12,6 +12,10 @@
 8. [交易所协议：报文、订单簿与断线恢复](hft/HFT_Engineering_08_交易所协议.md)
 9. [高频回测：时间、队列与市场反应](hft/HFT_Engineering_09_高频回测.md)
 
+## 加密货币系统原理：从公链到交易所
+
+1. [Bitcoin 是怎样运行的](hft/blockchain/Blockchain_01_比特币的基本原理.md)
+
 ## 文献与演讲精读
 
 - [The Latency Slippage：缓存、并行访存与跨核交接](literature/The_Latency_Slippage_详细解读.md)
