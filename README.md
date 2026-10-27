@@ -16,3 +16,7 @@
 
 - [The Latency Slippage：缓存、并行访存与跨核交接](literature/The_Latency_Slippage_详细解读.md)
 - [When Nanoseconds Matter：订单簿、通信与性能测量](literature/When_Nanoseconds_Matter_详细解读.md)
+
+## 专题研究
+
+- [高性能订单簿与撮合引擎：市场规则、数据结构与 C++ 实现](hft/高性能OrderBook与MatchingEngine研究.md)
