@@ -1,26 +1,76 @@
-# 加密货币系统原理（一）：Bitcoin 是怎样运行的
+# 彻底理解加密货币系统原理（一）：Bitcoin 是怎样运行的
 
-原始论文：[Bitcoin: A Peer-to-Peer Electronic Cash System — Satoshi Nakamoto](https://bitcoin.org/bitcoin.pdf)
+在银行 App 里给别人转账，最直观的结果是双方余额发生变化。支撑这件事的是银行维护的账本：谁支付了多少，谁收到了多少。
 
-Alice 可以给两笔互相冲突的付款都签名：一笔把钱付给 Bob，另一笔把同一笔钱付给自己。两份签名都可以通过验证。密码学证明了付款经过 Alice 授权，却没有替 Bob 回答一个更棘手的问题：这笔钱到底已经付给谁了？
+Bitcoin 也要把这些事情记清楚，但它没有一家负责维护总账的银行。一批通过互联网连接的计算机共同运行这套系统：接收付款记录，检查记录是否有效，再按照相同的规则更新各自的账本。
 
-Bitcoin 要解决的，就是让互不认识的参与者对这段付款历史达成一致。付款者用私钥签名，交易通过网络传播，矿工把交易装进区块并寻找工作量证明。其他节点验证区块，再据此更新自己维护的账本。如果网络里同时出现两个版本的历史，节点按累计工作量选择其中一条有效分支。
+金额以聪为单位，**1 BTC 等于 100,000,000 聪**。
 
-**每个全节点都有自己的验证过程和账本状态。** 矿工提出新区块，节点按同一套规则检查它；没有一台中央服务器替所有人决定哪些付款有效。
+## 账本、区块和链是什么
 
-![比特币架构：交易经点对点网络传播，矿工构造区块并寻找工作量证明，各全节点独立验证区块、选择有效链并更新 UTXO](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/main/hft/blockchain/assets/bitcoin-architecture.svg)
+先看一笔付款最直观的意思：Alice 向 Bob 支付了 60,000 聪。Bob 要能放心使用这笔钱，账本就得记录这次转移，并且阻止 Alice 把同一份钱再花一次。对 Bitcoin 来说，“我有一些币”对应的是账本里存在一些尚未花费、且我有权支出的金额。
 
-下面用伪代码展开这个过程。金额使用整数聪，普通付款采用单密钥授权；序列化、签名摘要、脚本和锁定条件由具名函数处理。
+运行 Bitcoin 软件、参与网络通信的计算机叫作**节点**。其中，全节点按完整规则检查账本内容，维护自己认可的账本状态。节点收到新数据后会检查并转发给邻居，记录由此在网络中传播。它们各自维护副本，网络延迟会使不同节点在短时间内看到不同的最新记录。[Bitcoin.org：Bitcoin 如何运行](https://bitcoin.org/en/how-it-works)
 
-伪代码中的 `require` 表示检查失败就拒绝，`^` 表示乘方，`range(a, b)` 包含 `a`、不包含 `b`。
+付款记录以**交易**的形式提交给网络，再被分批组织成**区块**。一个区块可以看成一页已经排好顺序的账页：里面装着一批交易，页首还有描述这批记录的信息，这部分称为**区块头**。区块里可能有 Alice 给 Bob 的付款，也可能有其他人之间完全无关的付款。
+
+这些“账页”通过**哈希**连接。哈希是对一段数据计算得到的固定长度摘要：同样的数据总会得到同样的摘要，内容变化后，摘要几乎一定随之变化。可以把它当成用于核对内容的数字指纹。
+
+区块头既保存由本块交易计算出的汇总摘要，也保存前一个区块头的哈希。假设当前已有 A、B、C 三个相邻区块，B 保存 A 的摘要，C 保存 B 的摘要。沿着这些引用向前追溯，最终会到达第一个区块，也就是创世区块。这种相互引用形成的数据结构，就是**区块链（blockchain）**。
+
+![区块链基础：区块 B 保存 A 的区块头摘要，C 保存 B 的区块头摘要；每个区块收录一批交易，链随新区块加入而增长](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/main/hft/blockchain/assets/bitcoin-blockchain-basics.svg)
+
+假如有人修改 A 中的付款，A 的区块头摘要会随之改变，B 里保存的旧摘要就对不上了。若他连 B 的引用一起改掉，B 的摘要也会变化，又会影响 C。链把前后记录关联起来，让修改能够被发现。[区块链的数据结构](https://github.com/bitcoin-dot-org/developer.bitcoin.org/blob/master/devguide/block_chain.rst)
+
+不过，任何人都能复制这些数据，再重新计算摘要。Bitcoin 还要决定谁提出下一页账本，以及遇到两份冲突历史时采用哪一份。**矿工**负责把交易组装成候选区块，并反复计算，寻找满足网络要求的结果；这种结果叫作**工作量证明（PoW）**。全节点检查候选块是否符合规则，在有效分支中选择累计工作量最大的一条。
+
+于是，一笔付款会经历几个不同的状态：钱包发出交易，节点收到它，矿工把它放进区块，区块被节点验证并接到当前采用的链上。到这一步，付款获得一次**确认**。此后每增加一个后继区块，确认数再加一。仅仅收到一条付款消息，还没有走完这个过程。
+
+## 钱包、私钥、公钥与签名
+
+用户通过钱包收付款。**钱包**是一种管理密钥、生成收款地址、构造交易的软件。账本记录公开可查，又没有银行柜员核对付款人的身份，节点怎样知道“Alice 付钱给 Bob”确实经过 Alice 同意？Bitcoin 用的是数字签名。
+
+以用户自己掌握密钥的钱包为例，钱包会管理一组密钥。**私钥**是一段秘密数值，钱包用它为付款生成签名；**公钥**可以由私钥计算出来，用于核对签名。公钥可以公开，持有公钥的人能够验证签名，却无法在可行的计算成本内据此反推出私钥，或替持有人签出新的付款。[公钥、私钥与签名](https://github.com/bitcoin/bips/blob/master/bip-0137.mediawiki#background-on-ecdsa-signatures)
+
+**数字签名**同时依赖私钥和被签署的内容。它不是每次都贴上去的同一张签名图片。Alice 签署的内容包括 Bob 的收款条件和金额；这些内容被改动后，原签名就无法通过验证。
+
+把签名这件事单独取出来，只有三步：
+
+```text
+# 钱包根据私钥得到公钥
+public_key = derive_public_key(private_key)
+
+# 付款时，用私钥对约定的交易内容摘要签名
+signature = sign(private_key, transaction_digest)
+
+# 其他节点用公钥核对签名，全程不需要拿到私钥
+valid = verify(public_key, transaction_digest, signature)
+```
+
+签名证明的是授权，交易内容本身仍然公开。公钥在这里用于验证，不是拿来把付款内容加密成只有收款人能看的消息。
+
+实际收款时，Bob 发给 Alice 的通常是一个**地址**。地址把收款条件编码成钱包能够识别的字符串，付款方据此指定这笔钱将来可以怎样花费。公钥负责核对签名，地址负责表达收款条件，二者并非同一个数据。不同地址格式表达条件的方式也不同。
+
+| 名称 | 在付款中的作用 |
+| --- | --- |
+| 私钥 | 生成签名，授权花费自己控制的金额 |
+| 公钥 | 让节点核对签名是否由对应私钥产生 |
+| 地址 | 交给付款人的收款标识，指定收到的金额将来如何花费 |
+| 钱包 | 管理密钥与地址，查找可花费金额，构造并签署交易 |
+
+Alice 给 Bob 付款时，用的是 **Alice 的私钥**，因为正在花费的是 Alice 控制的钱。Bob 的地址决定新产生的收款金额归什么条件支配。等 Bob 要把这笔钱继续付出去时，才轮到 Bob 用自己的私钥签名。[交易授权与收款条件](https://github.com/bitcoin-dot-org/developer.bitcoin.org/blob/master/devguide/transactions.rst#introduction)
+
+钱包里保存或调用的是密钥，金额的归属记录在链上。钱包显示余额时，会根据链上的记录找出自己能够花费的金额。因此，拿到收款地址可以给人付款；拿到私钥则意味着掌握相应的花费能力。[钱包的工作方式](https://github.com/bitcoin-dot-org/developer.bitcoin.org/blob/master/devguide/wallets.rst)
+
+签名也没有替节点决定付款的先后。Alice 完全可以给两笔冲突的付款各签一次名：一笔把钱付给 Bob，另一笔把同一份钱付给自己。两份签名都来自 Alice，但这份钱只能花一次。节点要结合账本中的已有记录，判断哪笔交易还有权花费它。
 
 ## 一笔交易改变了什么
 
-Bitcoin 用 UTXO 记录当前可花费的金额。UTXO 是 **Unspent Transaction Output，尚未花费的交易输出**。普通交易消耗一个或多个旧输出，再创建新的输出，分别指定金额和花费条件。
+钱包显示的是一个余额数字，全节点核对的则是一份份具体的可花费记录。这些记录叫作 UTXO，即 **Unspent Transaction Output，尚未花费的交易输出**。普通交易消耗一个或多个旧输出，再创建新的输出，分别指定金额和花费条件。
 
-可以把一个输出看成一张带有领取条件的票据。它有金额，也有锁定条件；下一笔交易引用它，并提供满足条件的证据。全节点维护的 UTXO 集合，记录当前链上还有哪些票据可以使用。钱包显示的余额，则是它能够花费的那些输出的金额总和。一个输出用 `(txid, 输出序号)` 唯一定位，这个二元组叫作 outpoint。[交易结构与 UTXO](https://developer.bitcoin.org/devguide/transactions.html)
+可以把一个输出看成一张带有领取条件的票据。它有金额，也有锁定条件；下一笔交易引用它，并提供满足条件的证据。全节点维护的 UTXO 集合，记录当前链上还有哪些票据可以使用。钱包显示的余额，则是它能够花费的那些输出的金额总和。一个输出用 `(txid, 输出序号)` 唯一定位：交易标识符 `txid` 指出是哪笔交易，输出序号指出是其中的哪一个输出，从 0 开始编号。这个二元组叫作 outpoint。[交易结构与 UTXO](https://github.com/bitcoin-dot-org/developer.bitcoin.org/blob/master/devguide/transactions.rst#introduction)
 
-假如 Alice 有一个 100,000 聪的输出，要向 Bob 支付 60,000 聪，并给矿工 1,000 聪手续费，交易会长这样。1 BTC 等于 100,000,000 聪。
+假如 Alice 有一个 100,000 聪的输出，要向 Bob 支付 60,000 聪，并给矿工 1,000 聪手续费，交易会长这样。
 
 | 位置 | 引用或去向 | 金额 |
 | --- | --- | ---: |
@@ -29,12 +79,14 @@ Bitcoin 用 UTXO 记录当前可花费的金额。UTXO 是 **Unspent Transaction
 | 输出 1 | 找零给 Alice | 39,000 聪 |
 | 输入与输出的差额 | 手续费 | 1,000 聪 |
 
-输入一次用掉整个旧输出。找零是新建的输出；手续费是金额差额，交易里没有一个“收款人为矿工”的普通手续费输出。若 Alice 忘了创建找零输出，剩余金额会进入手续费。
+输入一次用掉整个旧输出。找零是新建的输出；手续费是总输入和总输出的金额差额。
+
+下面的伪代码采用单密钥付款，签名摘要、脚本与锁定条件交给具名函数处理。`require` 表示检查失败就拒绝；`range(a, b)` 包含 `a`、不包含 `b`；`^` 表示乘方。
 
 ```text
 Outpoint = (txid, output_index)
 Output   = {value, locking_condition}
-Coin     = {output, created_height, is_coinbase}
+Coin     = {output, created_height, is_coinbase}  # 最后一项标记它是否来自区块奖励
 UTXO     = Map<Outpoint, Coin>
 
 tx.inputs  = [{previous_output: (A, 0)}]
@@ -45,18 +97,18 @@ tx.outputs = [
 
 previous = lookup_previous_outputs(tx)
 for i in indices(tx.inputs):
-    # 对本次花费的内容签名，私钥不进入交易
+    # 对本次花费的内容签名，私钥不进入交易记录中
     digest = signature_digest(tx, i, previous, mode=ALL)
     tx.inputs[i].authorization = sign(Alice_private_key, digest)
 ```
 
-这里的 `ALL` 表示签名承诺这笔付款的输入引用和所有输出等内容。若有人把 Bob 的收款输出换成自己的，签名验证就会失败。签名摘要的具体编码由交易类型决定；传统交易与 SegWit v0 使用 ECDSA，Taproot 使用 Schnorr 签名。[BIP 143](https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki)、[BIP 340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)、[BIP 341](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki)
+这里的 `ALL` 表示签名承诺这笔付款的输入引用和所有输出等内容。若有人把 Bob 的收款输出换成自己的，签名验证就会失败。
 
-全节点验证普通交易时，核心工作是检查引用、授权和金额守恒。下面的函数只计算状态变更，所有检查通过之后才把它应用到 UTXO；中途失败就不会留下“已经扣款”的半个状态。
+全节点验证普通交易时，核心工作是检查引用、授权是否合法和金额守恒。下面的函数只计算状态变更，所有检查通过之后才把它应用到 UTXO；中途失败就不会留下“已经扣款”的半个状态。
 
 ```text
 function check_regular_transaction(tx, view, context):
-    require not is_coinbase(tx)
+    require not is_coinbase(tx)          # 区块奖励交易另行处理
     require valid_structure_and_money_ranges(tx)
     require inputs_are_unique(tx)
     require locks_are_satisfied(tx, view, context)
@@ -65,7 +117,7 @@ function check_regular_transaction(tx, view, context):
     for input in tx.inputs:
         coin = view.get(input.previous_output)
         require coin exists                       # 已花费的输出不在这里
-        if coin.is_coinbase:
+        if coin.is_coinbase:             # 区块奖励的输出要等到成熟才能花费
             require context.height - coin.created_height >= 100
         previous.append(coin)
 
@@ -93,9 +145,9 @@ Alice 仍然能构造另一笔交易，引用 `A:0`，把钱转给自己。孤�
 
 ## 区块怎样固定一批交易
 
-一个区块把一批交易装在一起。区块头保存前一个区块头的哈希，于是相邻区块形成链接；当前区块里的交易则通过 Merkle root 汇总到区块头。
+区块的主体保存交易列表，区块头则保存这批交易的摘要以及前一个区块头的哈希。交易列表怎样汇总成一个摘要？Bitcoin 使用 **Merkle 树**，最后得到的根哈希称为 Merkle root。
 
-哈希函数把任意长度的数据压成固定长度摘要。改动输入后，摘要会发生难以预测的变化。下文用 `H(x)` 表示 `SHA256(SHA256(x))`，即 Bitcoin 用于区块头和这里的 Merkle 树的双 SHA-256；`a || b` 表示拼接字节。
+下文用 `H(x)` 表示 `SHA256(SHA256(x))`，即 Bitcoin 用于区块头和这里的 Merkle 树的双 SHA-256；`a || b` 表示拼接字节。
 
 Merkle 树的叶子是交易标识，父节点是左右子节点拼接后的哈希。假设区块里有四笔交易：
 
@@ -259,6 +311,8 @@ new_target = min(pow_limit, old_target * span / TWO_WEEKS)
 ## 消息怎样穿过 P2P 网络
 
 Bitcoin 节点只与有限数量的对等节点直接连接。交易和区块由这些连接逐跳传递，不依赖一台负责全网分发的服务器。传播需要时间，各节点收到消息的次序也不一致。
+
+![比特币架构：交易经点对点网络传播，矿工构造区块并寻找工作量证明，各全节点独立验证区块、选择有效链并更新 UTXO](https://raw.githubusercontent.com/Obscurepawn/TradingSystemLearning/main/hft/blockchain/assets/bitcoin-architecture.svg)
 
 一个便于理解的传播循环如下。`announce` 表示告诉邻居“我有这份数据”，对方缺少时再请求；它不要求每一次通知都重复发送完整对象。
 
@@ -507,6 +561,9 @@ function approximate_catch_up_probability(q, z):
 
 ## 参考资料
 
+- [Bitcoin: A Peer-to-Peer Electronic Cash System — Satoshi Nakamoto](https://bitcoin.org/bitcoin.pdf)：Bitcoin 原始论文。
+- [How does Bitcoin work? — Bitcoin.org](https://bitcoin.org/en/how-it-works)：共享账本、交易与挖矿的简明介绍。
+- [But how does bitcoin actually work? — 3Blue1Brown](https://www.3blue1brown.com/lessons/bitcoin/)：从账本和签名逐步引出工作量证明的图解。
 - [Bitcoin Core v30.0](https://github.com/bitcoin/bitcoin/tree/v30.0)：本文数据结构与共识规则的实现参照，具体文件链接已附在相应段落。
 - [Bitcoin Improvement Proposals](https://github.com/bitcoin/bips)：签名、见证数据、区块传播等协议的正式规范。
 - [Double Spend Races — Cyril Grunspan、Ricardo Pérez-Marco](https://arxiv.org/abs/1702.02867)：双花竞赛的概率分析。

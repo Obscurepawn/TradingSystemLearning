@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="520" viewBox="0 0 1120 520" role="img" aria-labelledby="title desc">
+  <title id="title">交易装进区块，区块通过摘要连成链</title>
+  <desc id="desc">三个相邻区块 A、B、C 从左至右按时间排列。每个区块保存一批付款记录及前一区块头的摘要。区块 B 的 previous_hash 等于区块 A 的区块头哈希；区块 C 的 previous_hash 等于区块 B 的区块头哈希。两个引用箭头均从后一个区块指向前一个区块，方向朝左；下方独立的时间箭头朝右。哈希链接固定前后关系，追加区块还受挖矿和验证规则约束。</desc>
+  <defs>
+    <marker id="reference-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#315974"/></marker>
+    <marker id="time-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#a87725"/></marker>
+    <style>
+      text{font-family:"Noto Sans CJK SC","Microsoft YaHei","PingFang SC",Arial,sans-serif;fill:#18334b}
+      .title{font-size:30px;font-weight:700}.subtitle{font-size:18px;fill:#52697b}
+      .heading{font-size:24px;font-weight:700}.label{font-size:17px;fill:#52697b}.body{font-size:19px}
+      .code{font-family:"Noto Sans Mono CJK SC",Consolas,monospace;font-size:18px}
+      .panel{fill:#f5f9fb;stroke:#c6d7e2;stroke-width:1.5}.divider{stroke:#d8e3ea;stroke-width:1}
+      .reference{fill:none;stroke:#315974;stroke-width:2.5;marker-end:url(#reference-arrow)}
+    </style>
+  </defs>
+  <rect width="1120" height="520" fill="#fff"/>
+  <rect x="50" y="31" width="6" height="32" rx="3" fill="#d6982e"/>
+  <text x="72" y="57" class="title">交易装进区块，区块通过摘要连成链</text>
+  <text x="72" y="93" class="subtitle">每个新区块都在区块头中保存前一区块头的摘要。</text>
+
+  <rect x="50" y="135" width="290" height="255" rx="16" class="panel"/>
+  <text x="74" y="173" class="heading">区块 A</text>
+  <line x1="74" y1="188" x2="316" y2="188" class="divider"/>
+  <text x="74" y="216" class="label">前块摘要</text>
+  <text x="74" y="248" class="body">引用更早的区块…</text>
+  <line x1="74" y1="276" x2="316" y2="276" class="divider"/>
+  <text x="74" y="305" class="label">付款内容示意</text>
+  <text x="74" y="336" class="body">Alice → Bob</text>
+  <text x="74" y="367" class="body">其他付款…</text>
+
+  <rect x="415" y="135" width="290" height="255" rx="16" class="panel"/>
+  <text x="439" y="173" class="heading">区块 B</text>
+  <line x1="439" y1="188" x2="681" y2="188" class="divider"/>
+  <text x="439" y="216" class="label">前块摘要</text>
+  <text x="439" y="241" class="code">B.previous_hash =</text>
+  <text x="439" y="265" class="code">hash(A.header)</text>
+  <line x1="439" y1="276" x2="681" y2="276" class="divider"/>
+  <text x="439" y="305" class="label">付款内容示意</text>
+  <text x="439" y="336" class="body">Carol → Dave</text>
+  <text x="439" y="367" class="body">其他付款…</text>
+
+  <rect x="780" y="135" width="290" height="255" rx="16" fill="#edf7f3" stroke="#accfc0" stroke-width="1.5"/>
+  <text x="804" y="173" class="heading">区块 C</text>
+  <line x1="804" y1="188" x2="1046" y2="188" class="divider"/>
+  <text x="804" y="216" class="label">前块摘要</text>
+  <text x="804" y="241" class="code">C.previous_hash =</text>
+  <text x="804" y="265" class="code">hash(B.header)</text>
+  <line x1="804" y1="276" x2="1046" y2="276" class="divider"/>
+  <text x="804" y="305" class="label">付款内容示意</text>
+  <text x="804" y="336" class="body">Eve → Frank</text>
+  <text x="804" y="367" class="body">其他付款…</text>
+
+  <path d="M415 240H342" class="reference"/>
+  <text x="377" y="222" text-anchor="middle" class="label">引用</text>
+  <path d="M780 240H707" class="reference"/>
+  <text x="742" y="222" text-anchor="middle" class="label">引用</text>
+
+  <path d="M70 432H1050" fill="none" stroke="#a87725" stroke-width="2" marker-end="url(#time-arrow)"/>
+  <rect x="430" y="415" width="260" height="32" rx="6" fill="#fff"/>
+  <text x="560" y="437" text-anchor="middle" class="body" style="fill:#946521">时间增长 · 新区块向右追加</text>
+  <text x="50" y="489" class="label">哈希链接固定前后关系；谁能追加区块，由挖矿和验证规则决定。</text>
+</svg>
