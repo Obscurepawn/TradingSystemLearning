@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="660" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
+  <title id="title">账本由谁维护：中心化与去中心化</title>
+  <desc id="desc">左侧是中心化账本：Alice、Bob、Carol 都把转账请求提交给银行，银行持有唯一的权威账本，按到达顺序逐笔处理，负责核验身份、检查余额、排定顺序和保管记录，代价是所有人都要信任它。右侧是朴素的去中心化账本：四个节点各自保存一份账本。Alice 同时发出两笔花费同一份钱的交易，tx1 付给 Bob，tx2 付给 Carol。节点 1 和节点 3 先收到 tx1，节点 2 和节点 4 先收到 tx2，各自拒绝后到的那笔。每个节点都通过了签名和余额检查，账本却分成了两个版本。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#315974"/></marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#2f6f9f"/></marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#b5483b"/></marker>
+    <style>
+      text{font-family:"Noto Sans CJK SC","Microsoft YaHei","PingFang SC",Arial,sans-serif;fill:#18334b}
+      .title{font-size:30px;font-weight:700}.subtitle{font-size:18px;fill:#52697b}
+      .heading{font-size:24px;font-weight:700}.label{font-size:16px;fill:#52697b}.body{font-size:17px}
+      .strong{font-size:19px;font-weight:700}
+      .code{font-family:"Noto Sans Mono CJK SC",Consolas,monospace;font-size:16px}
+      .panel{fill:#f5f9fb;stroke:#c6d7e2;stroke-width:1.5}.card{fill:#fff;stroke:#c6d7e2;stroke-width:1.5}
+      .divider{stroke:#d8e3ea;stroke-width:1}
+      .link{stroke:#9fb3c2;stroke-width:2.5}
+      .req{fill:none;stroke:#315974;stroke-width:2.2;marker-end:url(#arrow)}
+      .tx1{fill:none;stroke:#2f6f9f;stroke-width:2.4;marker-end:url(#arrow-blue)}
+      .tx2{fill:none;stroke:#b5483b;stroke-width:2.4;marker-end:url(#arrow-red)}
+      .ok1{fill:#2f6f9f}.ok2{fill:#b5483b}.rej{fill:#7d8b96}
+    </style>
+  </defs>
+  <rect width="1200" height="660" fill="#fff"/>
+  <rect x="50" y="31" width="6" height="32" rx="3" fill="#d6982e"/>
+  <text x="72" y="57" class="title">账本由谁维护：中心化与去中心化</text>
+  <text x="72" y="93" class="subtitle">去掉中心以后，授权和余额仍能由各节点自己检查，交易顺序却没有了裁判。</text>
+
+  <!-- 左：中心化账本 -->
+  <rect x="50" y="130" width="520" height="460" rx="16" class="panel"/>
+  <text x="74" y="170" class="heading">中心化账本</text>
+
+  <rect x="175" y="196" width="270" height="176" rx="12" class="card"/>
+  <text x="310" y="226" text-anchor="middle" class="strong">银行：唯一的权威账本</text>
+  <line x1="195" y1="240" x2="425" y2="240" class="divider"/>
+  <text x="200" y="266" class="code">#1  Alice → Bob     60</text>
+  <text x="200" y="292" class="code">#2  Bob   → Carol   20</text>
+  <text x="200" y="318" class="code">#3  …</text>
+  <text x="310" y="354" text-anchor="middle" class="label">请求排队，逐笔处理</text>
+
+  <rect x="80" y="420" width="110" height="46" rx="10" class="card"/>
+  <text x="135" y="449" text-anchor="middle" class="body">Alice</text>
+  <rect x="255" y="420" width="110" height="46" rx="10" class="card"/>
+  <text x="310" y="449" text-anchor="middle" class="body">Bob</text>
+  <rect x="430" y="420" width="110" height="46" rx="10" class="card"/>
+  <text x="485" y="449" text-anchor="middle" class="body">Carol</text>
+  <path d="M135 420L226 376" class="req"/>
+  <path d="M310 420V376" class="req"/>
+  <path d="M485 420L394 376" class="req"/>
+  <text x="322" y="403" class="label">提交请求</text>
+
+  <text x="74" y="520" class="body">银行负责：核验身份 · 检查余额 · 排定顺序 · 保管记录</text>
+  <text x="74" y="556" class="body" style="fill:#946521">代价：所有人都要信任它不出错、不作恶、不停机</text>
+
+  <!-- 右：朴素的去中心化账本 -->
+  <rect x="630" y="130" width="520" height="460" rx="16" class="panel"/>
+  <text x="654" y="170" class="heading">朴素的去中心化账本</text>
+
+  <rect x="840" y="190" width="100" height="42" rx="10" class="card"/>
+  <text x="890" y="217" text-anchor="middle" class="body">Alice</text>
+  <text x="828" y="217" text-anchor="end" class="label" style="fill:#2f6f9f">tx1：这份钱 → Bob</text>
+  <text x="952" y="217" class="label" style="fill:#b5483b">tx2：同一份钱 → Carol</text>
+  <path d="M858 232L800 276" class="tx1"/>
+  <path d="M922 232L980 276" class="tx2"/>
+
+  <line x1="880" y1="330" x2="900" y2="330" class="link"/>
+  <line x1="880" y1="460" x2="900" y2="460" class="link"/>
+  <line x1="767" y1="380" x2="767" y2="410" class="link"/>
+  <line x1="1012" y1="380" x2="1012" y2="410" class="link"/>
+
+  <rect x="655" y="280" width="225" height="100" rx="12" class="card"/>
+  <text x="675" y="307" class="strong" style="font-size:17px">节点 1</text>
+  <text x="675" y="337" class="code ok1">① tx1  付给 Bob    ✓</text>
+  <text x="675" y="364" class="code rej">② tx2  冲突，拒绝</text>
+
+  <rect x="900" y="280" width="225" height="100" rx="12" class="card"/>
+  <text x="920" y="307" class="strong" style="font-size:17px">节点 2</text>
+  <text x="920" y="337" class="code ok2">① tx2  付给 Carol  ✓</text>
+  <text x="920" y="364" class="code rej">② tx1  冲突，拒绝</text>
+
+  <rect x="655" y="410" width="225" height="100" rx="12" class="card"/>
+  <text x="675" y="437" class="strong" style="font-size:17px">节点 3</text>
+  <text x="675" y="467" class="code ok1">① tx1  付给 Bob    ✓</text>
+  <text x="675" y="494" class="code rej">② tx2  冲突，拒绝</text>
+
+  <rect x="900" y="410" width="225" height="100" rx="12" class="card"/>
+  <text x="920" y="437" class="strong" style="font-size:17px">节点 4</text>
+  <text x="920" y="467" class="code ok2">① tx2  付给 Carol  ✓</text>
+  <text x="920" y="494" class="code rej">② tx1  冲突，拒绝</text>
+
+  <text x="654" y="546" class="body">每个节点都通过了签名和余额检查，账本却分成两个版本</text>
+  <text x="654" y="574" class="label">签名能证明 Alice 授权了两笔交易，无法裁定哪一笔算数</text>
+
+  <text x="50" y="628" class="label">Bitcoin 要补上的，是一个不依赖可信中心、又能让所有节点收敛到同一顺序的机制。</text>
+</svg>

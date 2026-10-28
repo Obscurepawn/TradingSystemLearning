@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1520" height="1687" viewBox="0 0 1520 1687" role="img" aria-labelledby="title desc">
+  <title id="title">花掉一个 UTXO：从钱包签名到多次确认</title>
+  <desc id="desc">时序图，五条泳道依次为 Alice 的钱包、Alice 连接的全节点、其他全节点、矿工和 Bob 的钱包，左侧一栏标出每个阶段里 A:0 的状态。阶段一，钱包列出可花费的 UTXO，选币、构造输出、逐个输入签名并锁定 A:0。阶段二，钱包把交易提交给节点，节点做交易池接纳，只改交易池不改链。阶段三，节点用 inv、getdata、tx 逐跳传播交易，交易进入矿工的交易池，Bob 的钱包显示 0 确认。阶段四，矿工组装候选区块并寻找工作量证明。阶段五，新区块传播，各全节点验证并切换链顶，UTXO 集合删除 A:0、新增 Bob 的输出和找零，交易池移除该交易，Alice 与 Bob 都看到 1 确认。阶段六，后续区块使确认数增加。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#315974"/></marker>
+    <style>
+      text{font-family:"Noto Sans CJK SC","Microsoft YaHei","PingFang SC",Arial,sans-serif;fill:#18334b}
+      .title{font-size:30px;font-weight:700}.subtitle{font-size:18px;fill:#52697b}
+      .lane{font-size:18px;font-weight:700}.phase{font-size:18px;font-weight:700}
+      .status{font-size:15px;fill:#946521}.colhead{font-size:16px;fill:#52697b}
+      .mlabel{font-size:14px;fill:#18334b;paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round}
+      .ntext{font-size:15px}.legend{font-size:16px;fill:#52697b}
+      .note{fill:#fff;stroke:#c6d7e2;stroke-width:1.5}
+      .header{fill:#f5f9fb;stroke:#c6d7e2;stroke-width:1.5}
+      .life{stroke:#9fb3c2;stroke-width:1.6;stroke-dasharray:6 6}
+      .msg{fill:none;stroke:#315974;stroke-width:2.2;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1520" height="1687" fill="#fff"/>
+  <rect x="40" y="31" width="6" height="32" rx="3" fill="#d6982e"/>
+  <text x="62" y="57" class="title">花掉一个 UTXO：从钱包签名到多次确认</text>
+  <text x="62" y="93" class="subtitle">Alice 用 100,000 聪的 A:0 付给 Bob 60,000 聪，找零 39,000 聪，手续费 1,000 聪。</text>
+
+<rect x="30" y="214" width="1460" height="169" fill="#f7fafc"/>
+<line x1="30" y1="214" x2="1490" y2="214" stroke="#d8e3ea" stroke-width="1"/>
+<text x="48" y="246" class="phase">① 构造与签名</text>
+<text x="48" y="276" class="status">链上：A:0 未花费</text>
+<text x="48" y="299" class="status">钱包：A:0 已锁定</text>
+<rect x="30" y="391" width="1460" height="219" fill="#ffffff"/>
+<line x1="30" y1="391" x2="1490" y2="391" stroke="#d8e3ea" stroke-width="1"/>
+<text x="48" y="423" class="phase">② 提交</text>
+<text x="48" y="453" class="status">Alice 节点的交易池：</text>
+<text x="48" y="476" class="status">A:0 已被 tx 占用</text>
+<text x="48" y="499" class="status">链上：仍未花费</text>
+<rect x="30" y="618" width="1460" height="370" fill="#f7fafc"/>
+<line x1="30" y1="618" x2="1490" y2="618" stroke="#d8e3ea" stroke-width="1"/>
+<text x="48" y="650" class="phase">③ 传播</text>
+<text x="48" y="680" class="status">多数节点的交易池：</text>
+<text x="48" y="703" class="status">A:0 已被占用</text>
+<text x="48" y="726" class="status">链上：仍未花费</text>
+<rect x="30" y="996" width="1460" height="129" fill="#ffffff"/>
+<line x1="30" y1="996" x2="1490" y2="996" stroke="#d8e3ea" stroke-width="1"/>
+<text x="48" y="1028" class="phase">④ 打包与挖矿</text>
+<text x="48" y="1058" class="status">候选区块里：</text>
+<text x="48" y="1081" class="status">A:0 被 tx 花掉</text>
+<text x="48" y="1104" class="status">链上：仍未花费</text>
+<rect x="30" y="1133" width="1460" height="343" fill="#f7fafc"/>
+<line x1="30" y1="1133" x2="1490" y2="1133" stroke="#d8e3ea" stroke-width="1"/>
+<text x="48" y="1165" class="phase">⑤ 区块传播与上链</text>
+<text x="48" y="1195" class="status">链上：A:0 已花费，</text>
+<text x="48" y="1218" class="status">从 UTXO 集合删除</text>
+<rect x="30" y="1484" width="1460" height="125" fill="#ffffff"/>
+<line x1="30" y1="1484" x2="1490" y2="1484" stroke="#d8e3ea" stroke-width="1"/>
+<text x="48" y="1516" class="phase">⑥ 等待更多确认</text>
+<text x="48" y="1546" class="status">被后续区块覆盖，</text>
+<text x="48" y="1569" class="status">越来越难推翻</text>
+<line x1="30" y1="1609" x2="1490" y2="1609" stroke="#d8e3ea" stroke-width="1"/>
+<line x1="272" y1="130" x2="272" y2="1609" stroke="#d8e3ea" stroke-width="1"/>
+<text x="48" y="165" class="colhead">阶段 · A:0 的状态</text>
+<line x1="410" y1="186" x2="410" y2="1609" class="life"/>
+<line x1="655" y1="186" x2="655" y2="1609" class="life"/>
+<line x1="900" y1="186" x2="900" y2="1609" class="life"/>
+<line x1="1135" y1="186" x2="1135" y2="1609" class="life"/>
+<line x1="1355" y1="186" x2="1355" y2="1609" class="life"/>
+<rect x="312" y="130" width="196" height="56" rx="12" class="header"/>
+<text x="410" y="164" text-anchor="middle" class="lane">Alice 的钱包</text>
+<rect x="556" y="130" width="197" height="56" rx="12" class="header"/>
+<text x="655" y="164" text-anchor="middle" class="lane">Alice 连接的全节点</text>
+<rect x="802" y="130" width="196" height="56" rx="12" class="header"/>
+<text x="900" y="164" text-anchor="middle" class="lane">其他全节点（P2P）</text>
+<rect x="1037" y="130" width="196" height="56" rx="12" class="header"/>
+<text x="1135" y="164" text-anchor="middle" class="lane">矿工</text>
+<rect x="1257" y="130" width="196" height="56" rx="12" class="header"/>
+<text x="1355" y="164" text-anchor="middle" class="lane">Bob 的钱包</text>
+<rect x="284" y="232" width="307" height="129" rx="10" class="note"/>
+<text x="299" y="259" class="ntext">列出可花费的 UTXO：A:0 = 100,000 聪</text>
+<text x="299" y="282" class="ntext">选币，按目标费率估算手续费</text>
+<text x="299" y="305" class="ntext">输出：Bob 60,000 · 找零 39,000</text>
+<text x="299" y="328" class="ntext">逐个输入签名（SIGHASH_ALL）</text>
+<text x="299" y="351" class="ntext">锁定 A:0，下一笔付款不再选它</text>
+<path d="M415 439H649" class="msg"/>
+<text x="532" y="430" text-anchor="middle" class="mlabel">提交 tx（sendrawtransaction）</text>
+<rect x="512" y="457" width="285" height="83" rx="10" class="note"/>
+<text x="528" y="484" class="ntext">交易池接纳：只改交易池，不改链</text>
+<text x="528" y="507" class="ntext">共识：输入存在、签名有效、金额守恒</text>
+<text x="528" y="530" class="ntext">策略：标准脚本、最低费率、替换规则</text>
+<path d="M650 586H416" class="msg"/>
+<text x="532" y="577" text-anchor="middle" class="mlabel">ACCEPTED，返回 txid</text>
+<path d="M660 666H894" class="msg"/>
+<text x="778" y="657" text-anchor="middle" class="mlabel">inv(wtxid)：随机间隔批量通告</text>
+<path d="M895 714H661" class="msg"/>
+<text x="778" y="705" text-anchor="middle" class="mlabel">getdata：没见过才请求</text>
+<path d="M660 762H894" class="msg"/>
+<text x="778" y="753" text-anchor="middle" class="mlabel">tx</text>
+<rect x="780" y="780" width="240" height="37" rx="10" class="note"/>
+<text x="795" y="807" class="ntext">各自接纳，再通告给自己的邻居</text>
+<path d="M905 863H1129" class="msg"/>
+<text x="1018" y="854" text-anchor="middle" class="mlabel">tx 进入矿工的交易池</text>
+<path d="M905 911H1349" class="msg"/>
+<text x="1128" y="902" text-anchor="middle" class="mlabel">经 Bob 的节点到达他的钱包</text>
+<rect x="1272" y="929" width="166" height="37" rx="10" class="note"/>
+<text x="1287" y="956" class="ntext">待确认收款：0 确认</text>
+<rect x="991" y="1014" width="289" height="83" rx="10" class="note"/>
+<text x="1006" y="1041" class="ntext">组装候选区块：按费率挑选交易</text>
+<text x="1006" y="1064" class="ntext">coinbase 领取补贴 + 手续费</text>
+<text x="1006" y="1087" class="ntext">改 nonce，直到区块头哈希 ≤ target</text>
+<path d="M1130 1181H906" class="msg"/>
+<text x="1018" y="1172" text-anchor="middle" class="mlabel">新区块：区块头 / 紧凑区块</text>
+<rect x="802" y="1199" width="195" height="60" rx="10" class="note"/>
+<text x="818" y="1226" class="ntext">验证区块，切换到</text>
+<text x="818" y="1249" class="ntext">累计工作量最大的有效链</text>
+<path d="M895 1305H661" class="msg"/>
+<text x="778" y="1296" text-anchor="middle" class="mlabel">新区块</text>
+<path d="M905 1305H1349" class="msg"/>
+<text x="1128" y="1296" text-anchor="middle" class="mlabel">新区块</text>
+<rect x="559" y="1323" width="191" height="83" rx="10" class="note"/>
+<text x="574" y="1350" class="ntext">UTXO：删除 A:0</text>
+<text x="574" y="1373" class="ntext">新增 Bob 的输出和找零</text>
+<text x="574" y="1396" class="ntext">交易池：移除 tx</text>
+<rect x="1254" y="1323" width="202" height="37" rx="10" class="note"/>
+<text x="1269" y="1350" class="ntext">收到 60,000 聪：1 确认</text>
+<path d="M650 1452H416" class="msg"/>
+<text x="532" y="1443" text-anchor="middle" class="mlabel">tx 已上链：1 确认</text>
+<path d="M895 1532H661" class="msg"/>
+<text x="778" y="1523" text-anchor="middle" class="mlabel">后续区块 …</text>
+<path d="M905 1532H1349" class="msg"/>
+<text x="1128" y="1523" text-anchor="middle" class="mlabel">后续区块 …</text>
+<rect x="328" y="1550" width="165" height="37" rx="10" class="note"/>
+<text x="342" y="1577" class="ntext">确认数随新区块增加</text>
+<rect x="1268" y="1550" width="174" height="37" rx="10" class="note"/>
+<text x="1283" y="1577" class="ntext">确认数 = H − h + 1</text>
+<text x="40" y="1651" class="legend">箭头是网络消息，白色方框是本地处理。交易被替换、卡住、因重组撤销或过期的情况见正文。</text>
+</svg>
