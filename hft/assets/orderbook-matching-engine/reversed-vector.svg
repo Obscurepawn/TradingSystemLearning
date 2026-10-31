@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="880" viewBox="0 0 1600 880">
+<defs>
+<marker id="m-blue" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#2563eb"/></marker>
+<marker id="m-teal" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#0f766e"/></marker>
+<marker id="m-orange" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#ea580c"/></marker>
+<marker id="m-gray" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#94a3b8"/></marker>
+<marker id="m-ink" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#1e293b"/></marker>
+</defs>
+<rect x="0" y="0" width="1600" height="880" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="58" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="30" font-weight="700" text-anchor="start" fill="#0f172a">交易机构的行情簿：把最优价放在 vector 末尾</text>
+<text x="48" y="94" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="18" font-weight="400" text-anchor="start" fill="#64748b">以买侧为例，典型股票每侧约 1,000 个价位；思路来自 Optiver 在 CppCon 2024 的分享，图为示意</text>
+<rect x="48" y="128" width="1090" height="278" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="72" y="164" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="21" font-weight="700" text-anchor="start" fill="#0f172a">直觉布局：最优价在下标 0</text>
+<rect x="250" y="212" width="100" height="56" rx="0" fill="#fff7ed" stroke="#ea580c" stroke-width="1.4"/>
+<text x="300.0" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#ea580c">10.00</text>
+<text x="300.0" y="294" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">0</text>
+<rect x="350" y="212" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="400.0" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.99</text>
+<text x="400.0" y="294" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">1</text>
+<rect x="450" y="212" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="500.0" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.98</text>
+<text x="500.0" y="294" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">2</text>
+<rect x="550" y="212" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="600.0" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.97</text>
+<text x="600.0" y="294" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">3</text>
+<rect x="650" y="212" width="100" height="56" rx="0" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="700.0" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">…</text>
+<text x="700.0" y="294" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">…</text>
+<rect x="750" y="212" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="800.0" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.03</text>
+<text x="800.0" y="294" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">997</text>
+<rect x="850" y="212" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="900.0" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.02</text>
+<text x="900.0" y="294" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">998</text>
+<rect x="950" y="212" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="1000.0" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.01</text>
+<text x="1000.0" y="294" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">999</text>
+<rect x="78" y="212" width="112" height="56" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+<text x="134" y="248" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="700" text-anchor="middle" fill="#ea580c">10.01</text>
+<path d="M 190,240 L 246,240" fill="none" stroke="#ea580c" stroke-width="2.6" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<text x="134" y="296" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#ea580c">新的最优价</text>
+<path d="M 300,196 L 1040,196" fill="none" stroke="#ea580c" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<rect x="497.7" y="174" width="344.6" height="25" rx="4" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="670.0" y="192" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#ea580c">插入下标 0：后面约 1,000 个元素全部后移一格</text>
+<text x="72" y="340" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="400" text-anchor="start" fill="#1e293b">最优档被吃光时要整体前移，出现更优价时要整体后移；</text>
+<text x="72" y="368" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="400" text-anchor="start" fill="#1e293b">而这两件事恰好是最频繁的更新 → 搬移成本集中出现在延迟分布的尾部。</text>
+<rect x="48" y="430" width="1090" height="278" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="72" y="466" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="21" font-weight="700" text-anchor="start" fill="#0f172a">反转布局：最优价在末尾</text>
+<rect x="90" y="514" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="140.0" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.01</text>
+<text x="140.0" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">0</text>
+<rect x="190" y="514" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="240.0" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.02</text>
+<text x="240.0" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">1</text>
+<rect x="290" y="514" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="340.0" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.03</text>
+<text x="340.0" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">2</text>
+<rect x="390" y="514" width="100" height="56" rx="0" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="440.0" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">…</text>
+<text x="440.0" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">…</text>
+<rect x="490" y="514" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="540.0" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.97</text>
+<text x="540.0" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">996</text>
+<rect x="590" y="514" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="640.0" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.98</text>
+<text x="640.0" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">997</text>
+<rect x="690" y="514" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="740.0" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">9.99</text>
+<text x="740.0" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">998</text>
+<rect x="790" y="514" width="100" height="56" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.4"/>
+<text x="840.0" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">10.00</text>
+<text x="840.0" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">999</text>
+<rect x="890" y="514" width="100" height="56" rx="0" fill="#fff7ed" stroke="#ea580c" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="940" y="550" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="700" text-anchor="middle" fill="#ea580c">10.01</text>
+<text x="940" y="596" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="14" font-weight="400" text-anchor="middle" fill="#ea580c">1000</text>
+<path d="M 940,488 L 940,510" fill="none" stroke="#ea580c" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<text x="940" y="478" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="600" text-anchor="middle" fill="#ea580c">新最优价 push_back：其他元素一个都不动</text>
+<path d="M 880,626 L 540,626" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<rect x="538.0" y="632" width="344" height="25" rx="4" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="710.0" y="650" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#2563eb">查找：从末尾向前线性扫描，多数更新几步内命中</text>
+<text x="72" y="690" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="400" text-anchor="start" fill="#1e293b">删除最优档 = pop_back；价格与数量可再拆成两个数组，扫描时只读价格。</text>
+<rect x="1170" y="128" width="382" height="580" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="1192" y="164" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="start" fill="#0f172a">更新落在哪一档（示意）</text>
+<text x="1192" y="190" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="start" fill="#64748b">纵轴为对数刻度</text>
+<path d="M 1205,640 L 1530,640" fill="none" stroke="#94a3b8" stroke-width="1.4"/>
+<path d="M 1205,640 L 1205,215" fill="none" stroke="#94a3b8" stroke-width="1.4"/>
+<rect x="1215" y="240.0" width="22" height="400.0" rx="2" fill="#fff7ed" stroke="#ea580c" stroke-width="1.2"/>
+<text x="1226" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">0</text>
+<rect x="1246" y="349.5403851705236" width="22" height="290.4596148294764" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1257" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">1</text>
+<rect x="1277" y="429.0830303827806" width="22" height="210.91696961721942" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1288" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">2</text>
+<rect x="1308" y="486.84284560995513" width="22" height="153.15715439004484" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1319" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">3</text>
+<rect x="1339" y="528.7850798187224" width="22" height="111.21492018127765" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1350" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">4</text>
+<rect x="1370" y="559.2413928021379" width="22" height="80.75860719786215" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1381" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">5</text>
+<rect x="1401" y="581.35721514786" width="22" height="58.64278485214006" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1412" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">6</text>
+<rect x="1432" y="597.4165982482989" width="22" height="42.583401751701125" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1443" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">7</text>
+<rect x="1463" y="609.0781038226801" width="22" height="30.921896177319898" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1474" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">8</text>
+<rect x="1494" y="617.5460948663465" width="22" height="22.45390513365349" rx="2" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="1505" y="660" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="13" font-weight="400" text-anchor="middle" fill="#64748b">9</text>
+<text x="1370" y="686" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">距最优价的档位</text>
+<text x="1530" y="250" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="end" fill="#1e293b">多数更新发生在</text>
+<text x="1530" y="270" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="end" fill="#1e293b">最优价附近</text>
+<text x="48" y="752" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="start" fill="#0f172a">Optiver 分享中的迭代顺序（同一份一周真实行情回放）</text>
+<rect x="48" y="772" width="276" height="84" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6"/>
+<text x="186" y="806" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="17" font-weight="700" text-anchor="middle" fill="#0f172a">std::map</text>
+<text x="186" y="836" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">节点分散，缓存局部性差</text>
+<path d="M 326,814 L 348,814" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-gray)"/>
+<rect x="352" y="772" width="276" height="84" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6"/>
+<text x="490" y="806" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="17" font-weight="700" text-anchor="middle" fill="#0f172a">排序 vector + lower_bound</text>
+<text x="490" y="836" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">局部性好，但搬移造成长尾</text>
+<path d="M 630,814 L 652,814" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-gray)"/>
+<rect x="656" y="772" width="276" height="84" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6"/>
+<text x="794" y="806" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="17" font-weight="700" text-anchor="middle" fill="#0f172a">反转 vector</text>
+<text x="794" y="836" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">长尾消失</text>
+<path d="M 934,814 L 956,814" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-gray)"/>
+<rect x="960" y="772" width="276" height="84" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6"/>
+<text x="1098" y="806" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="17" font-weight="700" text-anchor="middle" fill="#0f172a">无分支二分查找</text>
+<text x="1098" y="836" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">分支误预测约减半，IPC 1.4→1.6</text>
+<path d="M 1238,814 L 1260,814" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-gray)"/>
+<rect x="1264" y="772" width="276" height="84" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+<text x="1402" y="806" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="17" font-weight="700" text-anchor="middle" fill="#ea580c">从末尾线性查找</text>
+<text x="1402" y="836" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">最快，分布最窄</text>
+</svg>

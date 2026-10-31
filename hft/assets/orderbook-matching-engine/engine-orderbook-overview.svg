@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="1000" viewBox="0 0 1760 1000">
+<defs>
+<marker id="m-blue" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#2563eb"/></marker>
+<marker id="m-teal" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#0f766e"/></marker>
+<marker id="m-orange" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#ea580c"/></marker>
+<marker id="m-gray" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#94a3b8"/></marker>
+<marker id="m-ink" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#1e293b"/></marker>
+</defs>
+<rect x="0" y="0" width="1760" height="1000" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="58" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="30" font-weight="700" text-anchor="start" fill="#0f172a">撮合引擎整体架构（示意）</text>
+<text x="48" y="94" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="18" font-weight="400" text-anchor="start" fill="#64748b">按品种分片，每个分片由一个写线程修改其全部订单簿；日志复制与撮合并行；发布端按序号放行</text>
+<rect x="50" y="340" width="240" height="190" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="170.0" y="407.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="20" font-weight="700" text-anchor="middle" fill="#0f172a">接入网关 ×N</text>
+<text x="170.0" y="437.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">协议解码 · 会话校验</text>
+<text x="170.0" y="461.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">限流 · 准入检查</text>
+<text x="170.0" y="485.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">资金额度预留</text>
+<rect x="350" y="365" width="220" height="140" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="460.0" y="419.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="20" font-weight="700" text-anchor="middle" fill="#0f172a">定序器</text>
+<text x="460.0" y="449.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">分配输入序号</text>
+<text x="460.0" y="473.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">按品种路由到分片</text>
+<path d="M 290,435 L 346,435" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<rect x="650" y="140" width="560" height="300" rx="14" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6"/>
+<text x="672" y="174" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="start" fill="#2563eb">分片 0 · 绑定核 2 · 单写线程</text>
+<text x="672" y="200" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#64748b">品种 600000、600519 …</text>
+<rect x="670" y="240" width="92" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="716.0" y="309.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="700" text-anchor="middle" fill="#0f172a">SPSC</text>
+<text x="716.0" y="339.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">ring</text>
+<rect x="792" y="220" width="270" height="196" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.4"/>
+<text x="927" y="246" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="700" text-anchor="middle" fill="#0f172a">订单簿 × 本分片品种数</text>
+<rect x="808" y="260" width="238" height="40" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="927" y="286" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">价位数组 + 非空位图</text>
+<rect x="808" y="310" width="238" height="40" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="927" y="336" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">订单 ID 索引</text>
+<rect x="808" y="360" width="238" height="40" rx="8" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.2"/>
+<text x="927" y="386" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">订单池（同价 FIFO 链）</text>
+<rect x="1092" y="240" width="100" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1142.0" y="309.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="700" text-anchor="middle" fill="#0f172a">结果</text>
+<text x="1142.0" y="339.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">缓冲</text>
+<path d="M 762,315 L 788,315" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<path d="M 1062,315 L 1088,315" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<rect x="650" y="470" width="560" height="300" rx="14" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6"/>
+<text x="672" y="504" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="start" fill="#2563eb">分片 1 · 绑定核 3 · 单写线程</text>
+<text x="672" y="530" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#64748b">品种 000001、300750 …</text>
+<rect x="670" y="570" width="92" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="716.0" y="639.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="700" text-anchor="middle" fill="#0f172a">SPSC</text>
+<text x="716.0" y="669.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">ring</text>
+<rect x="792" y="550" width="270" height="196" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.4"/>
+<text x="927" y="576" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="700" text-anchor="middle" fill="#0f172a">订单簿 × 本分片品种数</text>
+<rect x="808" y="590" width="238" height="40" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="927" y="616" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">价位数组 + 非空位图</text>
+<rect x="808" y="640" width="238" height="40" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="927" y="666" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">订单 ID 索引</text>
+<rect x="808" y="690" width="238" height="40" rx="8" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.2"/>
+<text x="927" y="716" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">订单池（同价 FIFO 链）</text>
+<rect x="1092" y="570" width="100" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1142.0" y="639.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="700" text-anchor="middle" fill="#0f172a">结果</text>
+<text x="1142.0" y="669.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">缓冲</text>
+<path d="M 762,645 L 788,645" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<path d="M 1062,645 L 1088,645" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<path d="M 570,410 L 610,410 L 610,315 L 666,315" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<path d="M 570,460 L 610,460 L 610,645 L 666,645" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<rect x="650" y="830" width="560" height="110" rx="10" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.6"/>
+<text x="930.0" y="880.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="middle" fill="#0f172a">日志与复制（独立线程 / 进程）</text>
+<text x="930.0" y="910.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">保存完整输入序列与规则版本，推进 committed 序号</text>
+<path d="M 460,505 L 460,885 L 646,885" fill="none" stroke="#0f766e" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-teal)"/>
+<rect x="404.0" y="683" width="112" height="24" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="460.0" y="700" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#0f766e">同一份有序输入</text>
+<rect x="1290" y="420" width="190" height="200" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6"/>
+<text x="1385.0" y="492.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="20" font-weight="700" text-anchor="middle" fill="#0f172a">按序发布</text>
+<text x="1385.0" y="522.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">执行完成</text>
+<text x="1385.0" y="546.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">且已提交</text>
+<text x="1385.0" y="570.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#1e293b">才对外可见</text>
+<path d="M 1192,315 L 1250,315 L 1250,490 L 1286,490" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<path d="M 1192,645 L 1250,645 L 1250,550 L 1286,550" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<path d="M 1210,885 L 1385,885 L 1385,624" fill="none" stroke="#0f766e" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-teal)"/>
+<rect x="1343.0" y="743" width="84" height="24" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="1385.0" y="760" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#0f766e">已提交序号</text>
+<rect x="1540" y="300" width="172" height="100" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1626.0" y="345.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="17" font-weight="700" text-anchor="middle" fill="#0f172a">成交回报</text>
+<text x="1626.0" y="374.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">订单状态</text>
+<path d="M 1480,520 L 1510,520 L 1510,350 L 1536,350" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<rect x="1540" y="430" width="172" height="100" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1626.0" y="475.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="17" font-weight="700" text-anchor="middle" fill="#0f172a">公开行情</text>
+<text x="1626.0" y="504.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">逐笔 · 快照</text>
+<path d="M 1480,520 L 1510,520 L 1510,480 L 1536,480" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<rect x="1540" y="560" width="172" height="100" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1626.0" y="605.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="17" font-weight="700" text-anchor="middle" fill="#0f172a">查询副本</text>
+<text x="1626.0" y="634.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">下游风控 / 清算</text>
+<path d="M 1480,520 L 1510,520 L 1510,610 L 1536,610" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<path d="M 400,365 L 400,300 L 170,300 L 170,336" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-gray)" stroke-dasharray="7 5"/>
+<rect x="209.39999999999998" y="279" width="151.20000000000002" height="24" rx="4" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="285.0" y="296" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#64748b">ring 满：背压到入口</text>
+<text x="50" y="640" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="700" text-anchor="start" fill="#0f172a">图例</text>
+<path d="M 50,672 L 110,672" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<text x="124" y="678" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#1e293b">命令与结果</text>
+<path d="M 50,706 L 110,706" fill="none" stroke="#0f766e" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#m-teal)"/>
+<text x="124" y="712" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#1e293b">日志与提交进度</text>
+<path d="M 50,740 L 110,740" fill="none" stroke="#ea580c" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<text x="124" y="746" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#1e293b">对外发布</text>
+<path d="M 50,774 L 110,774" fill="none" stroke="#94a3b8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#m-gray)" stroke-dasharray="7 5"/>
+<text x="124" y="780" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#1e293b">背压</text>
+<text x="50" y="830" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#64748b">并行发生在分片之间；</text>
+<text x="50" y="854" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#64748b">跨分片的资金占用在网关</text>
+<text x="50" y="878" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#64748b">或账户服务中预留。</text>
+</svg>

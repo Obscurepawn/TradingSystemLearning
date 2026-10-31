@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<defs>
+<marker id="m-blue" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#2563eb"/></marker>
+<marker id="m-teal" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#0f766e"/></marker>
+<marker id="m-orange" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#ea580c"/></marker>
+<marker id="m-gray" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#94a3b8"/></marker>
+<marker id="m-ink" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0,0 L12,5 L0,10 Z" fill="#1e293b"/></marker>
+</defs>
+<rect x="0" y="0" width="1600" height="900" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="48" y="58" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="30" font-weight="700" text-anchor="start" fill="#0f172a">撮合与日志并行时，发布进度取两者的较小值</text>
+<text x="48" y="94" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="18" font-weight="400" text-anchor="start" fill="#64748b">输入 ring 上的四个序号进度（输出闸门方案）。输入闸门方案中，撮合线程本身等待日志提交，executed 不会超过 committed</text>
+<rect x="200" y="236" width="120" height="70" rx="0" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6"/>
+<text x="260.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1195</text>
+<rect x="320" y="236" width="120" height="70" rx="0" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6"/>
+<text x="380.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1196</text>
+<rect x="440" y="236" width="120" height="70" rx="0" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6"/>
+<text x="500.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1197</text>
+<rect x="560" y="236" width="120" height="70" rx="0" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6"/>
+<text x="620.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1198</text>
+<rect x="680" y="236" width="120" height="70" rx="0" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6"/>
+<text x="740.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1199</text>
+<rect x="800" y="236" width="120" height="70" rx="0" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="860.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1200</text>
+<rect x="920" y="236" width="120" height="70" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="980.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1201</text>
+<rect x="1040" y="236" width="120" height="70" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1100.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1202</text>
+<rect x="1160" y="236" width="120" height="70" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1220.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1203</text>
+<rect x="1280" y="236" width="120" height="70" rx="0" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1340.0" y="280" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="19" font-weight="600" text-anchor="middle" fill="#0f172a">#1204</text>
+<text x="200" y="172" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#64748b">← 更早的槽位已被所有消费者越过，定序器可以复用</text>
+<path d="M 1340.0,196 L 1340.0,232" fill="none" stroke="#94a3b8" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#m-gray)"/>
+<text x="1340.0" y="160" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="600" text-anchor="middle" fill="#1e293b">定序器已写入</text>
+<text x="1340.0" y="184" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="16" font-weight="400" text-anchor="middle" fill="#64748b">#1204</text>
+<path d="M 860.0,196 L 860.0,232" fill="none" stroke="#2563eb" stroke-width="2.6" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<text x="860.0" y="160" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="700" text-anchor="middle" fill="#2563eb">撮合线程已执行</text>
+<text x="860.0" y="184" font-family='"SF Mono", Menlo, Consolas, "PingFang SC", monospace' font-size="15" font-weight="400" text-anchor="middle" fill="#2563eb">executed = #1200</text>
+<path d="M 718.0,352 L 718.0,310" fill="none" stroke="#0f766e" stroke-width="2.6" stroke-linejoin="round" marker-end="url(#m-teal)"/>
+<text x="704.0" y="358" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="700" text-anchor="end" fill="#0f766e">日志已提交 committed = #1199</text>
+<text x="704.0" y="382" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="end" fill="#64748b">本地落盘 + 副本确认后推进</text>
+<path d="M 762.0,410 L 762.0,310" fill="none" stroke="#ea580c" stroke-width="2.6" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<text x="776.0" y="416" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="700" text-anchor="start" fill="#ea580c">可对外发布 = min(1200, 1199) = #1199</text>
+<text x="776.0" y="440" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="start" fill="#64748b">#1200 的确认留在结果缓冲里，等提交追上再发</text>
+<rect x="200" y="474" width="34" height="22" rx="4" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6"/>
+<text x="246" y="492" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="400" text-anchor="start" fill="#1e293b">已执行且已提交：可发布</text>
+<rect x="600" y="474" width="34" height="22" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="646" y="492" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="400" text-anchor="start" fill="#1e293b">已执行、未提交：结果暂存</text>
+<rect x="1000" y="474" width="34" height="22" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1046" y="492" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="400" text-anchor="start" fill="#1e293b">已定序、尚未执行</text>
+<rect x="48" y="530" width="1504" height="290" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="72" y="625" width="200" height="96" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="172.0" y="668.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="middle" fill="#0f172a">接入网关</text>
+<text x="172.0" y="698.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">解码 · 准入</text>
+<rect x="330" y="625" width="220" height="96" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="440.0" y="668.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="middle" fill="#0f172a">定序器</text>
+<text x="440.0" y="698.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">分配序号 · 写入 ring</text>
+<rect x="650" y="560" width="340" height="96" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.6"/>
+<text x="820.0" y="603.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="middle" fill="#0f172a">撮合线程（单写者）</text>
+<text x="820.0" y="633.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">按序执行，推进 executed</text>
+<rect x="650" y="696" width="340" height="96" rx="10" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.6"/>
+<text x="820.0" y="739.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="middle" fill="#0f172a">日志与复制</text>
+<text x="820.0" y="769.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">落盘、发往副本，推进 committed</text>
+<rect x="1100" y="625" width="230" height="96" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1.6"/>
+<text x="1215.0" y="668.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="19" font-weight="700" text-anchor="middle" fill="#0f172a">发布闸门</text>
+<text x="1215.0" y="698.5" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">放行 ≤ min(两者)</text>
+<rect x="1390" y="625" width="140" height="96" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.6"/>
+<text x="1460.0" y="668.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="18" font-weight="700" text-anchor="middle" fill="#0f172a">回报 / 行情</text>
+<text x="1460.0" y="698.0" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="middle" fill="#64748b">按序发出</text>
+<path d="M 272,673 L 326,673" fill="none" stroke="#1e293b" stroke-width="2" stroke-linejoin="round" marker-end="url(#m-ink)"/>
+<path d="M 550,673 L 600,673 L 600,608 L 646,608" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<path d="M 600,673 L 600,744 L 646,744" fill="none" stroke="#0f766e" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-teal)"/>
+<path d="M 990,608 L 1045,608 L 1045,655 L 1096,655" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-blue)"/>
+<path d="M 990,744 L 1045,744 L 1045,692 L 1096,692" fill="none" stroke="#0f766e" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#m-teal)"/>
+<path d="M 1330,673 L 1386,673" fill="none" stroke="#ea580c" stroke-width="2.4" stroke-linejoin="round" marker-end="url(#m-orange)"/>
+<rect x="1024.0" y="569" width="42" height="24" rx="4" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="1045.0" y="586" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#2563eb">结果</text>
+<rect x="1010.0" y="755" width="70" height="24" rx="4" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="1045.0" y="772" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="14" font-weight="400" text-anchor="middle" fill="#0f766e">提交序号</text>
+<text x="72" y="580" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="16" font-weight="400" text-anchor="start" fill="#64748b">同一条有序输入，两路并行消费</text>
+<text x="48" y="860" font-family='"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif' font-size="15" font-weight="400" text-anchor="start" fill="#64748b">LMAX 与 Coinbase INTX 公开的做法是输入闸门：输入先落盘、复制（Raft 多数派确认）再执行。本图是把复制与执行重叠的输出闸门方案。</text>
+</svg>
