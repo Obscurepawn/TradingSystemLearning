@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600">
+<defs><marker id="ab" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/></marker><marker id="ao" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#c2410c"/></marker><marker id="ag" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1280" height="600" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">例 5 预测：二分查找每次查询的周期数，分支与无分支在 L3 附近交叉</text>
+<text x="44" y="82" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">Skylake 4.0 GHz，随机查询、热点上层常驻缓存的理想化假设；对数纵轴</text>
+<line x1="130.0" y1="441.2" x2="1220.0" y2="441.2" stroke="#e5e7eb" stroke-width="1"/>
+<text x="120.0" y="446.2" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">50</text>
+<line x1="130.0" y1="382.7" x2="1220.0" y2="382.7" stroke="#e5e7eb" stroke-width="1"/>
+<text x="120.0" y="387.7" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">100</text>
+<line x1="130.0" y1="324.2" x2="1220.0" y2="324.2" stroke="#e5e7eb" stroke-width="1"/>
+<text x="120.0" y="329.2" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">200</text>
+<line x1="130.0" y1="246.9" x2="1220.0" y2="246.9" stroke="#e5e7eb" stroke-width="1"/>
+<text x="120.0" y="251.9" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">500</text>
+<line x1="130.0" y1="188.5" x2="1220.0" y2="188.5" stroke="#e5e7eb" stroke-width="1"/>
+<text x="120.0" y="193.5" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">1,000</text>
+<line x1="130.0" y1="130.0" x2="1220.0" y2="130.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="120.0" y="135.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">2,000</text>
+<text x="60.0" y="112.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">周期 / 次查询</text>
+<rect x="211.7" y="397.4" width="90.0" height="62.6" rx="4" fill="#2563eb" stroke="none"/>
+<text x="256.7" y="371.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">84 周期</text>
+<text x="256.7" y="389.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="middle">≈ 21 ns</text>
+<rect x="321.7" y="361.2" width="90.0" height="98.8" rx="4" fill="#c2410c" stroke="none"/>
+<text x="366.7" y="335.2" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#c2410c" text-anchor="middle">129 周期</text>
+<text x="366.7" y="353.2" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="middle">≈ 32 ns</text>
+<text x="311.7" y="490.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#15243b" text-anchor="middle">N = 2^12（16 KB，全部在 L1）</text>
+<text x="311.7" y="516.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#2563eb" text-anchor="middle">无分支快 1.5×</text>
+<rect x="575.0" y="287.5" width="90.0" height="172.5" rx="4" fill="#2563eb" stroke="none"/>
+<text x="620.0" y="261.5" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">309 周期</text>
+<text x="620.0" y="279.5" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="middle">≈ 77 ns</text>
+<rect x="685.0" y="290.2" width="90.0" height="169.8" rx="4" fill="#c2410c" stroke="none"/>
+<text x="730.0" y="264.2" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#c2410c" text-anchor="middle">299.5 周期</text>
+<text x="730.0" y="282.2" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="middle">≈ 75 ns</text>
+<text x="675.0" y="490.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#15243b" text-anchor="middle">N = 2^20（4 MB，落在 L3 内）</text>
+<text x="675.0" y="516.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#64748b" text-anchor="middle">基本持平</text>
+<rect x="938.3" y="185.4" width="90.0" height="274.6" rx="4" fill="#2563eb" stroke="none"/>
+<text x="983.3" y="159.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">1037 周期</text>
+<text x="983.3" y="177.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="middle">≈ 259 ns</text>
+<rect x="1048.3" y="219.5" width="90.0" height="240.5" rx="4" fill="#c2410c" stroke="none"/>
+<text x="1093.3" y="193.5" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#c2410c" text-anchor="middle">692.5 周期</text>
+<text x="1093.3" y="211.5" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="middle">≈ 173 ns</text>
+<text x="1038.3" y="490.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#15243b" text-anchor="middle">N = 2^24（64 MB，超出 L3）</text>
+<text x="1038.3" y="516.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#c2410c" text-anchor="middle">有分支快 1.5×：推测执行把 miss 重叠了</text>
+<rect x="420.0" y="104.0" width="18.0" height="14.0" rx="3" fill="#2563eb" stroke="none"/>
+<text x="446.0" y="116.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#15243b" text-anchor="start">无分支（cmov）：每层 = 访存延迟 + 2</text>
+<rect x="820.0" y="104.0" width="18.0" height="14.0" rx="3" fill="#c2410c" stroke="none"/>
+<text x="846.0" y="116.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#15243b" text-anchor="start">有分支：每层 ≈ 0.5 ×（访存延迟 + 16.5）</text>
+</svg>

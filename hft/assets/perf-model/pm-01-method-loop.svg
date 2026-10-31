@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480">
+<defs><marker id="ab" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/></marker><marker id="ao" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#c2410c"/></marker><marker id="ag" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1280" height="480" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">性能建模的闭环：先算出预测值，再用测量去证伪它</text>
+<text x="44" y="82" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">预测与实测相差超过 20%，通常不是测量出错，而是模型漏了一项：回到第②步把它找出来</text>
+<rect x="40.0" y="120.0" width="180.0" height="170.0" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.8"/>
+<text x="54.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#2563eb" text-anchor="start">①</text>
+<text x="84.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="start">界定问题</text>
+<text x="54.0" y="198.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">单次延迟还是吞吐？</text>
+<text x="54.0" y="226.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">机器、频率、输入分布</text>
+<text x="54.0" y="254.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">缓存是冷还是热</text>
+<line x1="222.0" y1="205.0" x2="241.0" y2="205.0" stroke="#2563eb" stroke-width="2.2" marker-end="url(#ab)"/>
+<rect x="244.0" y="120.0" width="180.0" height="170.0" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.8"/>
+<text x="258.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#2563eb" text-anchor="start">②</text>
+<text x="288.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="start">读汇编、数操作</text>
+<text x="258.0" y="198.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">以编译器输出为准</text>
+<text x="258.0" y="226.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">按端口/资源归类</text>
+<text x="258.0" y="254.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">找循环携带依赖</text>
+<line x1="426.0" y1="205.0" x2="445.0" y2="205.0" stroke="#2563eb" stroke-width="2.2" marker-end="url(#ab)"/>
+<rect x="448.0" y="120.0" width="180.0" height="170.0" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.8"/>
+<text x="462.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#2563eb" text-anchor="start">③</text>
+<text x="492.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="start">定位数据层级</text>
+<text x="462.0" y="198.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">工作集对比各级缓存</text>
+<text x="462.0" y="226.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">顺序 / 随机 / 依赖</text>
+<text x="462.0" y="254.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">页大小与 TLB</text>
+<line x1="630.0" y1="205.0" x2="649.0" y2="205.0" stroke="#2563eb" stroke-width="2.2" marker-end="url(#ab)"/>
+<rect x="652.0" y="120.0" width="180.0" height="170.0" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.8"/>
+<text x="666.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#2563eb" text-anchor="start">④</text>
+<text x="696.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="start">查代价表</text>
+<text x="666.0" y="198.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">延迟、倒数吞吐</text>
+<text x="666.0" y="226.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">带宽、并发上限</text>
+<text x="666.0" y="254.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">误预测等惩罚</text>
+<line x1="834.0" y1="205.0" x2="853.0" y2="205.0" stroke="#2563eb" stroke-width="2.2" marker-end="url(#ab)"/>
+<rect x="856.0" y="120.0" width="180.0" height="170.0" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.8"/>
+<text x="870.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#2563eb" text-anchor="start">⑤</text>
+<text x="900.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="start">合成并预测</text>
+<text x="870.0" y="198.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">max(依赖链, 资源)</text>
+<text x="870.0" y="226.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">+ Σ 事件 × 惩罚</text>
+<text x="870.0" y="254.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">给区间和主导项</text>
+<line x1="1038.0" y1="205.0" x2="1057.0" y2="205.0" stroke="#2563eb" stroke-width="2.2" marker-end="url(#ab)"/>
+<rect x="1060.0" y="120.0" width="180.0" height="170.0" rx="10" fill="#f0fdf4" stroke="#6ee7b7" stroke-width="1.8"/>
+<text x="1074.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="22" font-weight="600" fill="#059669" text-anchor="start">⑥</text>
+<text x="1104.0" y="156.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="start">测量对照</text>
+<text x="1074.0" y="198.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">cycles、IPC</text>
+<text x="1074.0" y="226.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">miss、误预测计数</text>
+<text x="1074.0" y="254.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">主导项是否吻合</text>
+<path d="M1150.0,292 L1150.0,362 L334.0,362 L334.0,302" fill="none" stroke="#c2410c" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#ao)"/>
+<text x="742.0" y="350.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#c2410c" text-anchor="middle">偏差 &gt; 20%：回到②，常见漏项是频率、TLB、端口冲突、编译器改写了代码</text>
+<text x="742.0" y="420.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#059669" text-anchor="middle">偏差 ≤ 20% 且主导项吻合：这个模型可以拿来比较方案、做设计取舍</text>
+</svg>

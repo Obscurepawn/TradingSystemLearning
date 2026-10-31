@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+<defs><marker id="ab" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/></marker><marker id="ao" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#c2410c"/></marker><marker id="ag" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1280" height="640" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">例 1 预测：数组求和每个元素的周期数，瓶颈随数据规模迁移</text>
+<text x="44" y="82" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">Skylake 4.0 GHz 模型计算值；对数纵轴；浅色段为区间上沿。同一段源码，-ffast-math 的收益从 16× 缩到 3.3×</text>
+<line x1="120.0" y1="500.0" x2="1220.0" y2="500.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="110.0" y="505.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">0.1</text>
+<line x1="120.0" y1="426.4" x2="1220.0" y2="426.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="110.0" y="431.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">0.25</text>
+<line x1="120.0" y1="370.7" x2="1220.0" y2="370.7" stroke="#e5e7eb" stroke-width="1"/>
+<text x="110.0" y="375.7" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">0.5</text>
+<line x1="120.0" y1="315.0" x2="1220.0" y2="315.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="110.0" y="320.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">1</text>
+<line x1="120.0" y1="259.3" x2="1220.0" y2="259.3" stroke="#e5e7eb" stroke-width="1"/>
+<text x="110.0" y="264.3" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">2</text>
+<line x1="120.0" y1="203.6" x2="1220.0" y2="203.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="110.0" y="208.6" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">4</text>
+<line x1="120.0" y1="130.0" x2="1220.0" y2="130.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="110.0" y="135.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#64748b" text-anchor="end">10</text>
+<text x="60.0" y="112.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="start">周期 / 元素</text>
+<rect x="152.5" y="203.6" width="62.0" height="296.4" rx="3" fill="#c2410c" stroke="none"/>
+<text x="183.5" y="195.6" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#c2410c" text-anchor="middle">4</text>
+<rect x="226.5" y="426.4" width="62.0" height="73.6" rx="3" fill="#2563eb" stroke="none"/>
+<text x="257.5" y="418.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#2563eb" text-anchor="middle">0.25</text>
+<rect x="300.5" y="482.1" width="62.0" height="17.9" rx="3" fill="#059669" stroke="none"/>
+<text x="331.5" y="474.1" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#059669" text-anchor="middle">0.125</text>
+<text x="257.5" y="528.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#15243b" text-anchor="middle">L1：16 KB（n = 2 048）</text>
+<text x="257.5" y="552.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="middle">主导项：依赖链 / 加载端口</text>
+<text x="257.5" y="576.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">严格 → 4 累加器：16×</text>
+<rect x="427.5" y="203.6" width="62.0" height="296.4" rx="3" fill="#c2410c" stroke="none"/>
+<text x="458.5" y="195.6" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#c2410c" text-anchor="middle">4</text>
+<rect x="501.5" y="426.4" width="62.0" height="73.6" rx="3" fill="#2563eb" stroke="none"/>
+<rect x="501.5" y="411.7" width="62.0" height="14.6" rx="3" fill="#bfdbfe" stroke="none"/>
+<text x="532.5" y="403.7" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#2563eb" text-anchor="middle">0.25–0.3</text>
+<rect x="575.5" y="444.3" width="62.0" height="55.7" rx="3" fill="#059669" stroke="none"/>
+<rect x="575.5" y="426.4" width="62.0" height="17.9" rx="3" fill="#a7f3d0" stroke="none"/>
+<text x="606.5" y="418.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#059669" text-anchor="middle">0.2–0.25</text>
+<text x="532.5" y="528.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#15243b" text-anchor="middle">L2：128 KB（n = 16 384）</text>
+<text x="532.5" y="552.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="middle">主导项：L2→L1 带宽</text>
+<text x="532.5" y="576.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">严格 → 4 累加器：13–16×</text>
+<rect x="702.5" y="203.6" width="62.0" height="296.4" rx="3" fill="#c2410c" stroke="none"/>
+<text x="733.5" y="195.6" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#c2410c" text-anchor="middle">4</text>
+<rect x="776.5" y="377.0" width="62.0" height="123.0" rx="3" fill="#2563eb" stroke="none"/>
+<text x="807.5" y="369.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#2563eb" text-anchor="middle">0.4625</text>
+<rect x="850.5" y="377.0" width="62.0" height="123.0" rx="3" fill="#059669" stroke="none"/>
+<text x="881.5" y="369.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#059669" text-anchor="middle">0.4625</text>
+<text x="807.5" y="528.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#15243b" text-anchor="middle">L3：4 MB（n = 2^19）</text>
+<text x="807.5" y="552.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="middle">主导项：L3 带宽</text>
+<text x="807.5" y="576.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">严格 → 4 累加器：8.6×</text>
+<rect x="977.5" y="203.6" width="62.0" height="296.4" rx="3" fill="#c2410c" stroke="none"/>
+<text x="1008.5" y="195.6" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#c2410c" text-anchor="middle">4</text>
+<rect x="1051.5" y="298.4" width="62.0" height="201.6" rx="3" fill="#2563eb" stroke="none"/>
+<text x="1082.5" y="290.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#2563eb" text-anchor="middle">1.23</text>
+<rect x="1125.5" y="298.4" width="62.0" height="201.6" rx="3" fill="#059669" stroke="none"/>
+<text x="1156.5" y="290.4" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="600" fill="#059669" text-anchor="middle">1.23</text>
+<text x="1082.5" y="528.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#15243b" text-anchor="middle">DRAM：1 GiB（n = 2^27）</text>
+<text x="1082.5" y="552.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#64748b" text-anchor="middle">主导项：DRAM 带宽 26 GB/s</text>
+<text x="1082.5" y="576.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="600" fill="#2563eb" text-anchor="middle">严格 → 4 累加器：3.3×</text>
+<rect x="160.0" y="104.0" width="18.0" height="14.0" rx="3" fill="#c2410c" stroke="none"/>
+<text x="186.0" y="116.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#15243b" text-anchor="start">严格顺序（-O2）</text>
+<rect x="490.0" y="104.0" width="18.0" height="14.0" rx="3" fill="#2563eb" stroke="none"/>
+<text x="516.0" y="116.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#15243b" text-anchor="start">4 累加器 SIMD（-O3 -ffast-math）</text>
+<rect x="820.0" y="104.0" width="18.0" height="14.0" rx="3" fill="#059669" stroke="none"/>
+<text x="846.0" y="116.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="14" font-weight="400" fill="#15243b" text-anchor="start">8 累加器 SIMD（手写）</text>
+</svg>

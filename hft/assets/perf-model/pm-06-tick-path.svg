@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520">
+<defs><marker id="ab" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#2563eb"/></marker><marker id="ao" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#c2410c"/></marker><marker id="ag" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1280" height="520" fill="#ffffff"/>
+<text x="44" y="50" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="27" font-weight="600" fill="#15243b">例 6 预测：同一段行情处理代码，热路径约 42 ns，冷路径约 218 ns</text>
+<text x="44" y="82" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" fill="#64748b">关键路径上各类代价的周期数（Skylake 4.0 GHz）；冷路径里内存 miss 与跨核交接合计占 91%</text>
+<text x="134.0" y="182.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="end">热路径</text>
+<rect x="150.0" y="150.0" width="59.9" height="48.0" rx="4" fill="#059669" stroke="none"/>
+<text x="179.9" y="180.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">57</text>
+<rect x="209.8" y="150.0" width="32.6" height="48.0" rx="4" fill="#2563eb" stroke="none"/>
+<rect x="242.4" y="150.0" width="84.0" height="48.0" rx="4" fill="#dc2626" stroke="none"/>
+<text x="284.4" y="180.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">80</text>
+<text x="340.4" y="181.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="start">168 周期 ≈ 42 ns</text>
+<text x="134.0" y="302.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="18" font-weight="600" fill="#15243b" text-anchor="end">冷路径</text>
+<rect x="150.0" y="270.0" width="623.7" height="48.0" rx="4" fill="#059669" stroke="none"/>
+<text x="461.9" y="300.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">594</text>
+<rect x="773.7" y="270.0" width="65.1" height="48.0" rx="4" fill="#2563eb" stroke="none"/>
+<text x="806.2" y="300.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">62</text>
+<rect x="838.8" y="270.0" width="17.3" height="48.0" rx="4" fill="#c2410c" stroke="none"/>
+<rect x="856.1" y="270.0" width="210.0" height="48.0" rx="4" fill="#dc2626" stroke="none"/>
+<text x="961.1" y="300.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">200</text>
+<text x="1080.1" y="301.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="16" font-weight="600" fill="#15243b" text-anchor="start">872.5 周期 ≈ 218 ns</text>
+<text x="847.2" y="342.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="13" font-weight="400" fill="#c2410c" text-anchor="middle">误预测 16.5</text>
+<rect x="150.0" y="408.0" width="18.0" height="16.0" rx="3" fill="#059669" stroke="none"/>
+<text x="176.0" y="421.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">内存访问</text>
+<rect x="280.0" y="408.0" width="18.0" height="16.0" rx="3" fill="#2563eb" stroke="none"/>
+<text x="306.0" y="421.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">计算（解析、哈希、除法、microprice）</text>
+<rect x="695.0" y="408.0" width="18.0" height="16.0" rx="3" fill="#c2410c" stroke="none"/>
+<text x="721.0" y="421.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">分支误预测</text>
+<rect x="840.0" y="408.0" width="18.0" height="16.0" rx="3" fill="#dc2626" stroke="none"/>
+<text x="866.0" y="421.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#15243b" text-anchor="start">跨核交接</text>
+<text x="150.0" y="470.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#64748b" text-anchor="start">冷路径 = 报文缓冲 DRAM、ID 表 L3、订单簿 L3、仓位 DRAM、64 位除法、信号分支猜错一次、服务器级跨核 50 ns</text>
+<text x="150.0" y="496.0" font-family='"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif' font-size="15" font-weight="400" fill="#64748b" text-anchor="start">热路径 = 报文缓冲 L3、ID 表与订单簿与仓位都在 L1、乘以预存倒数、分支全部猜对、桌面级跨核 20 ns</text>
+</svg>
