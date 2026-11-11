@@ -15,6 +15,7 @@
 9. [高频回测：时间、队列与市场反应](hft/HFT_Engineering_09_高频回测.md)
 10. [出现概率万分之一的 Jitter 应该如何采样](hft/HFT_Engineering_10_出现概率万分之一的Jitter应该如何采样.md)
 11. [高性能订单簿和撮合引擎的常见实现](hft/HFT_Engineering_11_高性能订单簿和撮合引擎的常见实现.md)
+12. [高频交易中的特征计算实现](hft/HFT_Engineering_12_高频交易中的特征计算实现.md)
 
 ## 加密货币系统原理：从公链到交易所
 
